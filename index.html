@@ -1,1 +1,1647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amigo Invisible 2026</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --rojo: #c0392b;
+            --verde: #27ae60;
+            --blanco-nieve: #f0f8ff;
+            --dorado: #d4af37;
+            --dorado-claro: #f1c40f;
+            --sombra: rgba(0, 0, 0, 0.15);
+            --fondo: #f0f8ff;
+            --texto: #333;
+            --texto-suave: #555;
+            --tarjeta-bg: #ffffff;
+            --borde: #eeeeee;
+            --input-bg: #ffffff;
+            --input-border: #cccccc;
+        }
+        [data-theme="dark"] {
+            --blanco-nieve: #0f1729;
+            --fondo: #0f1729;
+            --texto: #e8e8e8;
+            --texto-suave: #b8b8c8;
+            --tarjeta-bg: #1e293b;
+            --borde: #334155;
+            --sombra: rgba(0, 0, 0, 0.5);
+            --rojo: #e74c3c;
+            --verde: #2ecc71;
+            --dorado: #e6c154;
+            --input-bg: #0f1729;
+            --input-border: #334155;
+        }
 
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--fondo);
+            color: var(--texto);
+            line-height: 1.6;
+            padding: 20px;
+            transition: background-color 0.4s, color 0.4s;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body > header, body > section, body > footer { position: relative; z-index: 1; }
+
+        /* ===== LUCES PULSANTES DE FONDO (+50% intensidad) ===== */
+        #lucesFondo {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+            display: none;
+        }
+        [data-theme="dark"] #lucesFondo { display: block; }
+        .luz {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.375;
+            transform: translate(-50%, -50%);
+            animation: pulsoLuz 5s ease-in-out infinite;
+        }
+        @keyframes pulsoLuz {
+            0%, 100% { opacity: 0.18; transform: translate(-50%, -50%) scale(0.85); }
+            50% { opacity: 0.675; transform: translate(-50%, -50%) scale(1.15); }
+        }
+
+        /* ===== BARRA SUPERIOR ===== */
+        .barra-superior {
+            position: fixed; top: 15px; right: 15px;
+            display: flex; gap: 8px; z-index: 999;
+        }
+        .btn-icono {
+            width: 46px; height: 46px; border-radius: 50%;
+            border: 2px solid var(--dorado); background: var(--tarjeta-bg);
+            color: var(--texto); font-size: 1.3rem; cursor: pointer;
+            box-shadow: 0 4px 12px var(--sombra);
+            transition: transform 0.2s, background 0.3s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-icono:hover { transform: scale(1.1) rotate(10deg); }
+        .btn-icono.inactivo { opacity: 0.45; }
+
+        /* ===== NIEVE ===== */
+        #nieve {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; pointer-events: none;
+            z-index: 9998; overflow: hidden;
+        }
+        #nieve.oculto { display: none; }
+        .copo {
+            position: absolute; top: -30px; color: #fff;
+            animation: caer linear infinite; user-select: none;
+            text-shadow: 0 0 4px rgba(255,255,255,0.8);
+        }
+        @keyframes caer { to { transform: translateY(110vh) rotate(360deg); } }
+
+        /* ===== CABECERA ===== */
+        .cabecera { text-align: center; margin-bottom: 30px; }
+        .cabecera img {
+            max-width: 100%; height: auto; border-radius: 12px;
+            box-shadow: 0 4px 15px var(--sombra);
+        }
+        .cinta-dorada {
+            height: 18px;
+            background: linear-gradient(90deg, var(--dorado), var(--dorado-claro), var(--dorado));
+            border-radius: 5px; margin: 15px auto; max-width: 80%;
+            box-shadow: 0 2px 8px rgba(212, 175, 55, 0.5);
+        }
+
+        /* ===== PIE DE PÁGINA (TÍTULO) ===== */
+        .pie-pagina {
+            text-align: center;
+            padding: 30px 0 20px;
+            margin-top: 40px;
+            position: relative;
+            z-index: 1;
+        }
+        .pie-pagina h1 {
+            color: var(--rojo);
+            font-size: 2.2rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.15);
+            margin-top: 10px;
+        }
+        .pie-pagina .sub {
+            font-size: 0.85rem;
+            color: var(--texto-suave);
+            margin-top: 8px;
+        }
+
+        /* ===== CUENTA REGRESIVA ===== */
+        .cuenta-regresiva {
+            background-color: var(--verde); color: white;
+            padding: 20px; border-radius: 12px; text-align: center;
+            margin: 20px 0; box-shadow: 0 4px 12px var(--sombra);
+        }
+        .cuenta-regresiva h2 { font-size: 1.8rem; margin-bottom: 10px; color: var(--dorado-claro); }
+        #contador { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; font-size: 2rem; font-weight: bold; }
+        #contador span { background-color: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 8px; min-width: 80px; }
+        #contador small { display: block; font-size: 0.9rem; font-weight: normal; color: var(--dorado-claro); }
+
+        /* ===== DÍAS IMPORTANTES ===== */
+        .dias-importantes {
+            background-color: var(--tarjeta-bg); padding: 20px;
+            border-radius: 12px; margin: 20px 0;
+            box-shadow: 0 4px 12px var(--sombra);
+            border-left: 6px solid var(--dorado);
+        }
+        .dias-importantes h2 { color: var(--rojo); margin-bottom: 15px; }
+        .dias-importantes ul { list-style: none; }
+        .dias-importantes li { padding: 10px; border-bottom: 1px solid var(--borde); font-size: 1.05rem; }
+        .dias-importantes li:last-child { border-bottom: none; }
+        .dias-importantes .fecha { font-weight: bold; color: var(--verde); }
+
+        /* ===== IMAGEN ALEATORIA ===== */
+        .cuadro-imagen-random {
+            background-color: var(--tarjeta-bg); padding: 20px;
+            border-radius: 12px; margin: 20px 0;
+            box-shadow: 0 4px 12px var(--sombra); text-align: center;
+            border: 2px solid var(--dorado);
+        }
+        .cuadro-imagen-random h2 { color: var(--verde); margin-bottom: 15px; }
+        #imagenNavidad { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); max-height: 300px; }
+        #creditoImagen { font-size: 0.8rem; color: var(--texto-suave); margin-top: 8px; }
+
+        /* ===== SORTEO DE NIÑOS (sin resultados públicos) ===== */
+        .sorteo-ninos-seccion {
+            background-color: var(--tarjeta-bg); padding: 20px;
+            border-radius: 12px; margin: 20px 0;
+            box-shadow: 0 4px 12px var(--sombra);
+            border: 2px solid var(--dorado);
+        }
+        .sorteo-ninos-seccion h2 { color: var(--verde); margin-bottom: 10px; text-align: center; }
+        .acciones-sorteo-ninos { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px; }
+
+        /* ===== SECCIÓN DE LISTAS ===== */
+        .seccion-listas { margin: 30px 0; }
+        .seccion-listas h2 { color: var(--rojo); margin-bottom: 15px; text-align: center; }
+        #contadorListas { color: var(--verde); font-size: 1.1rem; }
+
+        .barra-busqueda { margin-bottom: 12px; }
+        .barra-busqueda input {
+            width: 100%; padding: 10px 16px; border-radius: 30px;
+            border: 2px solid var(--dorado);
+            background: var(--tarjeta-bg); color: var(--texto); font-size: 1rem;
+        }
+
+        .barra-acciones { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+        .btn-crear, .btn-accion {
+            border: none; padding: 10px 22px; font-size: 1rem; border-radius: 30px;
+            cursor: pointer; box-shadow: 0 4px 10px var(--sombra);
+            transition: transform 0.2s, background 0.3s; font-weight: 600;
+        }
+        .btn-crear { background-color: var(--rojo); color: white; }
+        .btn-crear:hover { background-color: #a93226; transform: translateY(-2px); }
+        .btn-accion { background-color: var(--verde); color: white; }
+        .btn-accion:hover { background-color: #1e8449; transform: translateY(-2px); }
+        .btn-accion.dorado { background-color: var(--dorado); color: #222; }
+        .btn-accion.dorado:hover { background-color: var(--dorado-claro); }
+
+        /* ===== CARRUSEL ===== */
+        .carrusel-contenedor {
+            display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+            gap: 20px; padding: 10px 5px 20px 5px; -webkit-overflow-scrolling: touch;
+        }
+        .carrusel-contenedor::-webkit-scrollbar { height: 8px; }
+        .carrusel-contenedor::-webkit-scrollbar-thumb { background-color: var(--dorado); border-radius: 4px; }
+
+        .tarjeta-lista {
+            flex: 0 0 300px; scroll-snap-align: start;
+            background-color: var(--tarjeta-bg); border-radius: 12px; padding: 15px;
+            box-shadow: 0 4px 12px var(--sombra); border-top: 5px solid var(--verde);
+            display: flex; flex-direction: column;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .tarjeta-lista h3 { color: var(--rojo); font-size: 1.25rem; }
+        .badge-tipo { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+        .badge-tipo.adulto { background: var(--verde); color: white; }
+        .badge-tipo.nino { background: var(--dorado); color: #222; }
+        .meta-info { font-size: 0.8rem; color: var(--texto-suave); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tarjeta-lista .texto { font-size: 0.95rem; color: var(--texto-suave); margin-bottom: 10px; flex-grow: 1; }
+
+        .miniaturas { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+        .miniaturas img {
+            width: 60px; height: 60px; object-fit: cover; border-radius: 6px;
+            border: 1px solid var(--borde); cursor: pointer; transition: transform 0.2s;
+        }
+        .miniaturas img:hover { transform: scale(1.1); }
+
+        .enlaces-lista { font-size: 0.85rem; margin-bottom: 10px; }
+        .enlaces-lista a {
+            color: var(--verde); text-decoration: none; display: block;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .enlaces-lista a:hover { text-decoration: underline; }
+
+        .acciones-tarjeta { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+        .btn-editar, .btn-borrar, .btn-pdf {
+            border: none; padding: 7px 11px; border-radius: 20px; cursor: pointer;
+            font-weight: bold; font-size: 0.82rem; transition: background 0.3s;
+        }
+        .btn-editar { background-color: var(--dorado); color: #222; }
+        .btn-editar:hover { background-color: var(--dorado-claro); }
+        .btn-borrar { background-color: #e74c3c; color: white; }
+        .btn-borrar:hover { background-color: #c0392b; }
+        .btn-pdf { background-color: #3498db; color: white; }
+        .btn-pdf:hover { background-color: #2980b9; }
+
+        .mensaje-vacio { padding: 30px; text-align: center; color: var(--texto-suave); font-size: 1.1rem; width: 100%; }
+
+        /* ===== MODALES ===== */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background-color: rgba(0,0,0,0.65); justify-content: center; align-items: center;
+            z-index: 1000; padding: 15px;
+        }
+        .modal-overlay.activo { display: flex; }
+
+        .modal-contenido {
+            background-color: var(--fondo); padding: 25px; border-radius: 16px;
+            width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4); border: 3px solid var(--dorado);
+        }
+        .modal-contenido h2 { color: var(--rojo); margin-bottom: 15px; text-align: center; }
+        .modal-contenido label { display: block; margin-top: 12px; font-weight: bold; color: var(--verde); }
+
+        .modal-contenido input[type="text"],
+        .modal-contenido input[type="email"],
+        .modal-contenido input[type="number"],
+        .modal-contenido textarea,
+        .modal-contenido select {
+            width: 100%; padding: 10px; margin-top: 5px;
+            border: 1px solid var(--input-border); background-color: var(--input-bg);
+            color: var(--texto); border-radius: 8px; font-family: inherit; font-size: 1rem;
+        }
+        .modal-contenido textarea { resize: vertical; min-height: 80px; }
+
+        .tipo-selector {
+            display: flex; gap: 15px; flex-wrap: wrap; margin-top: 5px;
+            background: var(--tarjeta-bg); padding: 10px; border-radius: 8px;
+            border: 1px solid var(--input-border);
+        }
+        .tipo-selector label {
+            display: flex; align-items: center; gap: 6px;
+            margin: 0; cursor: pointer; color: var(--texto); font-weight: 500;
+        }
+        .tipo-selector input[type="radio"] { accent-color: var(--verde); width: 18px; height: 18px; cursor: pointer; }
+
+        .oculto { display: none !important; }
+
+        .seccion-imagenes, .seccion-enlaces {
+            margin-top: 15px; padding: 12px; background-color: var(--tarjeta-bg);
+            border-radius: 8px; border: 1px dashed var(--dorado);
+        }
+        .seccion-imagenes h3, .seccion-enlaces h3 { color: var(--rojo); font-size: 1.05rem; margin-bottom: 8px; }
+
+        .fila-enlace { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+        .fila-enlace input { flex: 1; min-width: 0; }
+        .fila-enlace input:first-child { flex: 0 0 100px; }
+
+        .btn-eliminar-enlace {
+            background-color: #e74c3c; color: white; border: none; border-radius: 50%;
+            width: 28px; height: 28px; cursor: pointer; font-weight: bold; flex-shrink: 0;
+        }
+        .btn-agregar {
+            background-color: var(--verde); color: white; border: none;
+            padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; margin-top: 5px;
+        }
+        .btn-agregar:hover { background-color: #1e8449; }
+
+        .preview-imagenes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .preview-imagenes img {
+            width: 50px; height: 50px; object-fit: cover; border-radius: 6px;
+            border: 1px solid var(--borde); cursor: pointer;
+        }
+        .preview-imagenes img:hover { opacity: 0.8; }
+
+        .botones-modal { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .btn-guardar, .btn-cancelar, .btn-eliminar-lista {
+            border: none; padding: 10px 22px; border-radius: 25px;
+            font-size: 1rem; cursor: pointer; font-weight: bold;
+        }
+        .btn-guardar { background-color: var(--verde); color: white; }
+        .btn-guardar:hover { background-color: #1e8449; }
+        .btn-cancelar { background-color: #95a5a6; color: white; }
+        .btn-cancelar:hover { background-color: #7f8c8d; }
+        .btn-eliminar-lista { background-color: #e74c3c; color: white; margin-right: auto; }
+        .btn-eliminar-lista:hover { background-color: #c0392b; }
+
+        .aviso-sorteo { text-align: center; color: var(--texto-suave); margin-bottom: 15px; font-size: 0.95rem; }
+
+        /* ===== SORTEO ADULTOS (tarjetas) ===== */
+        #resultadoSorteo { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 15px 0; }
+        .tarjeta-sorteo {
+            background: var(--tarjeta-bg); border: 2px solid var(--dorado);
+            border-radius: 10px; padding: 14px 10px; text-align: center;
+            cursor: pointer; transition: all 0.3s; min-height: 105px;
+            display: flex; flex-direction: column; justify-content: center; user-select: none;
+        }
+        .tarjeta-sorteo:hover { transform: translateY(-3px); box-shadow: 0 4px 12px var(--sombra); }
+        .tarjeta-sorteo .reverso { display: none; }
+        .tarjeta-sorteo.revelada .frente { display: none; }
+        .tarjeta-sorteo.revelada .reverso { display: block; }
+        .tarjeta-sorteo.revelada { background: var(--verde); color: white; border-color: var(--dorado-claro); }
+        .tarjeta-sorteo .icono { font-size: 1.4rem; margin-bottom: 4px; }
+        .tarjeta-sorteo .nombre-de { font-size: 1rem; font-weight: 600; }
+        .tarjeta-sorteo .ayuda { font-size: 0.75rem; color: var(--texto-suave); margin-top: 4px; word-break: break-all; }
+        .tarjeta-sorteo.revelada .ayuda { color: rgba(255,255,255,0.85); }
+        .tarjeta-sorteo .nombre-para { font-size: 1.15rem; font-weight: bold; color: var(--dorado-claro); margin-top: 5px; }
+
+        /* ===== ENVÍO DE EMAILS ===== */
+        .envio-emails {
+            margin-top: 18px; padding: 15px;
+            background: var(--tarjeta-bg); border-radius: 10px;
+            border: 2px dashed var(--dorado);
+        }
+        .envio-emails h3 { color: var(--rojo); font-size: 1.05rem; margin-bottom: 8px; }
+        .envio-emails p { font-size: 0.85rem; color: var(--texto-suave); margin-bottom: 10px; }
+        .lista-envios { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+        .lista-envios li {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; padding: 8px 10px; background: var(--fondo);
+            border-radius: 8px; font-size: 0.9rem; flex-wrap: wrap;
+        }
+        .lista-envios li .nombre-envio { font-weight: 600; color: var(--texto); }
+        .lista-envios li .email-envio { color: var(--texto-suave); font-size: 0.8rem; word-break: break-all; }
+        .lista-envios li .detalle-envio { font-size: 0.78rem; color: var(--texto-suave); margin-top: 2px; }
+        .btn-enviar-email {
+            background: #3498db; color: white; border: none;
+            padding: 6px 12px; border-radius: 20px; cursor: pointer;
+            font-weight: 600; font-size: 0.8rem; white-space: nowrap;
+        }
+        .btn-enviar-email:hover { background: #2980b9; }
+        .btn-enviar-email:disabled { background: #95a5a6; cursor: not-allowed; opacity: 0.6; }
+
+        /* ===== LIGHTBOX ===== */
+        .lightbox {
+            display: none; position: fixed; inset: 0;
+            background-color: rgba(0,0,0,0.9); z-index: 2000;
+            justify-content: center; align-items: center; cursor: zoom-out; padding: 20px;
+        }
+        .lightbox.activo { display: flex; }
+        .lightbox img { max-width: 95%; max-height: 90vh; border-radius: 8px; box-shadow: 0 0 40px rgba(255,255,255,0.2); }
+
+        /* ===== TOASTS ===== */
+        #toastContainer {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 10000; display: flex; flex-direction: column; gap: 10px;
+            pointer-events: none; align-items: center;
+        }
+        .toast {
+            background: #333; color: white; padding: 12px 24px; border-radius: 30px;
+            font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: toastEntrar 0.3s ease-out; max-width: 90vw; text-align: center;
+        }
+        .toast-success { background: var(--verde); }
+        .toast-error { background: var(--rojo); }
+        .toast.salir { animation: toastSalir 0.3s ease-in forwards; }
+        @keyframes toastEntrar { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastSalir { to { opacity: 0; transform: translateY(20px); } }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 600px) {
+            body { padding: 12px; padding-top: 70px; }
+            .pie-pagina h1 { font-size: 1.6rem; }
+            #contador { font-size: 1.3rem; gap: 8px; }
+            #contador span { padding: 8px 12px; min-width: 60px; }
+            .tarjeta-lista { flex: 0 0 260px; }
+            .barra-superior { top: 10px; right: 10px; }
+            .btn-icono { width: 40px; height: 40px; font-size: 1.1rem; }
+            .fila-enlace { flex-wrap: wrap; }
+            .fila-enlace input:first-child { flex: 1 1 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LUCES PULSANTES DE FONDO -->
+    <div id="lucesFondo"></div>
+
+    <!-- NIEVE -->
+    <div id="nieve"></div>
+
+    <!-- BARRA SUPERIOR -->
+    <div class="barra-superior">
+        <button class="btn-icono" id="btnNieve" title="Activar/desactivar nieve">❄️</button>
+        <button class="btn-icono" id="btnTema" title="Modo día/noche">☀️</button>
+    </div>
+
+    <!-- CABECERA (solo imagen + cinta; el título va al pie) -->
+    <header class="cabecera">
+        <img src="https://lh3.googleusercontent.com/d/1s6hoUi64ln6RfmMkxEGEt-Q222QaCjoR" alt="Amigo Invisible 2026">
+        <div class="cinta-dorada"></div>
+    </header>
+
+    <!-- CUENTA REGRESIVA -->
+    <section class="cuenta-regresiva">
+        <h2>⏳ Faltan para el 25 de Diciembre</h2>
+        <div id="contador">
+            <span id="dias">0<small>Días</small></span>
+            <span id="horas">0<small>Horas</small></span>
+            <span id="minutos">0<small>Minutos</small></span>
+            <span id="segundos">0<small>Segundos</small></span>
+        </div>
+    </section>
+
+    <!-- DÍAS IMPORTANTES -->
+    <section class="dias-importantes">
+        <h2>📅 Días Importantes</h2>
+        <ul>
+            <li><span class="fecha">1 de Diciembre (martes):</span> Inicio del calendario de adviento.</li>
+            <li><span class="fecha">Sábado 5 y domingo 6 de diciembre:</span> Primer fin de semana de adviento.</li>
+            <li><span class="fecha">Sábado 12 y domingo 13 de diciembre:</span> Segundo fin de semana de adviento.</li>
+            <li><span class="fecha">Sábado 19 y domingo 20 de diciembre:</span> Tercer fin de semana de adviento.</li>
+            <li><span class="fecha">24 de Diciembre (jueves):</span> Nochebuena. ¡Último día para confirmar regalos!</li>
+            <li><span class="fecha">25 de Diciembre (viernes):</span> Navidad. Entrega de regalos del Amigo Invisible.</li>
+        </ul>
+    </section>
+
+    <!-- IMAGEN ALEATORIA DEL DÍA -->
+    <section class="cuadro-imagen-random">
+        <h2>🖼️ Imagen Navideña del Día</h2>
+        <img id="imagenNavidad" src="" alt="Imagen navideña aleatoria">
+        <p id="creditoImagen"></p>
+    </section>
+
+    <!-- SORTEO DE NIÑOS (SECRETO, SIN RESULTADOS EN PANTALLA) -->
+    <section class="sorteo-ninos-seccion" id="seccionSorteoNinos">
+        <h2>🎈 Sorteo de Niños</h2>
+        <p class="aviso-sorteo">
+            El resultado es <strong>secreto</strong>: se envía por correo al adulto correspondiente.
+            No se muestra públicamente en la página. Los niños se reparten equitativamente entre los adultos,
+            excluyendo a sus propios padres/madres.
+        </p>
+        <div class="acciones-sorteo-ninos">
+            <button class="btn-accion dorado" id="btnSorteoNinos">🎈 Realizar Sorteo de Niños</button>
+            <button class="btn-accion" id="btnReenviarNinos" style="display:none;">📧 Reenviar último sorteo</button>
+        </div>
+    </section>
+
+    <!-- LISTAS DE DESEOS -->
+    <section class="seccion-listas">
+        <h2>🎁 Listas de Deseos <span id="contadorListas">(0)</span></h2>
+
+        <div class="barra-busqueda">
+            <input type="text" id="buscador" placeholder="🔍 Buscar por nombre...">
+        </div>
+
+        <div class="barra-acciones">
+            <button class="btn-crear" id="btnCrearLista">➕ Crear lista</button>
+            <button class="btn-accion dorado" id="btnSorteo">🎲 Sorteo de Adultos</button>
+            <button class="btn-accion" id="btnReenviarAdultos" style="display:none;">📧 Reenviar último sorteo</button>
+            <button class="btn-accion" id="btnExportar">💾 Exportar</button>
+            <button class="btn-accion" id="btnImportar">📂 Importar</button>
+            <input type="file" id="inputImportar" accept="application/json" style="display:none;">
+        </div>
+
+        <div class="carrusel-contenedor" id="carruselListas"></div>
+    </section>
+
+    <!-- MODAL CREAR / EDITAR -->
+    <div class="modal-overlay" id="modalLista">
+        <div class="modal-contenido">
+            <h2 id="modalTitulo">Crear lista de deseo</h2>
+            <input type="hidden" id="listaId" value="">
+
+            <label>Tipo de lista:</label>
+            <div class="tipo-selector">
+                <label><input type="radio" name="tipoLista" value="adulto" checked> 🎅 Sorteo de adultos</label>
+                <label><input type="radio" name="tipoLista" value="nino"> 🎈 Sorteo de niños</label>
+            </div>
+
+            <label for="nombrePersona" id="labelNombre">Nombre de la persona:</label>
+            <input type="text" id="nombrePersona" placeholder="Ej: María" required>
+
+            <div id="grupoEmail">
+                <label for="emailPersona">Correo electrónico (para el sorteo):</label>
+                <input type="email" id="emailPersona" placeholder="correo@ejemplo.com">
+            </div>
+
+            <div id="grupoEdad" class="oculto">
+                <label for="edadNino">Edad del niño/a:</label>
+                <input type="number" id="edadNino" min="0" max="17" placeholder="Ej: 8">
+            </div>
+
+            <div id="grupoPadres" class="oculto">
+                <label for="padreSelect">Padre (adulto de la lista):</label>
+                <select id="padreSelect"></select>
+                <label for="madreSelect">Madre (adulto de la lista):</label>
+                <select id="madreSelect"></select>
+                <p style="font-size:0.8rem; color:var(--texto-suave); margin-top:6px;">
+                    ⚠️ Estos adultos <strong>no podrán</strong> recibir a este niño en el sorteo de niños.
+                </p>
+            </div>
+
+            <label for="textoDeseo">Notas importantes</label>
+            <textarea id="textoDeseo" placeholder="Escribe aquí lo que deseas..."></textarea>
+
+            <div class="seccion-imagenes">
+                <h3>📷 Imágenes</h3>
+                <input type="text" id="urlImagen" placeholder="Pega la URL de una imagen...">
+                <button class="btn-agregar" id="btnAgregarImagenUrl">Agregar URL</button>
+                <input type="file" id="archivoImagen" accept="image/*" multiple style="margin-top: 8px;">
+                <div class="preview-imagenes" id="previewImagenes"></div>
+            </div>
+
+            <div class="seccion-enlaces">
+                <h3>🔗 Enlaces a tiendas online</h3>
+                <div id="contenedorEnlaces"></div>
+                <button class="btn-agregar" id="btnAgregarEnlace">➕ Añadir otro enlace</button>
+            </div>
+
+            <div class="botones-modal">
+                <button class="btn-eliminar-lista" id="btnEliminarLista" style="display:none;">🗑️ Eliminar</button>
+                <button class="btn-cancelar" id="btnCancelarModal">Cancelar</button>
+                <button class="btn-guardar" id="btnGuardarLista">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SORTEO ADULTOS -->
+    <div class="modal-overlay" id="modalSorteo">
+        <div class="modal-contenido">
+            <h2>🎲 Sorteo de Adultos (Secreto)</h2>
+            <p class="aviso-sorteo">Toca cada tarjeta para revelar quién le regala a quién. El resultado es <strong>secreto</strong>: envía cada resultado al correo del participante correspondiente.</p>
+            <div id="resultadoSorteo"></div>
+            <div id="envioEmailsAdultos"></div>
+            <div class="botones-modal">
+                <button class="btn-cancelar" id="btnRepetirSorteo">🔄 Repetir sorteo</button>
+                <button class="btn-guardar" id="btnCerrarSorteo">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SORTEO NIÑOS -->
+    <div class="modal-overlay" id="modalSorteoNinos">
+        <div class="modal-contenido">
+            <h2>🎈 Sorteo de Niños (Secreto)</h2>
+            <p class="aviso-sorteo">Envía cada resultado al correo del adulto correspondiente. El resultado no se muestra en la página principal.</p>
+            <div id="envioEmailsNinos"></div>
+            <div class="botones-modal">
+                <button class="btn-cancelar" id="btnCerrarSorteoNinos">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX -->
+    <div class="lightbox" id="lightbox">
+        <img id="lightboxImg" src="" alt="Imagen ampliada">
+    </div>
+
+    <!-- TOASTS -->
+    <div id="toastContainer"></div>
+
+    <!-- PIE DE PÁGINA CON TÍTULO -->
+    <footer class="pie-pagina">
+        <div class="cinta-dorada"></div>
+        <h1>🎄 Amigo Invisible 2026 🎄</h1>
+        <p class="sub">Hecho con ❤️ para compartir en Navidad</p>
+    </footer>
+
+    <script>
+        // ============================================================
+        // CONFIGURACIÓN Y ESTADO
+        // ============================================================
+        const STORAGE_KEY = 'amigoInvisible2026_listas';
+        const STORAGE_TEMA = 'amigoInvisible2026_tema';
+        const STORAGE_NIEVE = 'amigoInvisible2026_nieve';
+        const STORAGE_SORTEO_NINOS = 'amigoInvisible2026_sorteoNinos';
+        const STORAGE_ULTIMO_SORTEO_ADULTOS = 'amigoInvisible2026_ultimoSorteoAdultos';
+
+        const listasEjemplo = [
+            { id: 'ejemplo1', tipo: 'adulto', nombre: 'Ana', email: 'ana@ejemplo.com',
+              texto: 'Me encantaría un libro de aventuras y una taza navideña.',
+              imagenes: ['https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=100&h=100&fit=crop&q=60'],
+              enlaces: [{ titulo: 'Libro en Amazon', url: 'https://www.amazon.com' }] },
+            { id: 'ejemplo2', tipo: 'adulto', nombre: 'Carlos', email: 'carlos@ejemplo.com',
+              texto: 'Quiero unos auriculares inalámbricos.',
+              imagenes: ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop&q=60'],
+              enlaces: [{ titulo: 'Auriculares', url: 'https://www.pccomponentes.com' }] },
+            { id: 'ejemplo3', tipo: 'adulto', nombre: 'Pedro', email: 'pedro@ejemplo.com',
+              texto: 'Una sudadera verde y calcetines navideños.',
+              imagenes: [], enlaces: [] },
+            { id: 'ejemplo4', tipo: 'nino', nombre: 'Lucía', edad: 7, email: '',
+              padreId: 'ejemplo1', madreId: 'ejemplo2',
+              texto: 'Quiero un set de pinturas y un peluche de unicornio.',
+              imagenes: [], enlaces: [] }
+        ];
+
+        const imagenesNavidenas = [
+            { url: 'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=600&auto=format&fit=crop&q=60', credito: 'Unsplash - Annie Spratt' },
+            { url: 'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=600&auto=format&fit=crop&q=60', credito: 'Unsplash - Aaron Burden' },
+            { url: 'https://images.unsplash.com/photo-1607344645866-009c320b63e0?w=600&auto=format&fit=crop&q=60', credito: 'Unsplash - Kelly Sikkema' },
+            { url: 'https://images.unsplash.com/photo-1513297887119-d46091b24bfa?w=600&auto=format&fit=crop&q=60', credito: 'Unsplash - Jakob Owens' },
+            { url: 'https://images.unsplash.com/photo-1545048702-79362596cdc9?w=600&auto=format&fit=crop&q=60', credito: 'Unsplash - freestocks' },
+            { url: 'https://images.unsplash.com/photo-1482517967863-00e15c9b44be?w=600&auto=format&fit=crop&q=60', credito: 'Unsplash - Element5 Digital' },
+            { url: 'https://images.unsplash.com/photo-1512395543261-0c1b1b0b2b5f?w=600&auto=format&fit=crop&q=60', credito: 'Unsplash - Mike Arney' }
+        ];
+
+        let listas = [];
+        let listaEditandoId = null;
+        let imagenesTemporales = [];
+        let enlacesTemporales = [];
+
+        // ============================================================
+        // UTILIDADES
+        // ============================================================
+        function toast(mensaje, tipo = 'info') {
+            const cont = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = `toast toast-${tipo}`;
+            t.textContent = mensaje;
+            cont.appendChild(t);
+            setTimeout(() => { t.classList.add('salir'); setTimeout(() => t.remove(), 300); }, 2800);
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+        }
+
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function validarEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        // ============================================================
+        // LUCES PULSANTES DE FONDO (+50% intensidad)
+        // ============================================================
+        function crearLucesFondo() {
+            const cont = document.getElementById('lucesFondo');
+            cont.innerHTML = '';
+            const colores = ['#c0392b', '#27ae60', '#d4af37', '#e74c3c', '#2ecc71', '#f1c40f'];
+            const cantidad = 16;
+            for (let i = 0; i < cantidad; i++) {
+                const luz = document.createElement('div');
+                luz.className = 'luz';
+                const size = 60 + Math.random() * 110; // 60-170px (50% más pequeñas)
+                luz.style.width = size + 'px';
+                luz.style.height = size + 'px';
+                luz.style.left = (Math.random() * 100) + '%';
+                luz.style.top = (Math.random() * 100) + '%';
+                luz.style.background = colores[i % colores.length];
+                luz.style.animationDuration = (3 + Math.random() * 4) + 's';
+                luz.style.animationDelay = (Math.random() * 4) + 's';
+                cont.appendChild(luz);
+            }
+        }
+
+        // ============================================================
+        // TEMA — NOCTURNO POR DEFECTO
+        // ============================================================
+        const btnTema = document.getElementById('btnTema');
+        function aplicarTema(tema) {
+            document.body.setAttribute('data-theme', tema);
+            btnTema.textContent = tema === 'dark' ? '☀️' : '🌙';
+            btnTema.title = tema === 'dark' ? 'Cambiar a modo día' : 'Cambiar a modo noche';
+            localStorage.setItem(STORAGE_TEMA, tema);
+        }
+        btnTema.addEventListener('click', () => {
+            const actual = document.body.getAttribute('data-theme') || 'dark';
+            aplicarTema(actual === 'dark' ? 'light' : 'dark');
+        });
+        const temaGuardado = localStorage.getItem(STORAGE_TEMA);
+        aplicarTema(temaGuardado || 'dark');
+        crearLucesFondo();
+
+        // ============================================================
+        // NIEVE
+        // ============================================================
+        const btnNieve = document.getElementById('btnNieve');
+        const contNieve = document.getElementById('nieve');
+        function crearNieve() {
+            contNieve.innerHTML = '';
+            for (let i = 0; i < 45; i++) {
+                const copo = document.createElement('div');
+                copo.className = 'copo';
+                copo.textContent = '❄';
+                copo.style.left = Math.random() * 100 + '%';
+                copo.style.animationDuration = (6 + Math.random() * 10) + 's';
+                copo.style.animationDelay = (Math.random() * 8) + 's';
+                copo.style.fontSize = (8 + Math.random() * 12) + 'px';
+                copo.style.opacity = 0.3 + Math.random() * 0.5;
+                contNieve.appendChild(copo);
+            }
+        }
+        function activarNieve(activa) {
+            if (activa) {
+                crearNieve();
+                contNieve.classList.remove('oculto');
+                btnNieve.classList.remove('inactivo');
+                btnNieve.textContent = '❄️';
+            } else {
+                contNieve.classList.add('oculto');
+                btnNieve.classList.add('inactivo');
+                btnNieve.textContent = '🌫️';
+            }
+            localStorage.setItem(STORAGE_NIEVE, activa ? '1' : '0');
+        }
+        btnNieve.addEventListener('click', () => activarNieve(contNieve.classList.contains('oculto')));
+        const nieveGuardada = localStorage.getItem(STORAGE_NIEVE);
+        activarNieve(nieveGuardada === null ? true : nieveGuardada === '1');
+
+        // ============================================================
+        // LOCALSTORAGE
+        // ============================================================
+        function cargarListas() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+                try { listas = JSON.parse(data); }
+                catch (e) { listas = [...listasEjemplo]; }
+            } else {
+                listas = [...listasEjemplo];
+            }
+            listas = listas.map(l => ({ ...l, tipo: l.tipo || 'adulto' }));
+            guardarListas();
+            renderizarCarrusel();
+        }
+        function guardarListas() { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); }
+
+        // ============================================================
+        // CUENTA REGRESIVA
+        // ============================================================
+        function actualizarContador() {
+            const ahora = new Date();
+            const objetivo = new Date(2026, 11, 25, 0, 0, 0);
+            const diff = objetivo - ahora;
+            if (diff <= 0) {
+                document.getElementById('contador').innerHTML = '<span style="font-size:1.5rem;">¡Feliz Navidad! 🎄</span>';
+                return;
+            }
+            const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const horas = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const segundos = Math.floor((diff % (1000 * 60)) / 1000);
+            document.getElementById('dias').innerHTML = `${dias}<small>Días</small>`;
+            document.getElementById('horas').innerHTML = `${horas}<small>Horas</small>`;
+            document.getElementById('minutos').innerHTML = `${minutos}<small>Minutos</small>`;
+            document.getElementById('segundos').innerHTML = `${segundos}<small>Segundos</small>`;
+        }
+        setInterval(actualizarContador, 1000);
+        actualizarContador();
+
+        // ============================================================
+        // IMAGEN DEL DÍA
+        // ============================================================
+        function cargarImagenDelDia() {
+            const hoy = new Date();
+            const inicioAno = new Date(hoy.getFullYear(), 0, 0);
+            const diaDelAno = Math.floor((hoy - inicioAno) / (1000 * 60 * 60 * 24));
+            const imagen = imagenesNavidenas[diaDelAno % imagenesNavidenas.length];
+            const img = document.getElementById('imagenNavidad');
+            img.src = imagen.url;
+            document.getElementById('creditoImagen').textContent = `📸 ${imagen.credito} (uso libre)`;
+        }
+        cargarImagenDelDia();
+
+        // ============================================================
+        // RENDERIZAR CARRUSEL
+        // ============================================================
+        function renderizarCarrusel() {
+            const cont = document.getElementById('carruselListas');
+            cont.innerHTML = '';
+            document.getElementById('contadorListas').textContent = `(${listas.length})`;
+
+            if (listas.length === 0) {
+                cont.innerHTML = '<p class="mensaje-vacio">🎅 Aún no hay listas. ¡Crea la primera!</p>';
+                return;
+            }
+
+            listas.forEach(lista => {
+                const tipo = lista.tipo || 'adulto';
+                const card = document.createElement('div');
+                card.className = 'tarjeta-lista';
+                card.dataset.id = lista.id;
+                card.dataset.nombre = lista.nombre.toLowerCase();
+
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'card-header';
+                const h3 = document.createElement('h3');
+                h3.textContent = lista.nombre;
+                const badge = document.createElement('span');
+                badge.className = `badge-tipo ${tipo}`;
+                badge.textContent = tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño';
+                headerDiv.appendChild(h3);
+                headerDiv.appendChild(badge);
+                card.appendChild(headerDiv);
+
+                if (tipo === 'adulto' && lista.email) {
+                    const p = document.createElement('p');
+                    p.className = 'meta-info';
+                    p.textContent = `✉️ ${lista.email}`;
+                    card.appendChild(p);
+                }
+                if (tipo === 'nino') {
+                    const p = document.createElement('p');
+                    p.className = 'meta-info';
+                    p.textContent = `🎂 ${lista.edad} años`;
+                    card.appendChild(p);
+                }
+
+                const textoEl = document.createElement('p');
+                textoEl.className = 'texto';
+                textoEl.textContent = lista.texto || 'Sin notas.';
+                card.appendChild(textoEl);
+
+                if (lista.imagenes && lista.imagenes.length > 0) {
+                    const minis = document.createElement('div');
+                    minis.className = 'miniaturas';
+                    lista.imagenes.slice(0, 4).forEach(url => {
+                        const img = document.createElement('img');
+                        img.src = url; img.loading = 'lazy';
+                        img.onerror = function() { this.src = 'https://via.placeholder.com/60x60/d4af37/ffffff?text=🎁'; };
+                        img.addEventListener('click', (e) => { e.stopPropagation(); abrirLightbox(url); });
+                        minis.appendChild(img);
+                    });
+                    card.appendChild(minis);
+                }
+
+                if (lista.enlaces && lista.enlaces.length > 0) {
+                    const links = document.createElement('div');
+                    links.className = 'enlaces-lista';
+                    lista.enlaces.slice(0, 2).forEach(enlace => {
+                        const a = document.createElement('a');
+                        a.href = enlace.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+                        a.textContent = `🔗 ${enlace.titulo || 'Enlace'}`;
+                        links.appendChild(a);
+                    });
+                    if (lista.enlaces.length > 2) {
+                        const mas = document.createElement('span');
+                        mas.textContent = `+${lista.enlaces.length - 2} más`;
+                        mas.style.fontSize = '0.8rem';
+                        mas.style.color = 'var(--texto-suave)';
+                        links.appendChild(mas);
+                    }
+                    card.appendChild(links);
+                }
+
+                const acciones = document.createElement('div');
+                acciones.className = 'acciones-tarjeta';
+
+                const btnPDF = document.createElement('button');
+                btnPDF.className = 'btn-pdf';
+                btnPDF.textContent = '📄 PDF';
+                btnPDF.title = 'Descargar PDF';
+                btnPDF.addEventListener('click', () => descargarPDF(lista));
+                acciones.appendChild(btnPDF);
+
+                const btnBorrar = document.createElement('button');
+                btnBorrar.className = 'btn-borrar';
+                btnBorrar.textContent = '🗑️';
+                btnBorrar.title = 'Eliminar lista';
+                btnBorrar.addEventListener('click', () => eliminarLista(lista.id));
+                acciones.appendChild(btnBorrar);
+
+                const btnEditar = document.createElement('button');
+                btnEditar.className = 'btn-editar';
+                btnEditar.textContent = '✏️ Editar';
+                btnEditar.addEventListener('click', () => abrirModalEditar(lista.id));
+                acciones.appendChild(btnEditar);
+
+                card.appendChild(acciones);
+                cont.appendChild(card);
+            });
+
+            const buscador = document.getElementById('buscador');
+            if (buscador.value.trim()) filtrarListas(buscador.value);
+        }
+
+        // ============================================================
+        // BUSCADOR
+        // ============================================================
+        document.getElementById('buscador').addEventListener('input', (e) => filtrarListas(e.target.value));
+        function filtrarListas(termino) {
+            const t = termino.toLowerCase().trim();
+            document.querySelectorAll('.tarjeta-lista').forEach(card => {
+                card.style.display = (card.dataset.nombre || '').includes(t) ? '' : 'none';
+            });
+        }
+
+        // ============================================================
+        // LIGHTBOX
+        // ============================================================
+        const lightbox = document.getElementById('lightbox');
+        function abrirLightbox(url) {
+            document.getElementById('lightboxImg').src = url;
+            lightbox.classList.add('activo');
+        }
+        lightbox.addEventListener('click', () => lightbox.classList.remove('activo'));
+
+        // ============================================================
+        // ELIMINAR LISTA
+        // ============================================================
+        function eliminarLista(id) {
+            const lista = listas.find(l => l.id === id);
+            if (!lista) return;
+            if (!confirm(`¿Eliminar la lista de "${lista.nombre}"?`)) return;
+            listas = listas.filter(l => l.id !== id);
+            guardarListas();
+            renderizarCarrusel();
+            toast('Lista eliminada', 'success');
+        }
+
+        // ============================================================
+        // MODAL CREAR / EDITAR
+        // ============================================================
+        const modal = document.getElementById('modalLista');
+        const modalTitulo = document.getElementById('modalTitulo');
+        const listaIdInput = document.getElementById('listaId');
+        const nombreInput = document.getElementById('nombrePersona');
+        const emailInput = document.getElementById('emailPersona');
+        const edadInput = document.getElementById('edadNino');
+        const textoInput = document.getElementById('textoDeseo');
+        const urlImagenInput = document.getElementById('urlImagen');
+        const previewDiv = document.getElementById('previewImagenes');
+        const contEnlaces = document.getElementById('contenedorEnlaces');
+        const btnEliminarLista = document.getElementById('btnEliminarLista');
+
+        function popularSelectsPadres(padreId, madreId) {
+            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
+            const selectPadre = document.getElementById('padreSelect');
+            const selectMadre = document.getElementById('madreSelect');
+            const opciones = adultos.length
+                ? adultos.map(a => `<option value="${a.id}">${escapeHtml(a.nombre)}</option>`).join('')
+                : '<option value="">(No hay adultos registrados)</option>';
+            selectPadre.innerHTML = `<option value="">— Seleccionar —</option>` + opciones;
+            selectMadre.innerHTML = `<option value="">— Seleccionar —</option>` + opciones;
+            if (padreId) selectPadre.value = padreId;
+            if (madreId) selectMadre.value = madreId;
+        }
+
+        function actualizarCamposTipo() {
+            const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
+            const esNino = tipo === 'nino';
+            document.getElementById('labelNombre').textContent = esNino ? 'Nombre del niño/a:' : 'Nombre de la persona:';
+            document.getElementById('grupoEmail').classList.toggle('oculto', esNino);
+            document.getElementById('grupoEdad').classList.toggle('oculto', !esNino);
+            document.getElementById('grupoPadres').classList.toggle('oculto', !esNino);
+            if (esNino) popularSelectsPadres();
+        }
+        document.querySelectorAll('input[name="tipoLista"]').forEach(r => r.addEventListener('change', actualizarCamposTipo));
+
+        document.getElementById('btnCrearLista').addEventListener('click', () => {
+            listaEditandoId = null;
+            modalTitulo.textContent = 'Crear lista de deseo';
+            listaIdInput.value = '';
+            nombreInput.value = '';
+            emailInput.value = '';
+            edadInput.value = '';
+            textoInput.value = '';
+            document.querySelector('input[name="tipoLista"][value="adulto"]').checked = true;
+            actualizarCamposTipo();
+            imagenesTemporales = [];
+            enlacesTemporales = [{ titulo: '', url: '' }];
+            btnEliminarLista.style.display = 'none';
+            renderizarPreview();
+            renderizarEnlaces();
+            modal.classList.add('activo');
+            setTimeout(() => nombreInput.focus(), 100);
+        });
+
+        function abrirModalEditar(id) {
+            const lista = listas.find(l => l.id === id);
+            if (!lista) return;
+            listaEditandoId = id;
+            modalTitulo.textContent = 'Editar lista de deseo';
+            listaIdInput.value = id;
+            nombreInput.value = lista.nombre;
+            emailInput.value = lista.email || '';
+            edadInput.value = lista.edad != null ? lista.edad : '';
+            textoInput.value = lista.texto || '';
+            const tipo = lista.tipo || 'adulto';
+            document.querySelector(`input[name="tipoLista"][value="${tipo}"]`).checked = true;
+            actualizarCamposTipo();
+            if (tipo === 'nino') {
+                document.getElementById('padreSelect').value = lista.padreId || '';
+                document.getElementById('madreSelect').value = lista.madreId || '';
+            }
+            imagenesTemporales = lista.imagenes ? [...lista.imagenes] : [];
+            enlacesTemporales = lista.enlaces && lista.enlaces.length
+                ? lista.enlaces.map(e => ({ ...e }))
+                : [{ titulo: '', url: '' }];
+            btnEliminarLista.style.display = 'inline-block';
+            renderizarPreview();
+            renderizarEnlaces();
+            modal.classList.add('activo');
+        }
+
+        function cerrarModal() {
+            modal.classList.remove('activo');
+            imagenesTemporales = [];
+            enlacesTemporales = [];
+        }
+        document.getElementById('btnCancelarModal').addEventListener('click', cerrarModal);
+        btnEliminarLista.addEventListener('click', () => {
+            if (listaEditandoId) { const id = listaEditandoId; cerrarModal(); eliminarLista(id); }
+        });
+
+        // ============================================================
+        // IMÁGENES Y ENLACES EN MODAL
+        // ============================================================
+        function renderizarPreview() {
+            previewDiv.innerHTML = '';
+            imagenesTemporales.forEach((url, i) => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.onerror = function() { this.src = 'https://via.placeholder.com/50x50/d4af37/ffffff?text=❌'; };
+                img.title = 'Clic para eliminar';
+                img.addEventListener('click', () => { imagenesTemporales.splice(i, 1); renderizarPreview(); });
+                previewDiv.appendChild(img);
+            });
+        }
+
+        document.getElementById('btnAgregarImagenUrl').addEventListener('click', () => {
+            const url = urlImagenInput.value.trim();
+            if (!url) return;
+            imagenesTemporales.push(url);
+            urlImagenInput.value = '';
+            renderizarPreview();
+        });
+
+        document.getElementById('archivoImagen').addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => { imagenesTemporales.push(ev.target.result); renderizarPreview(); };
+                reader.readAsDataURL(file);
+            });
+            e.target.value = '';
+        });
+
+        function renderizarEnlaces() {
+            contEnlaces.innerHTML = '';
+            enlacesTemporales.forEach((enlace, i) => {
+                const fila = document.createElement('div');
+                fila.className = 'fila-enlace';
+
+                const inputT = document.createElement('input');
+                inputT.type = 'text'; inputT.placeholder = 'Título'; inputT.value = enlace.titulo || '';
+                inputT.addEventListener('input', (e) => { enlacesTemporales[i].titulo = e.target.value; });
+
+                const inputU = document.createElement('input');
+                inputU.type = 'text'; inputU.placeholder = 'URL (https://...)'; inputU.value = enlace.url || '';
+                inputU.addEventListener('input', (e) => { enlacesTemporales[i].url = e.target.value; });
+
+                const btnX = document.createElement('button');
+                btnX.className = 'btn-eliminar-enlace';
+                btnX.textContent = '×';
+                btnX.addEventListener('click', () => {
+                    if (enlacesTemporales.length > 1) enlacesTemporales.splice(i, 1);
+                    else enlacesTemporales[0] = { titulo: '', url: '' };
+                    renderizarEnlaces();
+                });
+
+                fila.appendChild(inputT); fila.appendChild(inputU); fila.appendChild(btnX);
+                contEnlaces.appendChild(fila);
+            });
+        }
+        document.getElementById('btnAgregarEnlace').addEventListener('click', () => {
+            enlacesTemporales.push({ titulo: '', url: '' });
+            renderizarEnlaces();
+        });
+
+        // ============================================================
+        // GUARDAR LISTA
+        // ============================================================
+        document.getElementById('btnGuardarLista').addEventListener('click', () => {
+            const nombre = nombreInput.value.trim();
+            const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
+            const email = emailInput.value.trim();
+            const edad = edadInput.value.trim();
+            const padreId = document.getElementById('padreSelect').value;
+            const madreId = document.getElementById('madreSelect').value;
+
+            if (!nombre) { toast('Ingresa el nombre', 'error'); nombreInput.focus(); return; }
+            if (tipo === 'adulto' && !email) { toast('El correo es obligatorio para adultos', 'error'); emailInput.focus(); return; }
+            if (tipo === 'adulto' && !validarEmail(email)) { toast('Correo electrónico inválido', 'error'); emailInput.focus(); return; }
+            if (tipo === 'nino' && !edad) { toast('Ingresa la edad del niño/a', 'error'); edadInput.focus(); return; }
+            if (tipo === 'nino' && !padreId) { toast('Selecciona el padre (adulto)', 'error'); document.getElementById('padreSelect').focus(); return; }
+            if (tipo === 'nino' && !madreId) { toast('Selecciona la madre (adulto)', 'error'); document.getElementById('madreSelect').focus(); return; }
+
+            const existe = listas.some(l =>
+                l.nombre.toLowerCase() === nombre.toLowerCase() &&
+                (l.tipo || 'adulto') === tipo &&
+                l.id !== listaEditandoId
+            );
+            if (existe) { toast('Ya existe una lista con ese nombre en este sorteo', 'error'); return; }
+
+            const enlacesValidos = enlacesTemporales
+                .filter(e => e.titulo.trim() !== '' || e.url.trim() !== '')
+                .map(e => {
+                    let url = e.url.trim();
+                    if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+                    return { titulo: e.titulo.trim() || 'Enlace', url };
+                })
+                .filter(e => e.url);
+
+            const nueva = {
+                id: listaEditandoId || 'lista_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                nombre,
+                tipo,
+                email: tipo === 'adulto' ? email : '',
+                edad: tipo === 'nino' ? parseInt(edad, 10) : null,
+                padreId: tipo === 'nino' ? padreId : null,
+                madreId: tipo === 'nino' ? madreId : null,
+                texto: textoInput.value.trim(),
+                imagenes: [...imagenesTemporales],
+                enlaces: enlacesValidos
+            };
+
+            if (listaEditandoId) {
+                const idx = listas.findIndex(l => l.id === listaEditandoId);
+                if (idx !== -1) listas[idx] = nueva;
+                toast('Lista actualizada', 'success');
+            } else {
+                listas.push(nueva);
+                toast('Lista creada', 'success');
+            }
+
+            guardarListas();
+            renderizarCarrusel();
+            cerrarModal();
+        });
+
+        // ============================================================
+        // ENVÍO DE EMAIL (helpers)
+        // ============================================================
+        function enviarEmailAdulto(de, para, deEmail, paraEmail) {
+            if (!deEmail || !validarEmail(deEmail)) { toast('Email inválido para ' + de, 'error'); return; }
+            const subject = encodeURIComponent('🎄 Amigo Invisible 2026 - Tu amigo secreto');
+            const body = encodeURIComponent(
+                `¡Hola ${de}!\n\n` +
+                `Ya se realizó el sorteo del Amigo Invisible 2026.\n\n` +
+                `🎁 Te toca regalar a: ${para}\n` +
+                (paraEmail ? `✉️ Su correo: ${paraEmail}\n` : '') +
+                `\n⚠️ RECUERDA: esto es SECRETO. No se lo cuentes a nadie.\n\n` +
+                `La entrega de regalos será el 25 de diciembre.\n\n` +
+                `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`
+            );
+            window.location.href = `mailto:${deEmail}?subject=${subject}&body=${body}`;
+        }
+
+        function enviarEmailNino(adulto, ninos) {
+            if (!adulto.email || !validarEmail(adulto.email)) { toast('Email inválido para ' + adulto.nombre, 'error'); return; }
+            const listado = ninos.map(n => `- ${n.nombre} (${n.edad} años)`).join('\n');
+            const subject = encodeURIComponent('🎄 Amigo Invisible 2026 - Niños a tu cargo');
+            const body = encodeURIComponent(
+                `¡Hola ${adulto.nombre}!\n\n` +
+                `Ya se realizó el sorteo de niños del Amigo Invisible 2026.\n\n` +
+                `🎁 Te toca comprar regalos para:\n${listado}\n\n` +
+                `⚠️ RECUERDA: esto es SECRETO.\n\n` +
+                `La entrega de regalos será el 25 de diciembre.\n\n` +
+                `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`
+            );
+            window.location.href = `mailto:${adulto.email}?subject=${subject}&body=${body}`;
+        }
+
+        // ============================================================
+        // SORTEO DE ADULTOS (SECRETO)
+        // ============================================================
+        const modalSorteo = document.getElementById('modalSorteo');
+        let resultadoActualAdultos = [];
+
+        document.getElementById('btnSorteo').addEventListener('click', () => {
+            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
+            if (adultos.length < 2) { toast('Necesitas al menos 2 adultos para el sorteo', 'error'); return; }
+            const emailsInvalidos = adultos.filter(a => !validarEmail(a.email || ''));
+            if (emailsInvalidos.length) { toast('Emails inválidos: ' + emailsInvalidos.map(a => a.nombre).join(', '), 'error'); return; }
+            const emails = adultos.map(a => (a.email || '').toLowerCase().trim());
+            const emailsDup = emails.filter((e, i) => emails.indexOf(e) !== i);
+            if (emailsDup.length) { toast('Correos repetidos: ' + [...new Set(emailsDup)].join(', '), 'error'); return; }
+            const nombres = adultos.map(l => l.nombre.trim());
+            const dup = nombres.filter((n, i) => nombres.indexOf(n) !== i);
+            if (dup.length) { toast('Nombres duplicados: ' + [...new Set(dup)].join(', '), 'error'); return; }
+            ejecutarSorteoAdultos();
+            modalSorteo.classList.add('activo');
+        });
+
+        function ejecutarSorteoAdultos() {
+            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
+            const nombres = adultos.map(l => l.nombre);
+            const infoPorNombre = {};
+            adultos.forEach(a => infoPorNombre[a.nombre] = a);
+
+            let ultimoSorteo = [];
+            try { ultimoSorteo = JSON.parse(localStorage.getItem(STORAGE_ULTIMO_SORTEO_ADULTOS) || '[]'); } catch (e) {}
+            const parejasAnteriores = new Set(ultimoSorteo.map(p => `${p.de}→${p.para}`));
+
+            let resultado, intentos = 0;
+            const maxIntentos = 40;
+            do {
+                const shuffled = shuffle([...nombres]);
+                resultado = shuffled.map((nombre, i) => {
+                    const para = shuffled[(i + 1) % shuffled.length];
+                    return {
+                        de: nombre, para,
+                        deEmail: infoPorNombre[nombre]?.email || '',
+                        paraEmail: infoPorNombre[para]?.email || ''
+                    };
+                });
+                intentos++;
+                const hayRepeticion = resultado.some(r => parejasAnteriores.has(`${r.de}→${r.para}`));
+                if (!hayRepeticion) break;
+            } while (intentos < maxIntentos);
+
+            localStorage.setItem(STORAGE_ULTIMO_SORTEO_ADULTOS, JSON.stringify(
+                resultado.map(r => ({ de: r.de, para: r.para }))
+            ));
+            resultadoActualAdultos = resultado;
+            renderizarResultadoAdultos(resultado);
+            document.getElementById('btnReenviarAdultos').style.display = 'inline-block';
+        }
+
+        function renderizarResultadoAdultos(resultado) {
+            const cont = document.getElementById('resultadoSorteo');
+            cont.innerHTML = '';
+            resultado.forEach(({ de, para, paraEmail }) => {
+                const card = document.createElement('div');
+                card.className = 'tarjeta-sorteo';
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('.btn-enviar-email')) return;
+                    card.classList.toggle('revelada');
+                });
+                card.innerHTML = `
+                    <div class="frente">
+                        <div class="icono">🎁</div>
+                        <div class="nombre-de">${escapeHtml(de)}</div>
+                        <div class="ayuda">Toca para revelar</div>
+                    </div>
+                    <div class="reverso">
+                        <div class="icono">✨</div>
+                        <div>le regala a</div>
+                        <div class="nombre-para">${escapeHtml(para)}</div>
+                        ${paraEmail ? `<div class="ayuda">✉️ ${escapeHtml(paraEmail)}</div>` : ''}
+                    </div>`;
+                cont.appendChild(card);
+            });
+
+            const envioCont = document.getElementById('envioEmailsAdultos');
+            envioCont.innerHTML = '';
+            if (resultado.length === 0) return;
+
+            const envioDiv = document.createElement('div');
+            envioDiv.className = 'envio-emails';
+            envioDiv.innerHTML = `
+                <h3>📧 Enviar resultados por correo (secreto)</h3>
+                <p>Cada participante solo conoce a quién le regala. Envía individualmente. Se abrirá tu cliente de correo con el mensaje pre-rellenado.</p>
+                <ul class="lista-envios"></ul>`;
+            const ul = envioDiv.querySelector('.lista-envios');
+
+            resultado.forEach(({ de, para, deEmail, paraEmail }) => {
+                const li = document.createElement('li');
+                const info = document.createElement('div');
+                info.innerHTML = `<div class="nombre-envio">🎁 ${escapeHtml(de)} → ${escapeHtml(para)}</div><div class="email-envio">✉️ ${escapeHtml(deEmail)}</div>`;
+                li.appendChild(info);
+                const btn = document.createElement('button');
+                btn.className = 'btn-enviar-email';
+                btn.textContent = '📧 Enviar';
+                btn.addEventListener('click', () => {
+                    enviarEmailAdulto(de, para, deEmail, paraEmail);
+                    btn.textContent = '✅ Abierto'; btn.disabled = true;
+                });
+                li.appendChild(btn);
+                ul.appendChild(li);
+            });
+            envioCont.appendChild(envioDiv);
+        }
+
+        document.getElementById('btnCerrarSorteo').addEventListener('click', () => modalSorteo.classList.remove('activo'));
+        document.getElementById('btnRepetirSorteo').addEventListener('click', () => { ejecutarSorteoAdultos(); toast('Sorteo repetido', 'success'); });
+
+        // Reenviar último sorteo de adultos
+        document.getElementById('btnReenviarAdultos').addEventListener('click', () => {
+            const data = localStorage.getItem(STORAGE_ULTIMO_SORTEO_ADULTOS);
+            if (!data) { toast('No hay sorteo guardado', 'error'); return; }
+            let pares = [];
+            try { pares = JSON.parse(data); } catch (e) {}
+            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
+            const infoPorNombre = {};
+            adultos.forEach(a => infoPorNombre[a.nombre] = a);
+            const resultado = pares.map(p => ({
+                de: p.de, para: p.para,
+                deEmail: infoPorNombre[p.de]?.email || '',
+                paraEmail: infoPorNombre[p.para]?.email || ''
+            }));
+            resultadoActualAdultos = resultado;
+            renderizarResultadoAdultos(resultado);
+            modalSorteo.classList.add('activo');
+        });
+
+        // ============================================================
+        // SORTEO DE NIÑOS (SECRETO, CON EXCLUSIÓN DE PADRES)
+        // ============================================================
+        const modalSorteoNinos = document.getElementById('modalSorteoNinos');
+
+        document.getElementById('btnSorteoNinos').addEventListener('click', () => {
+            const ninos = listas.filter(l => (l.tipo || 'adulto') === 'nino');
+            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
+
+            if (ninos.length === 0) { toast('No hay niños registrados', 'error'); return; }
+            if (adultos.length === 0) { toast('No hay adultos registrados', 'error'); return; }
+
+            const adultosValidos = adultos.filter(a => validarEmail(a.email || ''));
+            if (adultosValidos.length === 0) { toast('No hay adultos con email válido', 'error'); return; }
+
+            const base = Math.floor(ninos.length / adultosValidos.length);
+            const extra = ninos.length % adultosValidos.length;
+
+            let resultado = null;
+            const maxIntentos = 500;
+
+            for (let intento = 0; intento < maxIntentos; intento++) {
+                const adultosShuffled = shuffle([...adultosValidos]);
+                const idxExtra = shuffle(adultosShuffled.map((_, i) => i)).slice(0, extra);
+                const capacidad = {};
+                adultosShuffled.forEach((a, i) => {
+                    capacidad[a.id] = base + (idxExtra.includes(i) ? 1 : 0);
+                });
+
+                const asignacion = {};
+                adultosShuffled.forEach(a => asignacion[a.id] = []);
+
+                const ninosShuffled = shuffle([...ninos]);
+                let exito = true;
+
+                for (const nino of ninosShuffled) {
+                    const elegibles = adultosShuffled.filter(a =>
+                        a.id !== nino.padreId &&
+                        a.id !== nino.madreId &&
+                        asignacion[a.id].length < capacidad[a.id]
+                    );
+                    if (elegibles.length === 0) { exito = false; break; }
+                    const elegido = elegibles[Math.floor(Math.random() * elegibles.length)];
+                    asignacion[elegido.id].push(nino);
+                }
+
+                if (exito) {
+                    resultado = adultosShuffled
+                        .filter(a => asignacion[a.id].length > 0)
+                        .map(a => ({
+                            adultoId: a.id,
+                            adultoNombre: a.nombre,
+                            adultoEmail: a.email,
+                            ninos: asignacion[a.id].map(n => ({ nombre: n.nombre, edad: n.edad }))
+                        }));
+                    break;
+                }
+            }
+
+            if (!resultado) {
+                toast('No se pudo realizar el sorteo con las exclusiones actuales. Revisa las relaciones padre/madre o añade más adultos.', 'error');
+                return;
+            }
+
+            localStorage.setItem(STORAGE_SORTEO_NINOS, JSON.stringify(resultado));
+            renderizarSorteoNinos();
+            abrirModalSorteoNinos(resultado);
+        });
+
+        function abrirModalSorteoNinos(resultado) {
+            const cont = document.getElementById('envioEmailsNinos');
+            cont.innerHTML = '';
+
+            const envioDiv = document.createElement('div');
+            envioDiv.className = 'envio-emails';
+            envioDiv.innerHTML = `
+                <h3>📧 Enviar resultados por correo (secreto)</h3>
+                <p>Cada adulto solo debe conocer los niños que le tocan. Envía individualmente. Se abrirá tu cliente de correo con el mensaje pre-rellenado.</p>
+                <ul class="lista-envios"></ul>`;
+            const ul = envioDiv.querySelector('.lista-envios');
+
+            resultado.forEach(item => {
+                const li = document.createElement('li');
+                const info = document.createElement('div');
+                const nombresNinos = item.ninos.map(n => n.nombre).join(', ');
+                info.innerHTML = `<div class="nombre-envio">🎁 ${escapeHtml(item.adultoNombre)}</div><div class="email-envio">✉️ ${escapeHtml(item.adultoEmail)}</div><div class="detalle-envio">👶 ${escapeHtml(nombresNinos)}</div>`;
+                li.appendChild(info);
+                const btn = document.createElement('button');
+                btn.className = 'btn-enviar-email';
+                btn.textContent = '📧 Enviar';
+                btn.addEventListener('click', () => {
+                    enviarEmailNino({ nombre: item.adultoNombre, email: item.adultoEmail }, item.ninos);
+                    btn.textContent = '✅ Abierto'; btn.disabled = true;
+                });
+                li.appendChild(btn);
+                ul.appendChild(li);
+            });
+
+            cont.appendChild(envioDiv);
+            modalSorteoNinos.classList.add('activo');
+        }
+
+        document.getElementById('btnCerrarSorteoNinos').addEventListener('click', () => modalSorteoNinos.classList.remove('activo'));
+
+        document.getElementById('btnReenviarNinos').addEventListener('click', () => {
+            const data = localStorage.getItem(STORAGE_SORTEO_NINOS);
+            if (!data) { toast('No hay sorteo guardado', 'error'); return; }
+            let resultado = [];
+            try { resultado = JSON.parse(data); } catch (e) {}
+            if (!resultado.length) { toast('No hay sorteo guardado', 'error'); return; }
+            abrirModalSorteoNinos(resultado);
+        });
+
+        function renderizarSorteoNinos() {
+            const data = localStorage.getItem(STORAGE_SORTEO_NINOS);
+            const btnReenviar = document.getElementById('btnReenviarNinos');
+            let hay = false;
+            if (data) {
+                try {
+                    const r = JSON.parse(data);
+                    hay = Array.isArray(r) && r.length > 0;
+                } catch (e) {}
+            }
+            btnReenviar.style.display = hay ? 'inline-block' : 'none';
+        }
+
+        // ============================================================
+        // PDF DE LA LISTA
+        // ============================================================
+        function cargarImagenDataURL(url) {
+            return new Promise(resolve => {
+                if (!url) { resolve(null); return; }
+                if (url.startsWith('data:')) { resolve(url); return; }
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || 300;
+                        canvas.height = img.naturalHeight || 300;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#fff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                        resolve(canvas.toDataURL('image/jpeg', 0.85));
+                    } catch (e) { resolve(null); }
+                };
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+        }
+
+        async function descargarPDF(lista) {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                const w = window.open('', '_blank');
+                w.document.write(`<html><head><title>Lista - ${escapeHtml(lista.nombre)}</title></head><body style="font-family:Arial; padding:30px;">
+                    <h1>Lista de deseos - Amigo Invisible 2026</h1>
+                    <h2>${escapeHtml(lista.nombre)}</h2>
+                    ${lista.email ? `<p><b>Email:</b> ${escapeHtml(lista.email)}</p>` : ''}
+                    ${lista.edad != null ? `<p><b>Edad:</b> ${lista.edad}</p>` : ''}
+                    <p><b>Notas importantes:</b> ${escapeHtml(lista.texto || '')}</p>
+                    <h3>Enlaces:</h3>
+                    <ul>${(lista.enlaces||[]).map(e => `<li>${escapeHtml(e.titulo)}: ${escapeHtml(e.url)}</li>`).join('')}</ul>
+                </body></html>`);
+                w.document.close();
+                setTimeout(() => w.print(), 300);
+                return;
+            }
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+                const pageW = doc.internal.pageSize.getWidth();
+                const pageH = doc.internal.pageSize.getHeight();
+                const margin = 15;
+                let y = 20;
+
+                doc.setFontSize(22); doc.setTextColor(192, 57, 43);
+                doc.text('Amigo Invisible 2026', margin, y); y += 10;
+                doc.setFontSize(16); doc.setTextColor(39, 174, 96);
+                doc.text('Lista de deseos', margin, y); y += 12;
+
+                doc.setFontSize(14); doc.setTextColor(0, 0, 0);
+                doc.text(`Nombre: ${lista.nombre}`, margin, y); y += 8;
+                if ((lista.tipo || 'adulto') === 'adulto' && lista.email) { doc.text(`Email: ${lista.email}`, margin, y); y += 8; }
+                if ((lista.tipo || 'adulto') === 'nino' && lista.edad != null) { doc.text(`Edad: ${lista.edad} años`, margin, y); y += 8; }
+                doc.text(`Tipo: ${(lista.tipo || 'adulto') === 'adulto' ? 'Sorteo de adultos' : 'Sorteo de niños'}`, margin, y); y += 10;
+
+                if (lista.texto) {
+                    doc.setFontSize(12); doc.setTextColor(39, 174, 96);
+                    doc.text('Notas importantes:', margin, y); y += 6;
+                    doc.setTextColor(0, 0, 0); doc.setFontSize(11);
+                    const lineas = doc.splitTextToSize(lista.texto, pageW - margin * 2);
+                    lineas.forEach(l => {
+                        if (y > pageH - 20) { doc.addPage(); y = 20; }
+                        doc.text(l, margin, y); y += 6;
+                    });
+                    y += 3;
+                }
+
+                if (lista.enlaces && lista.enlaces.length) {
+                    if (y > pageH - 40) { doc.addPage(); y = 20; }
+                    doc.setFontSize(12); doc.setTextColor(39, 174, 96);
+                    doc.text('Enlaces:', margin, y); y += 6;
+                    doc.setFontSize(10);
+                    for (const e of lista.enlaces) {
+                        if (y > pageH - 20) { doc.addPage(); y = 20; }
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(`• ${e.titulo}`, margin, y); y += 5;
+                        doc.setTextColor(52, 152, 219);
+                        const lineas = doc.splitTextToSize(e.url, pageW - margin * 2 - 4);
+                        lineas.forEach(l => {
+                            if (y > pageH - 20) { doc.addPage(); y = 20; }
+                            doc.textWithLink(l, margin + 4, y, { url: e.url }); y += 5;
+                        });
+                        y += 1;
+                    }
+                    y += 3;
+                }
+
+                if (lista.imagenes && lista.imagenes.length) {
+                    if (y > pageH - 60) { doc.addPage(); y = 20; }
+                    doc.setFontSize(12); doc.setTextColor(39, 174, 96);
+                    doc.text('Imágenes:', margin, y); y += 6;
+                    let x = margin;
+                    const w = 42, h = 42, gap = 5;
+                    for (const url of lista.imagenes) {
+                        const data = await cargarImagenDataURL(url);
+                        if (!data) continue;
+                        if (x + w > pageW - margin) { x = margin; y += h + gap; }
+                        if (y + h > pageH - 15) { doc.addPage(); y = 20; x = margin; }
+                        try {
+                            const fmt = data.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+                            doc.addImage(data, fmt, x, y, w, h);
+                        } catch (e) {}
+                        x += w + gap;
+                    }
+                    y += h + gap;
+                }
+
+                if (y > pageH - 15) { doc.addPage(); y = 20; }
+                doc.setFontSize(9); doc.setTextColor(150, 150, 150);
+                doc.text(`Generado el ${new Date().toLocaleDateString('es-ES')}`, margin, pageH - 10);
+
+                doc.save(`lista-${lista.nombre.replace(/\s+/g, '-')}.pdf`);
+                toast('PDF descargado', 'success');
+            } catch (err) {
+                console.error(err);
+                toast('Error al generar PDF', 'error');
+            }
+        }
+
+        // ============================================================
+        // EXPORTAR / IMPORTAR
+        // ============================================================
+        document.getElementById('btnExportar').addEventListener('click', () => {
+            if (listas.length === 0) { toast('No hay listas para exportar', 'error'); return; }
+            const data = JSON.stringify(listas, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const fecha = new Date().toISOString().slice(0, 10);
+            a.href = url; a.download = `amigo-invisible-2026-${fecha}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            toast('Datos exportados', 'success');
+        });
+
+        const inputImportar = document.getElementById('inputImportar');
+        document.getElementById('btnImportar').addEventListener('click', () => inputImportar.click());
+        inputImportar.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    if (!Array.isArray(data)) throw new Error('Formato inválido');
+                    if (!confirm(`Se importarán ${data.length} listas. ¿Reemplazar las actuales?`)) return;
+                    listas = data.map(l => ({ ...l, tipo: l.tipo || 'adulto' }));
+                    guardarListas();
+                    renderizarCarrusel();
+                    toast('Datos importados', 'success');
+                } catch (err) {
+                    toast('Error al leer el archivo', 'error');
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+
+        // ============================================================
+        // INICIALIZACIÓN
+        // ============================================================
+        cargarListas();
+        renderizarSorteoNinos();
+    </script>
+</body>
+</html>
