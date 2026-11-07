@@ -5,69 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amigo Invisible 2026</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!--
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  CONFIGURACIÓN SUPABASE (ejecuta una vez en el SQL Editor):      ║
+    ╠══════════════════════════════════════════════════════════════════╣
+    ║  CREATE TABLE IF NOT EXISTS listas (                             ║
+    ║    id TEXT PRIMARY KEY,                                          ║
+    ║    tipo TEXT NOT NULL DEFAULT 'adulto',                          ║
+    ║    nombre TEXT NOT NULL,                                         ║
+    ║    email TEXT,                                                   ║
+    ║    edad INTEGER,                                                 ║
+    ║    padre_id TEXT, padre_nombre TEXT,                             ║
+    ║    madre_id TEXT, madre_nombre TEXT,                             ║
+    ║    notas TEXT,                                                   ║
+    ║    imagenes JSONB DEFAULT '[]'::jsonb,                           ║
+    ║    enlaces JSONB DEFAULT '[]'::jsonb,                            ║
+    ║    created_at TIMESTAMPTZ DEFAULT NOW(),                         ║
+    ║    updated_at TIMESTAMPTZ DEFAULT NOW()                          ║
+    ║  );                                                              ║
+    ║  CREATE TABLE IF NOT EXISTS sorteos (                            ║
+    ║    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),                ║
+    ║    tipo TEXT NOT NULL,                                           ║
+    ║    fecha TIMESTAMPTZ DEFAULT NOW(),                              ║
+    ║    resultado JSONB DEFAULT '[]'::jsonb                           ║
+    ║  );                                                              ║
+    ║  ALTER TABLE listas ENABLE ROW LEVEL SECURITY;                   ║
+    ║  ALTER TABLE sorteos ENABLE ROW LEVEL SECURITY;                  ║
+    ║  CREATE POLICY "public_listas" ON listas FOR ALL USING (true) WITH CHECK (true); ║
+    ║  CREATE POLICY "public_sorteos" ON sorteos FOR ALL USING (true) WITH CHECK (true);║
+    ╚══════════════════════════════════════════════════════════════════╝
+    -->
     <style>
         :root {
-            --rojo: #c0392b;
-            --verde: #27ae60;
-            --blanco-nieve: #f0f8ff;
-            --dorado: #d4af37;
-            --dorado-claro: #f1c40f;
-            --sombra: rgba(0, 0, 0, 0.15);
-            --fondo: #f0f8ff;
-            --texto: #333;
-            --texto-suave: #555;
-            --tarjeta-bg: #ffffff;
-            --borde: #eeeeee;
-            --input-bg: #ffffff;
-            --input-border: #cccccc;
+            --rojo: #c0392b; --verde: #27ae60; --blanco-nieve: #f0f8ff;
+            --dorado: #d4af37; --dorado-claro: #f1c40f;
+            --sombra: rgba(0,0,0,0.15); --fondo: #f0f8ff; --texto: #333;
+            --texto-suave: #555; --tarjeta-bg: #fff; --borde: #eee;
+            --input-bg: #fff; --input-border: #ccc;
         }
         [data-theme="dark"] {
-            --blanco-nieve: #0f1729;
-            --fondo: #0f1729;
-            --texto: #e8e8e8;
-            --texto-suave: #b8b8c8;
-            --tarjeta-bg: #1e293b;
-            --borde: #334155;
-            --sombra: rgba(0, 0, 0, 0.5);
-            --rojo: #e74c3c;
-            --verde: #2ecc71;
-            --dorado: #e6c154;
-            --input-bg: #0f1729;
-            --input-border: #334155;
+            --blanco-nieve: #0f1729; --fondo: #0f1729; --texto: #e8e8e8;
+            --texto-suave: #b8b8c8; --tarjeta-bg: #1e293b; --borde: #334155;
+            --sombra: rgba(0,0,0,0.5); --rojo: #e74c3c; --verde: #2ecc71;
+            --dorado: #e6c154; --input-bg: #0f1729; --input-border: #334155;
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--fondo);
-            color: var(--texto);
-            line-height: 1.6;
-            padding: 20px;
+            background-color: var(--fondo); color: var(--texto);
+            line-height: 1.6; padding: 20px; min-height: 100vh;
             transition: background-color 0.4s, color 0.4s;
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
+            position: relative; overflow-x: hidden;
         }
+        body > header, body > section, body > footer, body > .fila-dos { position: relative; z-index: 1; }
 
-        body > header, body > section, body > footer { position: relative; z-index: 1; }
-
-        /* ===== LUCES PULSANTES DE FONDO (+50% intensidad) ===== */
         #lucesFondo {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            pointer-events: none;
-            overflow: hidden;
-            display: none;
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            overflow: hidden; display: none;
         }
         [data-theme="dark"] #lucesFondo { display: block; }
         .luz {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(70px);
-            opacity: 0.375;
-            transform: translate(-50%, -50%);
+            position: absolute; border-radius: 50%; filter: blur(70px);
+            opacity: 0.375; transform: translate(-50%, -50%);
             animation: pulsoLuz 5s ease-in-out infinite;
         }
         @keyframes pulsoLuz {
@@ -75,7 +75,6 @@
             50% { opacity: 0.675; transform: translate(-50%, -50%) scale(1.15); }
         }
 
-        /* ===== BARRA SUPERIOR ===== */
         .barra-superior {
             position: fixed; top: 15px; right: 15px;
             display: flex; gap: 8px; z-index: 999;
@@ -85,17 +84,15 @@
             border: 2px solid var(--dorado); background: var(--tarjeta-bg);
             color: var(--texto); font-size: 1.3rem; cursor: pointer;
             box-shadow: 0 4px 12px var(--sombra);
-            transition: transform 0.2s, background 0.3s;
-            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s; display: flex;
+            align-items: center; justify-content: center;
         }
         .btn-icono:hover { transform: scale(1.1) rotate(10deg); }
         .btn-icono.inactivo { opacity: 0.45; }
 
-        /* ===== NIEVE ===== */
         #nieve {
-            position: fixed; top: 0; left: 0;
-            width: 100%; height: 100%; pointer-events: none;
-            z-index: 9998; overflow: hidden;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9998; overflow: hidden;
         }
         #nieve.oculto { display: none; }
         .copo {
@@ -105,7 +102,6 @@
         }
         @keyframes caer { to { transform: translateY(110vh) rotate(360deg); } }
 
-        /* ===== CABECERA ===== */
         .cabecera { text-align: center; margin-bottom: 30px; }
         .cabecera img {
             max-width: 100%; height: auto; border-radius: 12px;
@@ -115,30 +111,27 @@
             height: 18px;
             background: linear-gradient(90deg, var(--dorado), var(--dorado-claro), var(--dorado));
             border-radius: 5px; margin: 15px auto; max-width: 80%;
-            box-shadow: 0 2px 8px rgba(212, 175, 55, 0.5);
+            box-shadow: 0 2px 8px rgba(212,175,55,0.5);
         }
-
-        /* ===== PIE DE PÁGINA (TÍTULO) ===== */
-        .pie-pagina {
-            text-align: center;
-            padding: 30px 0 20px;
-            margin-top: 40px;
-            position: relative;
-            z-index: 1;
-        }
+        .pie-pagina { text-align: center; padding: 30px 0 20px; margin-top: 40px; z-index: 1; }
         .pie-pagina h1 {
-            color: var(--rojo);
-            font-size: 2.2rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.15);
-            margin-top: 10px;
+            color: var(--rojo); font-size: 2.2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.15); margin-top: 10px;
         }
-        .pie-pagina .sub {
-            font-size: 0.85rem;
-            color: var(--texto-suave);
-            margin-top: 8px;
+        .pie-pagina .sub { font-size: 0.85rem; color: var(--texto-suave); margin-top: 8px; }
+
+        /* ===== AVISO SUPABASE ===== */
+        #avisoSupabase {
+            display: none; background: #e67e22; color: white;
+            padding: 12px 18px; border-radius: 10px; margin-bottom: 15px;
+            font-size: 0.9rem; border-left: 4px solid #d35400;
+        }
+        #avisoSupabase.activo { display: block; }
+        #avisoSupabase code {
+            background: rgba(0,0,0,0.2); padding: 2px 6px;
+            border-radius: 4px; font-size: 0.85rem;
         }
 
-        /* ===== CUENTA REGRESIVA ===== */
         .cuenta-regresiva {
             background-color: var(--verde); color: white;
             padding: 20px; border-radius: 12px; text-align: center;
@@ -149,41 +142,71 @@
         #contador span { background-color: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 8px; min-width: 80px; }
         #contador small { display: block; font-size: 0.9rem; font-weight: normal; color: var(--dorado-claro); }
 
-        /* ===== DÍAS IMPORTANTES ===== */
+        /* ===== FILA DE DOS COLUMNAS (Días + Imagen) ===== */
+        .fila-dos {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 20px; margin: 20px 0;
+        }
+        @media (max-width: 800px) { .fila-dos { grid-template-columns: 1fr; } }
+
         .dias-importantes {
             background-color: var(--tarjeta-bg); padding: 20px;
-            border-radius: 12px; margin: 20px 0;
-            box-shadow: 0 4px 12px var(--sombra);
+            border-radius: 12px; box-shadow: 0 4px 12px var(--sombra);
             border-left: 6px solid var(--dorado);
         }
-        .dias-importantes h2 { color: var(--rojo); margin-bottom: 15px; }
+        .dias-importantes h2 { color: var(--rojo); margin-bottom: 15px; font-size: 1.4rem; }
         .dias-importantes ul { list-style: none; }
-        .dias-importantes li { padding: 10px; border-bottom: 1px solid var(--borde); font-size: 1.05rem; }
+        .dias-importantes li {
+            padding: 8px; border-bottom: 1px solid var(--borde);
+            font-size: 0.95rem;
+        }
         .dias-importantes li:last-child { border-bottom: none; }
         .dias-importantes .fecha { font-weight: bold; color: var(--verde); }
 
-        /* ===== IMAGEN ALEATORIA ===== */
         .cuadro-imagen-random {
             background-color: var(--tarjeta-bg); padding: 20px;
-            border-radius: 12px; margin: 20px 0;
-            box-shadow: 0 4px 12px var(--sombra); text-align: center;
-            border: 2px solid var(--dorado);
+            border-radius: 12px; box-shadow: 0 4px 12px var(--sombra);
+            text-align: center; border: 2px solid var(--dorado);
+            display: flex; flex-direction: column;
         }
-        .cuadro-imagen-random h2 { color: var(--verde); margin-bottom: 15px; }
-        #imagenNavidad { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); max-height: 300px; }
-        #creditoImagen { font-size: 0.8rem; color: var(--texto-suave); margin-top: 8px; }
+        .cuadro-imagen-random h2 { color: var(--verde); margin-bottom: 15px; font-size: 1.4rem; }
+        #imagenNavidad {
+            max-width: 100%; height: auto; border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); max-height: 300px;
+            margin: 0 auto; flex-grow: 1; object-fit: cover;
+        }
+        #creditoImagen { font-size: 0.75rem; color: var(--texto-suave); margin-top: 8px; }
 
-        /* ===== SORTEO DE NIÑOS (sin resultados públicos) ===== */
-        .sorteo-ninos-seccion {
+        /* ===== SECCIONES DE SORTEO ===== */
+        .seccion-sorteo {
             background-color: var(--tarjeta-bg); padding: 20px;
             border-radius: 12px; margin: 20px 0;
             box-shadow: 0 4px 12px var(--sombra);
             border: 2px solid var(--dorado);
         }
-        .sorteo-ninos-seccion h2 { color: var(--verde); margin-bottom: 10px; text-align: center; }
-        .acciones-sorteo-ninos { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px; }
+        .seccion-sorteo h2 {
+            color: var(--verde); margin-bottom: 10px; text-align: center;
+            display: flex; align-items: center; justify-content: center;
+            gap: 10px; flex-wrap: wrap;
+        }
+        .badge-estado {
+            font-size: 0.72rem; padding: 3px 10px; border-radius: 12px;
+            font-weight: 600; background: #95a5a6; color: white;
+        }
+        .badge-estado.hecho { background: var(--verde); }
+        .aviso-sorteo {
+            text-align: center; color: var(--texto-suave);
+            margin-bottom: 15px; font-size: 0.9rem;
+        }
+        .estado-fecha {
+            text-align: center; font-size: 0.85rem;
+            color: var(--verde); font-weight: 600; margin-top: 10px;
+        }
+        .acciones-sorteo {
+            display: flex; gap: 10px; justify-content: center;
+            flex-wrap: wrap; margin-top: 15px;
+        }
 
-        /* ===== SECCIÓN DE LISTAS ===== */
         .seccion-listas { margin: 30px 0; }
         .seccion-listas h2 { color: var(--rojo); margin-bottom: 15px; text-align: center; }
         #contadorListas { color: var(--verde); font-size: 1.1rem; }
@@ -195,10 +218,14 @@
             background: var(--tarjeta-bg); color: var(--texto); font-size: 1rem;
         }
 
-        .barra-acciones { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+        .barra-acciones {
+            display: flex; gap: 10px; flex-wrap: wrap;
+            justify-content: center; margin-bottom: 20px;
+        }
         .btn-crear, .btn-accion {
-            border: none; padding: 10px 22px; font-size: 1rem; border-radius: 30px;
-            cursor: pointer; box-shadow: 0 4px 10px var(--sombra);
+            border: none; padding: 10px 22px; font-size: 1rem;
+            border-radius: 30px; cursor: pointer;
+            box-shadow: 0 4px 10px var(--sombra);
             transition: transform 0.2s, background 0.3s; font-weight: 600;
         }
         .btn-crear { background-color: var(--rojo); color: white; }
@@ -207,19 +234,21 @@
         .btn-accion:hover { background-color: #1e8449; transform: translateY(-2px); }
         .btn-accion.dorado { background-color: var(--dorado); color: #222; }
         .btn-accion.dorado:hover { background-color: var(--dorado-claro); }
+        .btn-accion:disabled { background: #95a5a6; cursor: not-allowed; opacity: 0.7; }
 
-        /* ===== CARRUSEL ===== */
         .carrusel-contenedor {
             display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
-            gap: 20px; padding: 10px 5px 20px 5px; -webkit-overflow-scrolling: touch;
+            gap: 20px; padding: 10px 5px 20px 5px;
+            -webkit-overflow-scrolling: touch;
         }
         .carrusel-contenedor::-webkit-scrollbar { height: 8px; }
         .carrusel-contenedor::-webkit-scrollbar-thumb { background-color: var(--dorado); border-radius: 4px; }
 
         .tarjeta-lista {
             flex: 0 0 300px; scroll-snap-align: start;
-            background-color: var(--tarjeta-bg); border-radius: 12px; padding: 15px;
-            box-shadow: 0 4px 12px var(--sombra); border-top: 5px solid var(--verde);
+            background-color: var(--tarjeta-bg); border-radius: 12px;
+            padding: 15px; box-shadow: 0 4px 12px var(--sombra);
+            border-top: 5px solid var(--verde);
             display: flex; flex-direction: column;
         }
         .card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 6px; }
@@ -227,7 +256,10 @@
         .badge-tipo { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
         .badge-tipo.adulto { background: var(--verde); color: white; }
         .badge-tipo.nino { background: var(--dorado); color: #222; }
-        .meta-info { font-size: 0.8rem; color: var(--texto-suave); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .meta-info {
+            font-size: 0.8rem; color: var(--texto-suave); margin-bottom: 6px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
         .tarjeta-lista .texto { font-size: 0.95rem; color: var(--texto-suave); margin-bottom: 10px; flex-grow: 1; }
 
         .miniaturas { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
@@ -246,8 +278,9 @@
 
         .acciones-tarjeta { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
         .btn-editar, .btn-borrar, .btn-pdf {
-            border: none; padding: 7px 11px; border-radius: 20px; cursor: pointer;
-            font-weight: bold; font-size: 0.82rem; transition: background 0.3s;
+            border: none; padding: 7px 11px; border-radius: 20px;
+            cursor: pointer; font-weight: bold; font-size: 0.82rem;
+            transition: background 0.3s;
         }
         .btn-editar { background-color: var(--dorado); color: #222; }
         .btn-editar:hover { background-color: var(--dorado-claro); }
@@ -258,11 +291,10 @@
 
         .mensaje-vacio { padding: 30px; text-align: center; color: var(--texto-suave); font-size: 1.1rem; width: 100%; }
 
-        /* ===== MODALES ===== */
         .modal-overlay {
             display: none; position: fixed; inset: 0;
-            background-color: rgba(0,0,0,0.65); justify-content: center; align-items: center;
-            z-index: 1000; padding: 15px;
+            background-color: rgba(0,0,0,0.65); justify-content: center;
+            align-items: center; z-index: 1000; padding: 15px;
         }
         .modal-overlay.activo { display: flex; }
 
@@ -285,14 +317,16 @@
         }
         .modal-contenido textarea { resize: vertical; min-height: 80px; }
 
+        .indicador-padre { font-size: 0.78rem; margin-top: 4px; min-height: 1.1em; }
+
         .tipo-selector {
             display: flex; gap: 15px; flex-wrap: wrap; margin-top: 5px;
             background: var(--tarjeta-bg); padding: 10px; border-radius: 8px;
             border: 1px solid var(--input-border);
         }
         .tipo-selector label {
-            display: flex; align-items: center; gap: 6px;
-            margin: 0; cursor: pointer; color: var(--texto); font-weight: 500;
+            display: flex; align-items: center; gap: 6px; margin: 0;
+            cursor: pointer; color: var(--texto); font-weight: 500;
         }
         .tipo-selector input[type="radio"] { accent-color: var(--verde); width: 18px; height: 18px; cursor: pointer; }
 
@@ -309,23 +343,28 @@
         .fila-enlace input:first-child { flex: 0 0 100px; }
 
         .btn-eliminar-enlace {
-            background-color: #e74c3c; color: white; border: none; border-radius: 50%;
-            width: 28px; height: 28px; cursor: pointer; font-weight: bold; flex-shrink: 0;
+            background-color: #e74c3c; color: white; border: none;
+            border-radius: 50%; width: 28px; height: 28px;
+            cursor: pointer; font-weight: bold; flex-shrink: 0;
         }
         .btn-agregar {
             background-color: var(--verde); color: white; border: none;
-            padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; margin-top: 5px;
+            padding: 6px 14px; border-radius: 20px; cursor: pointer;
+            font-size: 0.9rem; margin-top: 5px;
         }
         .btn-agregar:hover { background-color: #1e8449; }
 
         .preview-imagenes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
         .preview-imagenes img {
-            width: 50px; height: 50px; object-fit: cover; border-radius: 6px;
-            border: 1px solid var(--borde); cursor: pointer;
+            width: 50px; height: 50px; object-fit: cover;
+            border-radius: 6px; border: 1px solid var(--borde); cursor: pointer;
         }
         .preview-imagenes img:hover { opacity: 0.8; }
 
-        .botones-modal { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .botones-modal {
+            display: flex; justify-content: flex-end; gap: 10px;
+            margin-top: 20px; flex-wrap: wrap;
+        }
         .btn-guardar, .btn-cancelar, .btn-eliminar-lista {
             border: none; padding: 10px 22px; border-radius: 25px;
             font-size: 1rem; cursor: pointer; font-weight: bold;
@@ -337,9 +376,6 @@
         .btn-eliminar-lista { background-color: #e74c3c; color: white; margin-right: auto; }
         .btn-eliminar-lista:hover { background-color: #c0392b; }
 
-        .aviso-sorteo { text-align: center; color: var(--texto-suave); margin-bottom: 15px; font-size: 0.95rem; }
-
-        /* ===== SORTEO ADULTOS (tarjetas) ===== */
         #resultadoSorteo { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 15px 0; }
         .tarjeta-sorteo {
             background: var(--tarjeta-bg); border: 2px solid var(--dorado);
@@ -358,7 +394,6 @@
         .tarjeta-sorteo.revelada .ayuda { color: rgba(255,255,255,0.85); }
         .tarjeta-sorteo .nombre-para { font-size: 1.15rem; font-weight: bold; color: var(--dorado-claro); margin-top: 5px; }
 
-        /* ===== ENVÍO DE EMAILS ===== */
         .envio-emails {
             margin-top: 18px; padding: 15px;
             background: var(--tarjeta-bg); border-radius: 10px;
@@ -383,33 +418,37 @@
         .btn-enviar-email:hover { background: #2980b9; }
         .btn-enviar-email:disabled { background: #95a5a6; cursor: not-allowed; opacity: 0.6; }
 
-        /* ===== LIGHTBOX ===== */
         .lightbox {
             display: none; position: fixed; inset: 0;
             background-color: rgba(0,0,0,0.9); z-index: 2000;
-            justify-content: center; align-items: center; cursor: zoom-out; padding: 20px;
+            justify-content: center; align-items: center;
+            cursor: zoom-out; padding: 20px;
         }
         .lightbox.activo { display: flex; }
-        .lightbox img { max-width: 95%; max-height: 90vh; border-radius: 8px; box-shadow: 0 0 40px rgba(255,255,255,0.2); }
+        .lightbox img {
+            max-width: 95%; max-height: 90vh;
+            border-radius: 8px; box-shadow: 0 0 40px rgba(255,255,255,0.2);
+        }
 
-        /* ===== TOASTS ===== */
         #toastContainer {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 10000; display: flex; flex-direction: column; gap: 10px;
-            pointer-events: none; align-items: center;
+            z-index: 10000; display: flex; flex-direction: column;
+            gap: 10px; pointer-events: none; align-items: center;
         }
         .toast {
-            background: #333; color: white; padding: 12px 24px; border-radius: 30px;
-            font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            animation: toastEntrar 0.3s ease-out; max-width: 90vw; text-align: center;
+            background: #333; color: white; padding: 12px 24px;
+            border-radius: 30px; font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: toastEntrar 0.3s ease-out;
+            max-width: 90vw; text-align: center;
         }
         .toast-success { background: var(--verde); }
         .toast-error { background: var(--rojo); }
+        .toast-info { background: #3498db; }
         .toast.salir { animation: toastSalir 0.3s ease-in forwards; }
         @keyframes toastEntrar { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes toastSalir { to { opacity: 0; transform: translateY(20px); } }
 
-        /* ===== RESPONSIVE ===== */
         @media (max-width: 600px) {
             body { padding: 12px; padding-top: 70px; }
             .pie-pagina h1 { font-size: 1.6rem; }
@@ -425,25 +464,21 @@
 </head>
 <body>
 
-    <!-- LUCES PULSANTES DE FONDO -->
     <div id="lucesFondo"></div>
-
-    <!-- NIEVE -->
     <div id="nieve"></div>
 
-    <!-- BARRA SUPERIOR -->
     <div class="barra-superior">
         <button class="btn-icono" id="btnNieve" title="Activar/desactivar nieve">❄️</button>
         <button class="btn-icono" id="btnTema" title="Modo día/noche">☀️</button>
     </div>
 
-    <!-- CABECERA (solo imagen + cinta; el título va al pie) -->
+    <div id="avisoSupabase" style="max-width:900px; margin:0 auto 15px;"></div>
+
     <header class="cabecera">
         <img src="https://lh3.googleusercontent.com/d/1s6hoUi64ln6RfmMkxEGEt-Q222QaCjoR" alt="Amigo Invisible 2026">
         <div class="cinta-dorada"></div>
     </header>
 
-    <!-- CUENTA REGRESIVA -->
     <section class="cuenta-regresiva">
         <h2>⏳ Faltan para el 25 de Diciembre</h2>
         <div id="contador">
@@ -454,57 +489,65 @@
         </div>
     </section>
 
-    <!-- DÍAS IMPORTANTES -->
-    <section class="dias-importantes">
-        <h2>📅 Días Importantes</h2>
-        <ul>
-            <li><span class="fecha">1 de Diciembre (martes):</span> Inicio del calendario de adviento.</li>
-            <li><span class="fecha">Sábado 5 y domingo 6 de diciembre:</span> Primer fin de semana de adviento.</li>
-            <li><span class="fecha">Sábado 12 y domingo 13 de diciembre:</span> Segundo fin de semana de adviento.</li>
-            <li><span class="fecha">Sábado 19 y domingo 20 de diciembre:</span> Tercer fin de semana de adviento.</li>
-            <li><span class="fecha">24 de Diciembre (jueves):</span> Nochebuena. ¡Último día para confirmar regalos!</li>
-            <li><span class="fecha">25 de Diciembre (viernes):</span> Navidad. Entrega de regalos del Amigo Invisible.</li>
-        </ul>
-    </section>
+    <!-- FILA DE DOS COLUMNAS: Días importantes + Imagen del día -->
+    <div class="fila-dos">
+        <section class="dias-importantes">
+            <h2>📅 Días Importantes</h2>
+            <ul>
+                <li><span class="fecha">1 Dic (mar):</span> Inicio del calendario de adviento.</li>
+                <li><span class="fecha">Sáb 5 / Dom 6 dic:</span> 1er fin de semana de adviento.</li>
+                <li><span class="fecha">Sáb 12 / Dom 13 dic:</span> 2º fin de semana de adviento.</li>
+                <li><span class="fecha">Sáb 19 / Dom 20 dic:</span> 3er fin de semana de adviento.</li>
+                <li><span class="fecha">24 Dic (jue):</span> Nochebuena. ¡Último día para confirmar!</li>
+                <li><span class="fecha">25 Dic (vie):</span> Navidad. Entrega de regalos.</li>
+            </ul>
+        </section>
 
-    <!-- IMAGEN ALEATORIA DEL DÍA -->
-    <section class="cuadro-imagen-random">
-        <h2>🖼️ Imagen Navideña del Día</h2>
-        <img id="imagenNavidad" src="" alt="Imagen navideña aleatoria">
-        <p id="creditoImagen"></p>
-    </section>
+        <section class="cuadro-imagen-random">
+            <h2>🖼️ Imagen del Día</h2>
+            <img id="imagenNavidad" src="" alt="Imagen navideña aleatoria">
+            <p id="creditoImagen"></p>
+        </section>
+    </div>
 
-    <!-- SORTEO DE NIÑOS (SECRETO, SIN RESULTADOS EN PANTALLA) -->
-    <section class="sorteo-ninos-seccion" id="seccionSorteoNinos">
-        <h2>🎈 Sorteo de Niños</h2>
+    <!-- SORTEO DE NIÑOS -->
+    <section class="seccion-sorteo" id="seccionSorteoNinos">
+        <h2>🎈 Sorteo de Niños <span id="badgeSorteoNinos" class="badge-estado">⏳ Pendiente</span></h2>
         <p class="aviso-sorteo">
-            El resultado es <strong>secreto</strong>: se envía por correo al adulto correspondiente.
-            No se muestra públicamente en la página. Los niños se reparten equitativamente entre los adultos,
-            excluyendo a sus propios padres/madres.
+            Secreto. Los niños se reparten equitativamente entre los adultos,
+            excluyendo a sus propios padres/madres. El resultado se envía por correo.
         </p>
-        <div class="acciones-sorteo-ninos">
+        <div class="acciones-sorteo">
+            <button class="btn-crear" id="btnCrearListaNino">➕ Crear lista de niño</button>
             <button class="btn-accion dorado" id="btnSorteoNinos">🎈 Realizar Sorteo de Niños</button>
-            <button class="btn-accion" id="btnReenviarNinos" style="display:none;">📧 Reenviar último sorteo</button>
+            <button class="btn-accion" id="btnReenviarNinos" style="display:none;">📧 Reenviar último</button>
         </div>
+        <p class="estado-fecha" id="estadoSorteoNinos"></p>
+    </section>
+
+    <!-- SORTEO DE ADULTOS -->
+    <section class="seccion-sorteo">
+        <h2>🎲 Sorteo de Adultos <span id="badgeSorteoAdultos" class="badge-estado">⏳ Pendiente</span></h2>
+        <p class="aviso-sorteo">Secreto. Cada adulto recibe por correo a quién debe regalar.</p>
+        <div class="acciones-sorteo">
+            <button class="btn-accion dorado" id="btnSorteo">🎲 Realizar Sorteo de Adultos</button>
+            <button class="btn-accion" id="btnReenviarAdultos" style="display:none;">📧 Reenviar último</button>
+        </div>
+        <p class="estado-fecha" id="estadoSorteoAdultos"></p>
     </section>
 
     <!-- LISTAS DE DESEOS -->
     <section class="seccion-listas">
         <h2>🎁 Listas de Deseos <span id="contadorListas">(0)</span></h2>
-
         <div class="barra-busqueda">
             <input type="text" id="buscador" placeholder="🔍 Buscar por nombre...">
         </div>
-
         <div class="barra-acciones">
             <button class="btn-crear" id="btnCrearLista">➕ Crear lista</button>
-            <button class="btn-accion dorado" id="btnSorteo">🎲 Sorteo de Adultos</button>
-            <button class="btn-accion" id="btnReenviarAdultos" style="display:none;">📧 Reenviar último sorteo</button>
             <button class="btn-accion" id="btnExportar">💾 Exportar</button>
             <button class="btn-accion" id="btnImportar">📂 Importar</button>
             <input type="file" id="inputImportar" accept="application/json" style="display:none;">
         </div>
-
         <div class="carrusel-contenedor" id="carruselListas"></div>
     </section>
 
@@ -516,15 +559,15 @@
 
             <label>Tipo de lista:</label>
             <div class="tipo-selector">
-                <label><input type="radio" name="tipoLista" value="adulto" checked> 🎅 Sorteo de adultos</label>
-                <label><input type="radio" name="tipoLista" value="nino"> 🎈 Sorteo de niños</label>
+                <label><input type="radio" name="tipoLista" value="adulto" checked> 🎅 Adulto</label>
+                <label><input type="radio" name="tipoLista" value="nino"> 🎈 Niño</label>
             </div>
 
             <label for="nombrePersona" id="labelNombre">Nombre de la persona:</label>
             <input type="text" id="nombrePersona" placeholder="Ej: María" required>
 
             <div id="grupoEmail">
-                <label for="emailPersona">Correo electrónico (para el sorteo):</label>
+                <label for="emailPersona">Correo electrónico:</label>
                 <input type="email" id="emailPersona" placeholder="correo@ejemplo.com">
             </div>
 
@@ -534,12 +577,17 @@
             </div>
 
             <div id="grupoPadres" class="oculto">
-                <label for="padreSelect">Padre (adulto de la lista):</label>
-                <select id="padreSelect"></select>
-                <label for="madreSelect">Madre (adulto de la lista):</label>
-                <select id="madreSelect"></select>
+                <label for="padreInput">Padre (adulto de la lista):</label>
+                <input type="text" id="padreInput" list="listaAdultos" placeholder="Escribe o selecciona...">
+                <div class="indicador-padre" id="padreIndicator"></div>
+
+                <label for="madreInput">Madre (adulto de la lista):</label>
+                <input type="text" id="madreInput" list="listaAdultos" placeholder="Escribe o selecciona...">
+                <div class="indicador-padre" id="madreIndicator"></div>
+
+                <datalist id="listaAdultos"></datalist>
                 <p style="font-size:0.8rem; color:var(--texto-suave); margin-top:6px;">
-                    ⚠️ Estos adultos <strong>no podrán</strong> recibir a este niño en el sorteo de niños.
+                    ⚠️ Los adultos coincidentes <strong>no podrán</strong> recibir a este niño.
                 </p>
             </div>
 
@@ -572,7 +620,7 @@
     <div class="modal-overlay" id="modalSorteo">
         <div class="modal-contenido">
             <h2>🎲 Sorteo de Adultos (Secreto)</h2>
-            <p class="aviso-sorteo">Toca cada tarjeta para revelar quién le regala a quién. El resultado es <strong>secreto</strong>: envía cada resultado al correo del participante correspondiente.</p>
+            <p class="aviso-sorteo">Toca cada tarjeta para revelar. Envía individualmente por correo.</p>
             <div id="resultadoSorteo"></div>
             <div id="envioEmailsAdultos"></div>
             <div class="botones-modal">
@@ -586,23 +634,21 @@
     <div class="modal-overlay" id="modalSorteoNinos">
         <div class="modal-contenido">
             <h2>🎈 Sorteo de Niños (Secreto)</h2>
-            <p class="aviso-sorteo">Envía cada resultado al correo del adulto correspondiente. El resultado no se muestra en la página principal.</p>
+            <p class="aviso-sorteo">Envía cada resultado al correo del adulto correspondiente.</p>
             <div id="envioEmailsNinos"></div>
             <div class="botones-modal">
-                <button class="btn-cancelar" id="btnCerrarSorteoNinos">Cerrar</button>
+                <button class="btn-cancelar" id="btnRepetirSorteoNinos">🔄 Repetir sorteo</button>
+                <button class="btn-guardar" id="btnCerrarSorteoNinos">Cerrar</button>
             </div>
         </div>
     </div>
 
-    <!-- LIGHTBOX -->
     <div class="lightbox" id="lightbox">
         <img id="lightboxImg" src="" alt="Imagen ampliada">
     </div>
 
-    <!-- TOASTS -->
     <div id="toastContainer"></div>
 
-    <!-- PIE DE PÁGINA CON TÍTULO -->
     <footer class="pie-pagina">
         <div class="cinta-dorada"></div>
         <h1>🎄 Amigo Invisible 2026 🎄</h1>
@@ -611,29 +657,47 @@
 
     <script>
         // ============================================================
-        // CONFIGURACIÓN Y ESTADO
+        // CONFIGURACIÓN SUPABASE
         // ============================================================
-        const STORAGE_KEY = 'amigoInvisible2026_listas';
+        const SUPABASE_URL = 'https://fumpktmixrnifdythkvr.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_9mhjOYFNhCywiX92TtMQVQ_PfcG9UpX';
+        let supabaseClient = null;
+        let supabaseDisponible = false;
+
+        try {
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                supabaseDisponible = true;
+            }
+        } catch (e) { console.error('Error init Supabase:', e); }
+
+        // ============================================================
+        // ESTADO GLOBAL
+        // ============================================================
+        const STORAGE_KEY = 'amigoInvisible2026_listas_cache';
         const STORAGE_TEMA = 'amigoInvisible2026_tema';
         const STORAGE_NIEVE = 'amigoInvisible2026_nieve';
-        const STORAGE_SORTEO_NINOS = 'amigoInvisible2026_sorteoNinos';
-        const STORAGE_ULTIMO_SORTEO_ADULTOS = 'amigoInvisible2026_ultimoSorteoAdultos';
+
+        let listas = [];
+        let listaEditandoId = null;
+        let imagenesTemporales = [];
+        let enlacesTemporales = [];
+        let ultimoSorteoAdultos = null; // { fecha, resultado }
+        let ultimoSorteoNinos = null;
 
         const listasEjemplo = [
             { id: 'ejemplo1', tipo: 'adulto', nombre: 'Ana', email: 'ana@ejemplo.com',
-              texto: 'Me encantaría un libro de aventuras y una taza navideña.',
+              texto: 'Un libro de aventuras y una taza navideña.',
               imagenes: ['https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=100&h=100&fit=crop&q=60'],
               enlaces: [{ titulo: 'Libro en Amazon', url: 'https://www.amazon.com' }] },
             { id: 'ejemplo2', tipo: 'adulto', nombre: 'Carlos', email: 'carlos@ejemplo.com',
-              texto: 'Quiero unos auriculares inalámbricos.',
-              imagenes: ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop&q=60'],
-              enlaces: [{ titulo: 'Auriculares', url: 'https://www.pccomponentes.com' }] },
+              texto: 'Auriculares inalámbricos.', imagenes: [], enlaces: [] },
             { id: 'ejemplo3', tipo: 'adulto', nombre: 'Pedro', email: 'pedro@ejemplo.com',
-              texto: 'Una sudadera verde y calcetines navideños.',
-              imagenes: [], enlaces: [] },
-            { id: 'ejemplo4', tipo: 'nino', nombre: 'Lucía', edad: 7, email: '',
-              padreId: 'ejemplo1', madreId: 'ejemplo2',
-              texto: 'Quiero un set de pinturas y un peluche de unicornio.',
+              texto: 'Sudadera verde y calcetines navideños.', imagenes: [], enlaces: [] },
+            { id: 'ejemplo4', tipo: 'nino', nombre: 'Lucía', edad: 7,
+              padreId: 'ejemplo1', padreNombre: 'Ana',
+              madreId: 'ejemplo2', madreNombre: 'Carlos',
+              texto: 'Set de pinturas y peluche de unicornio.',
               imagenes: [], enlaces: [] }
         ];
 
@@ -647,21 +711,16 @@
             { url: 'https://images.unsplash.com/photo-1512395543261-0c1b1b0b2b5f?w=600&auto=format&fit=crop&q=60', credito: 'Unsplash - Mike Arney' }
         ];
 
-        let listas = [];
-        let listaEditandoId = null;
-        let imagenesTemporales = [];
-        let enlacesTemporales = [];
-
         // ============================================================
         // UTILIDADES
         // ============================================================
-        function toast(mensaje, tipo = 'info') {
+        function toast(msg, tipo = 'info') {
             const cont = document.getElementById('toastContainer');
             const t = document.createElement('div');
             t.className = `toast toast-${tipo}`;
-            t.textContent = mensaje;
+            t.textContent = msg;
             cont.appendChild(t);
-            setTimeout(() => { t.classList.add('salir'); setTimeout(() => t.remove(), 300); }, 2800);
+            setTimeout(() => { t.classList.add('salir'); setTimeout(() => t.remove(), 300); }, 3200);
         }
 
         function escapeHtml(s) {
@@ -676,22 +735,240 @@
             return arr;
         }
 
-        function validarEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        function validarEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+
+        function formatearFecha(iso) {
+            if (!iso) return '';
+            try {
+                return new Date(iso).toLocaleString('es-ES', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+            } catch { return iso; }
+        }
+
+        function mostrarAvisoSetup() {
+            const aviso = document.getElementById('avisoSupabase');
+            aviso.classList.add('activo');
+            aviso.innerHTML = '⚠️ <strong>Supabase no está configurado.</strong> ' +
+                'Ejecuta el SQL del comentario del <code>&lt;head&gt;</code> en el SQL Editor de Supabase. ' +
+                'Mientras tanto, la app usa almacenamiento local.';
         }
 
         // ============================================================
-        // LUCES PULSANTES DE FONDO (+50% intensidad)
+        // CONVERSIÓN ROW ↔ LOCAL
+        // ============================================================
+        function rowToLocal(r) {
+            return {
+                id: r.id,
+                tipo: r.tipo || 'adulto',
+                nombre: r.nombre,
+                email: r.email || '',
+                edad: r.edad != null ? r.edad : null,
+                padreId: r.padre_id || null,
+                padreNombre: r.padre_nombre || '',
+                madreId: r.madre_id || null,
+                madreNombre: r.madre_nombre || '',
+                texto: r.notas || '',
+                imagenes: Array.isArray(r.imagenes) ? r.imagenes : [],
+                enlaces: Array.isArray(r.enlaces) ? r.enlaces : []
+            };
+        }
+
+        function localToRow(l) {
+            return {
+                id: l.id,
+                tipo: l.tipo,
+                nombre: l.nombre,
+                email: l.email || null,
+                edad: l.edad,
+                padre_id: l.padreId || null,
+                padre_nombre: l.padreNombre || null,
+                madre_id: l.madreId || null,
+                madre_nombre: l.madreNombre || null,
+                notas: l.texto,
+                imagenes: l.imagenes || [],
+                enlaces: l.enlaces || [],
+                updated_at: new Date().toISOString()
+            };
+        }
+
+        // ============================================================
+        // SUPABASE — LISTAS
+        // ============================================================
+        async function cargarListas() {
+            if (supabaseDisponible) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('listas').select('*').order('created_at', { ascending: true });
+                    if (error) {
+                        if (error.code === '42P01' || (error.message || '').includes('does not exist')) {
+                            supabaseDisponible = false;
+                            mostrarAvisoSetup();
+                        } else {
+                            throw error;
+                        }
+                    } else if (data && data.length > 0) {
+                        listas = data.map(rowToLocal);
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(listas));
+                        return;
+                    } else {
+                        // Supabase vacío: intentar cache
+                        const cache = localStorage.getItem(STORAGE_KEY);
+                        if (cache) {
+                            try {
+                                const parsed = JSON.parse(cache);
+                                if (parsed.length > 0) {
+                                    listas = parsed;
+                                    await sincronizarTodas();
+                                    return;
+                                }
+                            } catch {}
+                        }
+                        // Semilla con ejemplos
+                        listas = [...listasEjemplo];
+                        await sincronizarTodas();
+                        return;
+                    }
+                } catch (e) { console.error('Supabase load error:', e); }
+            }
+            // Fallback localStorage
+            const cache = localStorage.getItem(STORAGE_KEY);
+            if (cache) {
+                try { listas = JSON.parse(cache); } catch {}
+            } else {
+                listas = [...listasEjemplo];
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(listas));
+            }
+        }
+
+        async function sincronizarTodas() {
+            if (!supabaseDisponible) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(listas));
+                return;
+            }
+            try {
+                const rows = listas.map(localToRow);
+                const { error } = await supabaseClient.from('listas').upsert(rows);
+                if (error) throw error;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(listas));
+            } catch (e) {
+                console.error('Sync error:', e);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(listas));
+            }
+        }
+
+        async function guardarListaSupabase(lista) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(listas));
+            if (!supabaseDisponible) return;
+            try {
+                const { error } = await supabaseClient.from('listas').upsert(localToRow(lista));
+                if (error) throw error;
+            } catch (e) {
+                console.error('Guardar lista error:', e);
+                toast('Guardado localmente. Supabase falló.', 'error');
+            }
+        }
+
+        async function eliminarListaSupabase(id) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(listas));
+            if (!supabaseDisponible) return;
+            try {
+                const { error } = await supabaseClient.from('listas').delete().eq('id', id);
+                if (error) throw error;
+            } catch (e) {
+                console.error('Delete error:', e);
+                toast('Eliminado localmente. Supabase falló.', 'error');
+            }
+        }
+
+        // ============================================================
+        // SUPABASE — SORTEOS
+        // ============================================================
+        async function cargarEstadosSorteos() {
+            if (supabaseDisponible) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('sorteos').select('tipo,fecha,resultado')
+                        .order('fecha', { ascending: false });
+                    if (error) throw error;
+                    const ultimos = {};
+                    (data || []).forEach(s => { if (!ultimos[s.tipo]) ultimos[s.tipo] = s; });
+                    if (ultimos.adultos) ultimoSorteoAdultos = { fecha: ultimos.adultos.fecha, resultado: ultimos.adultos.resultado || [] };
+                    if (ultimos.ninos) ultimoSorteoNinos = { fecha: ultimos.ninos.fecha, resultado: ultimos.ninos.resultado || [] };
+                    actualizarEstadoSorteosUI();
+                    return;
+                } catch (e) { console.error('Load sorteos error:', e); }
+            }
+            // Fallback local
+            try {
+                const a = localStorage.getItem('sorteo_adultos_ultimo');
+                if (a) ultimoSorteoAdultos = JSON.parse(a);
+                const n = localStorage.getItem('sorteo_ninos_ultimo');
+                if (n) ultimoSorteoNinos = JSON.parse(n);
+            } catch {}
+            actualizarEstadoSorteosUI();
+        }
+
+        async function registrarSorteo(tipo, resultado) {
+            const fecha = new Date().toISOString();
+            const registro = { fecha, resultado };
+            // Cache local
+            localStorage.setItem(`sorteo_${tipo}_ultimo`, JSON.stringify(registro));
+            // Supabase
+            if (supabaseDisponible) {
+                try {
+                    const { error } = await supabaseClient.from('sorteos').insert({ tipo, fecha, resultado });
+                    if (error) throw error;
+                } catch (e) { console.error('Registrar sorteo error:', e); }
+            }
+            return registro;
+        }
+
+        function actualizarEstadoSorteosUI() {
+            // Adultos
+            const badgeA = document.getElementById('badgeSorteoAdultos');
+            const estadoA = document.getElementById('estadoSorteoAdultos');
+            const btnReA = document.getElementById('btnReenviarAdultos');
+            if (ultimoSorteoAdultos && ultimoSorteoAdultos.fecha) {
+                badgeA.textContent = '✅ Realizado';
+                badgeA.classList.add('hecho');
+                estadoA.textContent = '📅 Sorteo realizado el ' + formatearFecha(ultimoSorteoAdultos.fecha);
+                btnReA.style.display = 'inline-block';
+            } else {
+                badgeA.textContent = '⏳ Pendiente';
+                badgeA.classList.remove('hecho');
+                estadoA.textContent = '';
+                btnReA.style.display = 'none';
+            }
+            // Niños
+            const badgeN = document.getElementById('badgeSorteoNinos');
+            const estadoN = document.getElementById('estadoSorteoNinos');
+            const btnReN = document.getElementById('btnReenviarNinos');
+            if (ultimoSorteoNinos && ultimoSorteoNinos.fecha) {
+                badgeN.textContent = '✅ Realizado';
+                badgeN.classList.add('hecho');
+                estadoN.textContent = '📅 Sorteo realizado el ' + formatearFecha(ultimoSorteoNinos.fecha);
+                btnReN.style.display = 'inline-block';
+            } else {
+                badgeN.textContent = '⏳ Pendiente';
+                badgeN.classList.remove('hecho');
+                estadoN.textContent = '';
+                btnReN.style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // LUCES DE FONDO
         // ============================================================
         function crearLucesFondo() {
             const cont = document.getElementById('lucesFondo');
             cont.innerHTML = '';
             const colores = ['#c0392b', '#27ae60', '#d4af37', '#e74c3c', '#2ecc71', '#f1c40f'];
-            const cantidad = 16;
-            for (let i = 0; i < cantidad; i++) {
+            for (let i = 0; i < 16; i++) {
                 const luz = document.createElement('div');
                 luz.className = 'luz';
-                const size = 60 + Math.random() * 110; // 60-170px (50% más pequeñas)
+                const size = 60 + Math.random() * 110;
                 luz.style.width = size + 'px';
                 luz.style.height = size + 'px';
                 luz.style.left = (Math.random() * 100) + '%';
@@ -704,7 +981,7 @@
         }
 
         // ============================================================
-        // TEMA — NOCTURNO POR DEFECTO
+        // TEMA
         // ============================================================
         const btnTema = document.getElementById('btnTema');
         function aplicarTema(tema) {
@@ -717,9 +994,6 @@
             const actual = document.body.getAttribute('data-theme') || 'dark';
             aplicarTema(actual === 'dark' ? 'light' : 'dark');
         });
-        const temaGuardado = localStorage.getItem(STORAGE_TEMA);
-        aplicarTema(temaGuardado || 'dark');
-        crearLucesFondo();
 
         // ============================================================
         // NIEVE
@@ -754,25 +1028,6 @@
             localStorage.setItem(STORAGE_NIEVE, activa ? '1' : '0');
         }
         btnNieve.addEventListener('click', () => activarNieve(contNieve.classList.contains('oculto')));
-        const nieveGuardada = localStorage.getItem(STORAGE_NIEVE);
-        activarNieve(nieveGuardada === null ? true : nieveGuardada === '1');
-
-        // ============================================================
-        // LOCALSTORAGE
-        // ============================================================
-        function cargarListas() {
-            const data = localStorage.getItem(STORAGE_KEY);
-            if (data) {
-                try { listas = JSON.parse(data); }
-                catch (e) { listas = [...listasEjemplo]; }
-            } else {
-                listas = [...listasEjemplo];
-            }
-            listas = listas.map(l => ({ ...l, tipo: l.tipo || 'adulto' }));
-            guardarListas();
-            renderizarCarrusel();
-        }
-        function guardarListas() { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); }
 
         // ============================================================
         // CUENTA REGRESIVA
@@ -785,17 +1040,15 @@
                 document.getElementById('contador').innerHTML = '<span style="font-size:1.5rem;">¡Feliz Navidad! 🎄</span>';
                 return;
             }
-            const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const horas = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const segundos = Math.floor((diff % (1000 * 60)) / 1000);
-            document.getElementById('dias').innerHTML = `${dias}<small>Días</small>`;
-            document.getElementById('horas').innerHTML = `${horas}<small>Horas</small>`;
-            document.getElementById('minutos').innerHTML = `${minutos}<small>Minutos</small>`;
-            document.getElementById('segundos').innerHTML = `${segundos}<small>Segundos</small>`;
+            const d = Math.floor(diff / 86400000);
+            const h = Math.floor((diff % 86400000) / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            document.getElementById('dias').innerHTML = `${d}<small>Días</small>`;
+            document.getElementById('horas').innerHTML = `${h}<small>Horas</small>`;
+            document.getElementById('minutos').innerHTML = `${m}<small>Minutos</small>`;
+            document.getElementById('segundos').innerHTML = `${s}<small>Segundos</small>`;
         }
-        setInterval(actualizarContador, 1000);
-        actualizarContador();
 
         // ============================================================
         // IMAGEN DEL DÍA
@@ -803,13 +1056,12 @@
         function cargarImagenDelDia() {
             const hoy = new Date();
             const inicioAno = new Date(hoy.getFullYear(), 0, 0);
-            const diaDelAno = Math.floor((hoy - inicioAno) / (1000 * 60 * 60 * 24));
+            const diaDelAno = Math.floor((hoy - inicioAno) / 86400000);
             const imagen = imagenesNavidenas[diaDelAno % imagenesNavidenas.length];
             const img = document.getElementById('imagenNavidad');
             img.src = imagen.url;
             document.getElementById('creditoImagen').textContent = `📸 ${imagen.credito} (uso libre)`;
         }
-        cargarImagenDelDia();
 
         // ============================================================
         // RENDERIZAR CARRUSEL
@@ -818,40 +1070,34 @@
             const cont = document.getElementById('carruselListas');
             cont.innerHTML = '';
             document.getElementById('contadorListas').textContent = `(${listas.length})`;
-
             if (listas.length === 0) {
                 cont.innerHTML = '<p class="mensaje-vacio">🎅 Aún no hay listas. ¡Crea la primera!</p>';
                 return;
             }
-
             listas.forEach(lista => {
                 const tipo = lista.tipo || 'adulto';
                 const card = document.createElement('div');
                 card.className = 'tarjeta-lista';
-                card.dataset.id = lista.id;
                 card.dataset.nombre = lista.nombre.toLowerCase();
 
-                const headerDiv = document.createElement('div');
-                headerDiv.className = 'card-header';
+                const header = document.createElement('div');
+                header.className = 'card-header';
                 const h3 = document.createElement('h3');
                 h3.textContent = lista.nombre;
                 const badge = document.createElement('span');
                 badge.className = `badge-tipo ${tipo}`;
                 badge.textContent = tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño';
-                headerDiv.appendChild(h3);
-                headerDiv.appendChild(badge);
-                card.appendChild(headerDiv);
+                header.appendChild(h3); header.appendChild(badge);
+                card.appendChild(header);
 
                 if (tipo === 'adulto' && lista.email) {
                     const p = document.createElement('p');
-                    p.className = 'meta-info';
-                    p.textContent = `✉️ ${lista.email}`;
+                    p.className = 'meta-info'; p.textContent = `✉️ ${lista.email}`;
                     card.appendChild(p);
                 }
                 if (tipo === 'nino') {
                     const p = document.createElement('p');
-                    p.className = 'meta-info';
-                    p.textContent = `🎂 ${lista.edad} años`;
+                    p.className = 'meta-info'; p.textContent = `🎂 ${lista.edad} años`;
                     card.appendChild(p);
                 }
 
@@ -867,7 +1113,7 @@
                         const img = document.createElement('img');
                         img.src = url; img.loading = 'lazy';
                         img.onerror = function() { this.src = 'https://via.placeholder.com/60x60/d4af37/ffffff?text=🎁'; };
-                        img.addEventListener('click', (e) => { e.stopPropagation(); abrirLightbox(url); });
+                        img.addEventListener('click', e => { e.stopPropagation(); abrirLightbox(url); });
                         minis.appendChild(img);
                     });
                     card.appendChild(minis);
@@ -882,13 +1128,6 @@
                         a.textContent = `🔗 ${enlace.titulo || 'Enlace'}`;
                         links.appendChild(a);
                     });
-                    if (lista.enlaces.length > 2) {
-                        const mas = document.createElement('span');
-                        mas.textContent = `+${lista.enlaces.length - 2} más`;
-                        mas.style.fontSize = '0.8rem';
-                        mas.style.color = 'var(--texto-suave)';
-                        links.appendChild(mas);
-                    }
                     card.appendChild(links);
                 }
 
@@ -896,22 +1135,17 @@
                 acciones.className = 'acciones-tarjeta';
 
                 const btnPDF = document.createElement('button');
-                btnPDF.className = 'btn-pdf';
-                btnPDF.textContent = '📄 PDF';
-                btnPDF.title = 'Descargar PDF';
+                btnPDF.className = 'btn-pdf'; btnPDF.textContent = '📄 PDF';
                 btnPDF.addEventListener('click', () => descargarPDF(lista));
                 acciones.appendChild(btnPDF);
 
                 const btnBorrar = document.createElement('button');
-                btnBorrar.className = 'btn-borrar';
-                btnBorrar.textContent = '🗑️';
-                btnBorrar.title = 'Eliminar lista';
+                btnBorrar.className = 'btn-borrar'; btnBorrar.textContent = '🗑️';
                 btnBorrar.addEventListener('click', () => eliminarLista(lista.id));
                 acciones.appendChild(btnBorrar);
 
                 const btnEditar = document.createElement('button');
-                btnEditar.className = 'btn-editar';
-                btnEditar.textContent = '✏️ Editar';
+                btnEditar.className = 'btn-editar'; btnEditar.textContent = '✏️ Editar';
                 btnEditar.addEventListener('click', () => abrirModalEditar(lista.id));
                 acciones.appendChild(btnEditar);
 
@@ -926,9 +1160,9 @@
         // ============================================================
         // BUSCADOR
         // ============================================================
-        document.getElementById('buscador').addEventListener('input', (e) => filtrarListas(e.target.value));
-        function filtrarListas(termino) {
-            const t = termino.toLowerCase().trim();
+        document.getElementById('buscador').addEventListener('input', e => filtrarListas(e.target.value));
+        function filtrarListas(term) {
+            const t = term.toLowerCase().trim();
             document.querySelectorAll('.tarjeta-lista').forEach(card => {
                 card.style.display = (card.dataset.nombre || '').includes(t) ? '' : 'none';
             });
@@ -947,13 +1181,13 @@
         // ============================================================
         // ELIMINAR LISTA
         // ============================================================
-        function eliminarLista(id) {
+        async function eliminarLista(id) {
             const lista = listas.find(l => l.id === id);
             if (!lista) return;
             if (!confirm(`¿Eliminar la lista de "${lista.nombre}"?`)) return;
             listas = listas.filter(l => l.id !== id);
-            guardarListas();
             renderizarCarrusel();
+            await eliminarListaSupabase(id);
             toast('Lista eliminada', 'success');
         }
 
@@ -966,24 +1200,44 @@
         const nombreInput = document.getElementById('nombrePersona');
         const emailInput = document.getElementById('emailPersona');
         const edadInput = document.getElementById('edadNino');
+        const padreInput = document.getElementById('padreInput');
+        const madreInput = document.getElementById('madreInput');
         const textoInput = document.getElementById('textoDeseo');
         const urlImagenInput = document.getElementById('urlImagen');
         const previewDiv = document.getElementById('previewImagenes');
         const contEnlaces = document.getElementById('contenedorEnlaces');
         const btnEliminarLista = document.getElementById('btnEliminarLista');
+        const datalistAdultos = document.getElementById('listaAdultos');
 
-        function popularSelectsPadres(padreId, madreId) {
+        function popularDatalistAdultos() {
             const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
-            const selectPadre = document.getElementById('padreSelect');
-            const selectMadre = document.getElementById('madreSelect');
-            const opciones = adultos.length
-                ? adultos.map(a => `<option value="${a.id}">${escapeHtml(a.nombre)}</option>`).join('')
-                : '<option value="">(No hay adultos registrados)</option>';
-            selectPadre.innerHTML = `<option value="">— Seleccionar —</option>` + opciones;
-            selectMadre.innerHTML = `<option value="">— Seleccionar —</option>` + opciones;
-            if (padreId) selectPadre.value = padreId;
-            if (madreId) selectMadre.value = madreId;
+            datalistAdultos.innerHTML = adultos.map(a =>
+                `<option value="${escapeHtml(a.nombre)}">`).join('');
         }
+
+        function resolverAdultoId(nombre) {
+            if (!nombre || !nombre.trim()) return null;
+            const n = nombre.toLowerCase().trim();
+            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
+            const match = adultos.find(a => a.nombre.toLowerCase().trim() === n);
+            return match ? match.id : null;
+        }
+
+        function actualizarIndicador(input, indicator) {
+            const val = input.value.trim();
+            if (!val) { indicator.textContent = ''; return; }
+            const match = resolverAdultoId(val);
+            if (match) {
+                indicator.textContent = '✓ Coincide con un adulto registrado (excluido del sorteo)';
+                indicator.style.color = 'var(--verde)';
+            } else {
+                indicator.textContent = '⚠ No coincide con ningún adulto (sin exclusión)';
+                indicator.style.color = '#e67e22';
+            }
+        }
+
+        padreInput.addEventListener('input', () => actualizarIndicador(padreInput, document.getElementById('padreIndicator')));
+        madreInput.addEventListener('input', () => actualizarIndicador(madreInput, document.getElementById('madreIndicator')));
 
         function actualizarCamposTipo() {
             const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
@@ -992,19 +1246,24 @@
             document.getElementById('grupoEmail').classList.toggle('oculto', esNino);
             document.getElementById('grupoEdad').classList.toggle('oculto', !esNino);
             document.getElementById('grupoPadres').classList.toggle('oculto', !esNino);
-            if (esNino) popularSelectsPadres();
+            if (esNino) popularDatalistAdultos();
         }
-        document.querySelectorAll('input[name="tipoLista"]').forEach(r => r.addEventListener('change', actualizarCamposTipo));
+        document.querySelectorAll('input[name="tipoLista"]').forEach(r =>
+            r.addEventListener('change', actualizarCamposTipo));
 
-        document.getElementById('btnCrearLista').addEventListener('click', () => {
+        function abrirModalCrear(tipoDefault = 'adulto') {
             listaEditandoId = null;
             modalTitulo.textContent = 'Crear lista de deseo';
             listaIdInput.value = '';
             nombreInput.value = '';
             emailInput.value = '';
             edadInput.value = '';
+            padreInput.value = '';
+            madreInput.value = '';
+            document.getElementById('padreIndicator').textContent = '';
+            document.getElementById('madreIndicator').textContent = '';
             textoInput.value = '';
-            document.querySelector('input[name="tipoLista"][value="adulto"]').checked = true;
+            document.querySelector(`input[name="tipoLista"][value="${tipoDefault}"]`).checked = true;
             actualizarCamposTipo();
             imagenesTemporales = [];
             enlacesTemporales = [{ titulo: '', url: '' }];
@@ -1013,7 +1272,10 @@
             renderizarEnlaces();
             modal.classList.add('activo');
             setTimeout(() => nombreInput.focus(), 100);
-        });
+        }
+
+        document.getElementById('btnCrearLista').addEventListener('click', () => abrirModalCrear('adulto'));
+        document.getElementById('btnCrearListaNino').addEventListener('click', () => abrirModalCrear('nino'));
 
         function abrirModalEditar(id) {
             const lista = listas.find(l => l.id === id);
@@ -1029,8 +1291,22 @@
             document.querySelector(`input[name="tipoLista"][value="${tipo}"]`).checked = true;
             actualizarCamposTipo();
             if (tipo === 'nino') {
-                document.getElementById('padreSelect').value = lista.padreId || '';
-                document.getElementById('madreSelect').value = lista.madreId || '';
+                popularDatalistAdultos();
+                // Rellenar padre/madre: primero el nombre guardado, o buscar por ID
+                let pNombre = lista.padreNombre || '';
+                let mNombre = lista.madreNombre || '';
+                if (!pNombre && lista.padreId) {
+                    const p = listas.find(l => l.id === lista.padreId);
+                    if (p) pNombre = p.nombre;
+                }
+                if (!mNombre && lista.madreId) {
+                    const m = listas.find(l => l.id === lista.madreId);
+                    if (m) mNombre = m.nombre;
+                }
+                padreInput.value = pNombre;
+                madreInput.value = mNombre;
+                actualizarIndicador(padreInput, document.getElementById('padreIndicator'));
+                actualizarIndicador(madreInput, document.getElementById('madreIndicator'));
             }
             imagenesTemporales = lista.imagenes ? [...lista.imagenes] : [];
             enlacesTemporales = lista.enlaces && lista.enlaces.length
@@ -1066,7 +1342,6 @@
                 previewDiv.appendChild(img);
             });
         }
-
         document.getElementById('btnAgregarImagenUrl').addEventListener('click', () => {
             const url = urlImagenInput.value.trim();
             if (!url) return;
@@ -1074,14 +1349,13 @@
             urlImagenInput.value = '';
             renderizarPreview();
         });
-
-        document.getElementById('archivoImagen').addEventListener('change', (e) => {
+        document.getElementById('archivoImagen').addEventListener('change', e => {
             const files = e.target.files;
             if (!files.length) return;
             Array.from(files).forEach(file => {
                 if (!file.type.startsWith('image/')) return;
                 const reader = new FileReader();
-                reader.onload = (ev) => { imagenesTemporales.push(ev.target.result); renderizarPreview(); };
+                reader.onload = ev => { imagenesTemporales.push(ev.target.result); renderizarPreview(); };
                 reader.readAsDataURL(file);
             });
             e.target.value = '';
@@ -1092,24 +1366,19 @@
             enlacesTemporales.forEach((enlace, i) => {
                 const fila = document.createElement('div');
                 fila.className = 'fila-enlace';
-
                 const inputT = document.createElement('input');
                 inputT.type = 'text'; inputT.placeholder = 'Título'; inputT.value = enlace.titulo || '';
-                inputT.addEventListener('input', (e) => { enlacesTemporales[i].titulo = e.target.value; });
-
+                inputT.addEventListener('input', e => { enlacesTemporales[i].titulo = e.target.value; });
                 const inputU = document.createElement('input');
                 inputU.type = 'text'; inputU.placeholder = 'URL (https://...)'; inputU.value = enlace.url || '';
-                inputU.addEventListener('input', (e) => { enlacesTemporales[i].url = e.target.value; });
-
+                inputU.addEventListener('input', e => { enlacesTemporales[i].url = e.target.value; });
                 const btnX = document.createElement('button');
-                btnX.className = 'btn-eliminar-enlace';
-                btnX.textContent = '×';
+                btnX.className = 'btn-eliminar-enlace'; btnX.textContent = '×';
                 btnX.addEventListener('click', () => {
                     if (enlacesTemporales.length > 1) enlacesTemporales.splice(i, 1);
                     else enlacesTemporales[0] = { titulo: '', url: '' };
                     renderizarEnlaces();
                 });
-
                 fila.appendChild(inputT); fila.appendChild(inputU); fila.appendChild(btnX);
                 contEnlaces.appendChild(fila);
             });
@@ -1122,20 +1391,18 @@
         // ============================================================
         // GUARDAR LISTA
         // ============================================================
-        document.getElementById('btnGuardarLista').addEventListener('click', () => {
+        document.getElementById('btnGuardarLista').addEventListener('click', async () => {
             const nombre = nombreInput.value.trim();
             const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
             const email = emailInput.value.trim();
             const edad = edadInput.value.trim();
-            const padreId = document.getElementById('padreSelect').value;
-            const madreId = document.getElementById('madreSelect').value;
+            const padreNombre = padreInput.value.trim();
+            const madreNombre = madreInput.value.trim();
 
             if (!nombre) { toast('Ingresa el nombre', 'error'); nombreInput.focus(); return; }
-            if (tipo === 'adulto' && !email) { toast('El correo es obligatorio para adultos', 'error'); emailInput.focus(); return; }
-            if (tipo === 'adulto' && !validarEmail(email)) { toast('Correo electrónico inválido', 'error'); emailInput.focus(); return; }
+            if (tipo === 'adulto' && !email) { toast('El correo es obligatorio', 'error'); emailInput.focus(); return; }
+            if (tipo === 'adulto' && !validarEmail(email)) { toast('Correo inválido', 'error'); emailInput.focus(); return; }
             if (tipo === 'nino' && !edad) { toast('Ingresa la edad del niño/a', 'error'); edadInput.focus(); return; }
-            if (tipo === 'nino' && !padreId) { toast('Selecciona el padre (adulto)', 'error'); document.getElementById('padreSelect').focus(); return; }
-            if (tipo === 'nino' && !madreId) { toast('Selecciona la madre (adulto)', 'error'); document.getElementById('madreSelect').focus(); return; }
 
             const existe = listas.some(l =>
                 l.nombre.toLowerCase() === nombre.toLowerCase() &&
@@ -1155,12 +1422,13 @@
 
             const nueva = {
                 id: listaEditandoId || 'lista_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-                nombre,
-                tipo,
+                nombre, tipo,
                 email: tipo === 'adulto' ? email : '',
                 edad: tipo === 'nino' ? parseInt(edad, 10) : null,
-                padreId: tipo === 'nino' ? padreId : null,
-                madreId: tipo === 'nino' ? madreId : null,
+                padreNombre: tipo === 'nino' ? padreNombre : '',
+                madreNombre: tipo === 'nino' ? madreNombre : '',
+                padreId: tipo === 'nino' ? resolverAdultoId(padreNombre) : null,
+                madreId: tipo === 'nino' ? resolverAdultoId(madreNombre) : null,
                 texto: textoInput.value.trim(),
                 imagenes: [...imagenesTemporales],
                 enlaces: enlacesValidos
@@ -1174,25 +1442,22 @@
                 listas.push(nueva);
                 toast('Lista creada', 'success');
             }
-
-            guardarListas();
             renderizarCarrusel();
+            await guardarListaSupabase(nueva);
             cerrarModal();
         });
 
         // ============================================================
-        // ENVÍO DE EMAIL (helpers)
+        // EMAILS
         // ============================================================
         function enviarEmailAdulto(de, para, deEmail, paraEmail) {
             if (!deEmail || !validarEmail(deEmail)) { toast('Email inválido para ' + de, 'error'); return; }
             const subject = encodeURIComponent('🎄 Amigo Invisible 2026 - Tu amigo secreto');
             const body = encodeURIComponent(
-                `¡Hola ${de}!\n\n` +
-                `Ya se realizó el sorteo del Amigo Invisible 2026.\n\n` +
+                `¡Hola ${de}!\n\nYa se realizó el sorteo del Amigo Invisible 2026.\n\n` +
                 `🎁 Te toca regalar a: ${para}\n` +
                 (paraEmail ? `✉️ Su correo: ${paraEmail}\n` : '') +
-                `\n⚠️ RECUERDA: esto es SECRETO. No se lo cuentes a nadie.\n\n` +
-                `La entrega de regalos será el 25 de diciembre.\n\n` +
+                `\n⚠️ RECUERDA: esto es SECRETO.\n\nLa entrega de regalos será el 25 de diciembre.\n\n` +
                 `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`
             );
             window.location.href = `mailto:${deEmail}?subject=${subject}&body=${body}`;
@@ -1203,70 +1468,67 @@
             const listado = ninos.map(n => `- ${n.nombre} (${n.edad} años)`).join('\n');
             const subject = encodeURIComponent('🎄 Amigo Invisible 2026 - Niños a tu cargo');
             const body = encodeURIComponent(
-                `¡Hola ${adulto.nombre}!\n\n` +
-                `Ya se realizó el sorteo de niños del Amigo Invisible 2026.\n\n` +
+                `¡Hola ${adulto.nombre}!\n\nYa se realizó el sorteo de niños del Amigo Invisible 2026.\n\n` +
                 `🎁 Te toca comprar regalos para:\n${listado}\n\n` +
-                `⚠️ RECUERDA: esto es SECRETO.\n\n` +
-                `La entrega de regalos será el 25 de diciembre.\n\n` +
+                `⚠️ RECUERDA: esto es SECRETO.\n\nLa entrega de regalos será el 25 de diciembre.\n\n` +
                 `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`
             );
             window.location.href = `mailto:${adulto.email}?subject=${subject}&body=${body}`;
         }
 
         // ============================================================
-        // SORTEO DE ADULTOS (SECRETO)
+        // SORTEO DE ADULTOS
         // ============================================================
         const modalSorteo = document.getElementById('modalSorteo');
-        let resultadoActualAdultos = [];
 
-        document.getElementById('btnSorteo').addEventListener('click', () => {
+        document.getElementById('btnSorteo').addEventListener('click', async () => {
             const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
-            if (adultos.length < 2) { toast('Necesitas al menos 2 adultos para el sorteo', 'error'); return; }
-            const emailsInvalidos = adultos.filter(a => !validarEmail(a.email || ''));
-            if (emailsInvalidos.length) { toast('Emails inválidos: ' + emailsInvalidos.map(a => a.nombre).join(', '), 'error'); return; }
+            if (adultos.length < 2) { toast('Necesitas al menos 2 adultos', 'error'); return; }
+            const invalidos = adultos.filter(a => !validarEmail(a.email || ''));
+            if (invalidos.length) { toast('Emails inválidos: ' + invalidos.map(a => a.nombre).join(', '), 'error'); return; }
             const emails = adultos.map(a => (a.email || '').toLowerCase().trim());
-            const emailsDup = emails.filter((e, i) => emails.indexOf(e) !== i);
-            if (emailsDup.length) { toast('Correos repetidos: ' + [...new Set(emailsDup)].join(', '), 'error'); return; }
-            const nombres = adultos.map(l => l.nombre.trim());
-            const dup = nombres.filter((n, i) => nombres.indexOf(n) !== i);
-            if (dup.length) { toast('Nombres duplicados: ' + [...new Set(dup)].join(', '), 'error'); return; }
-            ejecutarSorteoAdultos();
+            const dup = emails.filter((e, i) => emails.indexOf(e) !== i);
+            if (dup.length) { toast('Correos repetidos: ' + [...new Set(dup)].join(', '), 'error'); return; }
+            const nombres = adultos.map(a => a.nombre.trim());
+            const nd = nombres.filter((n, i) => nombres.indexOf(n) !== i);
+            if (nd.length) { toast('Nombres duplicados: ' + [...new Set(nd)].join(', '), 'error'); return; }
+            await ejecutarSorteoAdultos();
             modalSorteo.classList.add('activo');
         });
 
-        function ejecutarSorteoAdultos() {
+        async function ejecutarSorteoAdultos() {
             const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
             const nombres = adultos.map(l => l.nombre);
-            const infoPorNombre = {};
-            adultos.forEach(a => infoPorNombre[a.nombre] = a);
+            const info = {};
+            adultos.forEach(a => info[a.nombre] = a);
 
-            let ultimoSorteo = [];
-            try { ultimoSorteo = JSON.parse(localStorage.getItem(STORAGE_ULTIMO_SORTEO_ADULTOS) || '[]'); } catch (e) {}
-            const parejasAnteriores = new Set(ultimoSorteo.map(p => `${p.de}→${p.para}`));
+            // Intentar no repetir parejas del sorteo anterior
+            const parejasAnt = new Set();
+            if (ultimoSorteoAdultos && Array.isArray(ultimoSorteoAdultos.resultado)) {
+                ultimoSorteoAdultos.resultado.forEach(p => parejasAnt.add(`${p.de}→${p.para}`));
+            }
 
             let resultado, intentos = 0;
-            const maxIntentos = 40;
             do {
                 const shuffled = shuffle([...nombres]);
-                resultado = shuffled.map((nombre, i) => {
+                resultado = shuffled.map((n, i) => {
                     const para = shuffled[(i + 1) % shuffled.length];
                     return {
-                        de: nombre, para,
-                        deEmail: infoPorNombre[nombre]?.email || '',
-                        paraEmail: infoPorNombre[para]?.email || ''
+                        de: n, para,
+                        deEmail: info[n]?.email || '',
+                        paraEmail: info[para]?.email || ''
                     };
                 });
                 intentos++;
-                const hayRepeticion = resultado.some(r => parejasAnteriores.has(`${r.de}→${r.para}`));
-                if (!hayRepeticion) break;
-            } while (intentos < maxIntentos);
+                const repite = resultado.some(r => parejasAnt.has(`${r.de}→${r.para}`));
+                if (!repite) break;
+            } while (intentos < 40);
 
-            localStorage.setItem(STORAGE_ULTIMO_SORTEO_ADULTOS, JSON.stringify(
-                resultado.map(r => ({ de: r.de, para: r.para }))
-            ));
-            resultadoActualAdultos = resultado;
+            const registro = await registrarSorteo('adultos', resultado);
+            ultimoSorteoAdultos = { fecha: registro.fecha, resultado };
+            actualizarEstadoSorteosUI();
             renderizarResultadoAdultos(resultado);
-            document.getElementById('btnReenviarAdultos').style.display = 'inline-block';
+            toast('✅ Sorteo de adultos realizado el ' + formatearFecha(registro.fecha), 'success');
         }
 
         function renderizarResultadoAdultos(resultado) {
@@ -1275,7 +1537,7 @@
             resultado.forEach(({ de, para, paraEmail }) => {
                 const card = document.createElement('div');
                 card.className = 'tarjeta-sorteo';
-                card.addEventListener('click', (e) => {
+                card.addEventListener('click', e => {
                     if (e.target.closest('.btn-enviar-email')) return;
                     card.classList.toggle('revelada');
                 });
@@ -1302,7 +1564,7 @@
             envioDiv.className = 'envio-emails';
             envioDiv.innerHTML = `
                 <h3>📧 Enviar resultados por correo (secreto)</h3>
-                <p>Cada participante solo conoce a quién le regala. Envía individualmente. Se abrirá tu cliente de correo con el mensaje pre-rellenado.</p>
+                <p>Envía individualmente. Se abrirá tu cliente de correo con el mensaje pre-rellenado.</p>
                 <ul class="lista-envios"></ul>`;
             const ul = envioDiv.querySelector('.lista-envios');
 
@@ -1312,8 +1574,7 @@
                 info.innerHTML = `<div class="nombre-envio">🎁 ${escapeHtml(de)} → ${escapeHtml(para)}</div><div class="email-envio">✉️ ${escapeHtml(deEmail)}</div>`;
                 li.appendChild(info);
                 const btn = document.createElement('button');
-                btn.className = 'btn-enviar-email';
-                btn.textContent = '📧 Enviar';
+                btn.className = 'btn-enviar-email'; btn.textContent = '📧 Enviar';
                 btn.addEventListener('click', () => {
                     enviarEmailAdulto(de, para, deEmail, paraEmail);
                     btn.textContent = '✅ Abierto'; btn.disabled = true;
@@ -1325,62 +1586,53 @@
         }
 
         document.getElementById('btnCerrarSorteo').addEventListener('click', () => modalSorteo.classList.remove('activo'));
-        document.getElementById('btnRepetirSorteo').addEventListener('click', () => { ejecutarSorteoAdultos(); toast('Sorteo repetido', 'success'); });
+        document.getElementById('btnRepetirSorteo').addEventListener('click', async () => {
+            await ejecutarSorteoAdultos();
+        });
 
-        // Reenviar último sorteo de adultos
         document.getElementById('btnReenviarAdultos').addEventListener('click', () => {
-            const data = localStorage.getItem(STORAGE_ULTIMO_SORTEO_ADULTOS);
-            if (!data) { toast('No hay sorteo guardado', 'error'); return; }
-            let pares = [];
-            try { pares = JSON.parse(data); } catch (e) {}
-            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
-            const infoPorNombre = {};
-            adultos.forEach(a => infoPorNombre[a.nombre] = a);
-            const resultado = pares.map(p => ({
-                de: p.de, para: p.para,
-                deEmail: infoPorNombre[p.de]?.email || '',
-                paraEmail: infoPorNombre[p.para]?.email || ''
+            if (!ultimoSorteoAdultos || !ultimoSorteoAdultos.resultado) {
+                toast('No hay sorteo guardado', 'error'); return;
+            }
+            // Refrescar emails por si cambiaron
+            const info = {};
+            listas.filter(l => (l.tipo || 'adulto') === 'adulto').forEach(a => info[a.nombre] = a);
+            const resultado = ultimoSorteoAdultos.resultado.map(r => ({
+                de: r.de, para: r.para,
+                deEmail: info[r.de]?.email || r.deEmail || '',
+                paraEmail: info[r.para]?.email || r.paraEmail || ''
             }));
-            resultadoActualAdultos = resultado;
             renderizarResultadoAdultos(resultado);
             modalSorteo.classList.add('activo');
         });
 
         // ============================================================
-        // SORTEO DE NIÑOS (SECRETO, CON EXCLUSIÓN DE PADRES)
+        // SORTEO DE NIÑOS
         // ============================================================
         const modalSorteoNinos = document.getElementById('modalSorteoNinos');
 
-        document.getElementById('btnSorteoNinos').addEventListener('click', () => {
+        document.getElementById('btnSorteoNinos').addEventListener('click', async () => {
             const ninos = listas.filter(l => (l.tipo || 'adulto') === 'nino');
-            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
-
+            const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto' && validarEmail(l.email || ''));
             if (ninos.length === 0) { toast('No hay niños registrados', 'error'); return; }
-            if (adultos.length === 0) { toast('No hay adultos registrados', 'error'); return; }
+            if (adultos.length === 0) { toast('No hay adultos con email válido', 'error'); return; }
 
-            const adultosValidos = adultos.filter(a => validarEmail(a.email || ''));
-            if (adultosValidos.length === 0) { toast('No hay adultos con email válido', 'error'); return; }
-
-            const base = Math.floor(ninos.length / adultosValidos.length);
-            const extra = ninos.length % adultosValidos.length;
-
+            const base = Math.floor(ninos.length / adultos.length);
+            const extra = ninos.length % adultos.length;
             let resultado = null;
-            const maxIntentos = 500;
 
-            for (let intento = 0; intento < maxIntentos; intento++) {
-                const adultosShuffled = shuffle([...adultosValidos]);
+            for (let intento = 0; intento < 500; intento++) {
+                const adultosShuffled = shuffle([...adultos]);
                 const idxExtra = shuffle(adultosShuffled.map((_, i) => i)).slice(0, extra);
                 const capacidad = {};
                 adultosShuffled.forEach((a, i) => {
                     capacidad[a.id] = base + (idxExtra.includes(i) ? 1 : 0);
                 });
-
                 const asignacion = {};
                 adultosShuffled.forEach(a => asignacion[a.id] = []);
 
                 const ninosShuffled = shuffle([...ninos]);
                 let exito = true;
-
                 for (const nino of ninosShuffled) {
                     const elegibles = adultosShuffled.filter(a =>
                         a.id !== nino.padreId &&
@@ -1391,7 +1643,6 @@
                     const elegido = elegibles[Math.floor(Math.random() * elegibles.length)];
                     asignacion[elegido.id].push(nino);
                 }
-
                 if (exito) {
                     resultado = adultosShuffled
                         .filter(a => asignacion[a.id].length > 0)
@@ -1406,36 +1657,36 @@
             }
 
             if (!resultado) {
-                toast('No se pudo realizar el sorteo con las exclusiones actuales. Revisa las relaciones padre/madre o añade más adultos.', 'error');
+                toast('No se pudo con las exclusiones actuales. Revisa padres/madres o añade adultos.', 'error');
                 return;
             }
 
-            localStorage.setItem(STORAGE_SORTEO_NINOS, JSON.stringify(resultado));
-            renderizarSorteoNinos();
+            const registro = await registrarSorteo('ninos', resultado);
+            ultimoSorteoNinos = { fecha: registro.fecha, resultado };
+            actualizarEstadoSorteosUI();
             abrirModalSorteoNinos(resultado);
+            toast('✅ Sorteo de niños realizado el ' + formatearFecha(registro.fecha), 'success');
         });
 
         function abrirModalSorteoNinos(resultado) {
             const cont = document.getElementById('envioEmailsNinos');
             cont.innerHTML = '';
-
             const envioDiv = document.createElement('div');
             envioDiv.className = 'envio-emails';
             envioDiv.innerHTML = `
                 <h3>📧 Enviar resultados por correo (secreto)</h3>
-                <p>Cada adulto solo debe conocer los niños que le tocan. Envía individualmente. Se abrirá tu cliente de correo con el mensaje pre-rellenado.</p>
+                <p>Cada adulto solo debe conocer los niños que le tocan. Envía individualmente.</p>
                 <ul class="lista-envios"></ul>`;
             const ul = envioDiv.querySelector('.lista-envios');
 
             resultado.forEach(item => {
                 const li = document.createElement('li');
                 const info = document.createElement('div');
-                const nombresNinos = item.ninos.map(n => n.nombre).join(', ');
-                info.innerHTML = `<div class="nombre-envio">🎁 ${escapeHtml(item.adultoNombre)}</div><div class="email-envio">✉️ ${escapeHtml(item.adultoEmail)}</div><div class="detalle-envio">👶 ${escapeHtml(nombresNinos)}</div>`;
+                const nombresN = item.ninos.map(n => n.nombre).join(', ');
+                info.innerHTML = `<div class="nombre-envio">🎁 ${escapeHtml(item.adultoNombre)}</div><div class="email-envio">✉️ ${escapeHtml(item.adultoEmail)}</div><div class="detalle-envio">👶 ${escapeHtml(nombresN)}</div>`;
                 li.appendChild(info);
                 const btn = document.createElement('button');
-                btn.className = 'btn-enviar-email';
-                btn.textContent = '📧 Enviar';
+                btn.className = 'btn-enviar-email'; btn.textContent = '📧 Enviar';
                 btn.addEventListener('click', () => {
                     enviarEmailNino({ nombre: item.adultoNombre, email: item.adultoEmail }, item.ninos);
                     btn.textContent = '✅ Abierto'; btn.disabled = true;
@@ -1443,42 +1694,39 @@
                 li.appendChild(btn);
                 ul.appendChild(li);
             });
-
             cont.appendChild(envioDiv);
             modalSorteoNinos.classList.add('activo');
         }
 
         document.getElementById('btnCerrarSorteoNinos').addEventListener('click', () => modalSorteoNinos.classList.remove('activo'));
+        document.getElementById('btnRepetirSorteoNinos').addEventListener('click', () => {
+            modalSorteoNinos.classList.remove('activo');
+            setTimeout(() => document.getElementById('btnSorteoNinos').click(), 100);
+        });
 
         document.getElementById('btnReenviarNinos').addEventListener('click', () => {
-            const data = localStorage.getItem(STORAGE_SORTEO_NINOS);
-            if (!data) { toast('No hay sorteo guardado', 'error'); return; }
-            let resultado = [];
-            try { resultado = JSON.parse(data); } catch (e) {}
-            if (!resultado.length) { toast('No hay sorteo guardado', 'error'); return; }
+            if (!ultimoSorteoNinos || !ultimoSorteoNinos.resultado) {
+                toast('No hay sorteo guardado', 'error'); return;
+            }
+            // Refrescar emails
+            const resultado = ultimoSorteoNinos.resultado.map(item => {
+                const adulto = listas.find(l => l.id === item.adultoId);
+                return {
+                    ...item,
+                    adultoEmail: adulto ? adulto.email : item.adultoEmail,
+                    adultoNombre: adulto ? adulto.nombre : item.adultoNombre
+                };
+            });
             abrirModalSorteoNinos(resultado);
         });
 
-        function renderizarSorteoNinos() {
-            const data = localStorage.getItem(STORAGE_SORTEO_NINOS);
-            const btnReenviar = document.getElementById('btnReenviarNinos');
-            let hay = false;
-            if (data) {
-                try {
-                    const r = JSON.parse(data);
-                    hay = Array.isArray(r) && r.length > 0;
-                } catch (e) {}
-            }
-            btnReenviar.style.display = hay ? 'inline-block' : 'none';
-        }
-
         // ============================================================
-        // PDF DE LA LISTA
+        // PDF
         // ============================================================
         function cargarImagenDataURL(url) {
             return new Promise(resolve => {
-                if (!url) { resolve(null); return; }
-                if (url.startsWith('data:')) { resolve(url); return; }
+                if (!url) return resolve(null);
+                if (url.startsWith('data:')) return resolve(url);
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 img.onload = () => {
@@ -1491,7 +1739,7 @@
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         ctx.drawImage(img, 0, 0);
                         resolve(canvas.toDataURL('image/jpeg', 0.85));
-                    } catch (e) { resolve(null); }
+                    } catch { resolve(null); }
                 };
                 img.onerror = () => resolve(null);
                 img.src = url;
@@ -1502,46 +1750,39 @@
             if (!window.jspdf || !window.jspdf.jsPDF) {
                 const w = window.open('', '_blank');
                 w.document.write(`<html><head><title>Lista - ${escapeHtml(lista.nombre)}</title></head><body style="font-family:Arial; padding:30px;">
-                    <h1>Lista de deseos - Amigo Invisible 2026</h1>
-                    <h2>${escapeHtml(lista.nombre)}</h2>
-                    ${lista.email ? `<p><b>Email:</b> ${escapeHtml(lista.email)}</p>` : ''}
-                    ${lista.edad != null ? `<p><b>Edad:</b> ${lista.edad}</p>` : ''}
-                    <p><b>Notas importantes:</b> ${escapeHtml(lista.texto || '')}</p>
-                    <h3>Enlaces:</h3>
-                    <ul>${(lista.enlaces||[]).map(e => `<li>${escapeHtml(e.titulo)}: ${escapeHtml(e.url)}</li>`).join('')}</ul>
+                    <h1>Amigo Invisible 2026</h1><h2>${escapeHtml(lista.nombre)}</h2>
+                    <p>${escapeHtml(lista.texto || '')}</p>
                 </body></html>`);
                 w.document.close();
                 setTimeout(() => w.print(), 300);
                 return;
             }
-
             try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ unit: 'mm', format: 'a4' });
                 const pageW = doc.internal.pageSize.getWidth();
                 const pageH = doc.internal.pageSize.getHeight();
-                const margin = 15;
+                const m = 15;
                 let y = 20;
 
                 doc.setFontSize(22); doc.setTextColor(192, 57, 43);
-                doc.text('Amigo Invisible 2026', margin, y); y += 10;
+                doc.text('Amigo Invisible 2026', m, y); y += 10;
                 doc.setFontSize(16); doc.setTextColor(39, 174, 96);
-                doc.text('Lista de deseos', margin, y); y += 12;
-
-                doc.setFontSize(14); doc.setTextColor(0, 0, 0);
-                doc.text(`Nombre: ${lista.nombre}`, margin, y); y += 8;
-                if ((lista.tipo || 'adulto') === 'adulto' && lista.email) { doc.text(`Email: ${lista.email}`, margin, y); y += 8; }
-                if ((lista.tipo || 'adulto') === 'nino' && lista.edad != null) { doc.text(`Edad: ${lista.edad} años`, margin, y); y += 8; }
-                doc.text(`Tipo: ${(lista.tipo || 'adulto') === 'adulto' ? 'Sorteo de adultos' : 'Sorteo de niños'}`, margin, y); y += 10;
+                doc.text('Lista de deseos', m, y); y += 12;
+                doc.setFontSize(14); doc.setTextColor(0);
+                doc.text(`Nombre: ${lista.nombre}`, m, y); y += 8;
+                if ((lista.tipo || 'adulto') === 'adulto' && lista.email) { doc.text(`Email: ${lista.email}`, m, y); y += 8; }
+                if ((lista.tipo || 'adulto') === 'nino' && lista.edad != null) { doc.text(`Edad: ${lista.edad} años`, m, y); y += 8; }
+                doc.text(`Tipo: ${(lista.tipo || 'adulto') === 'adulto' ? 'Adultos' : 'Niños'}`, m, y); y += 10;
 
                 if (lista.texto) {
                     doc.setFontSize(12); doc.setTextColor(39, 174, 96);
-                    doc.text('Notas importantes:', margin, y); y += 6;
-                    doc.setTextColor(0, 0, 0); doc.setFontSize(11);
-                    const lineas = doc.splitTextToSize(lista.texto, pageW - margin * 2);
+                    doc.text('Notas importantes:', m, y); y += 6;
+                    doc.setTextColor(0); doc.setFontSize(11);
+                    const lineas = doc.splitTextToSize(lista.texto, pageW - m * 2);
                     lineas.forEach(l => {
                         if (y > pageH - 20) { doc.addPage(); y = 20; }
-                        doc.text(l, margin, y); y += 6;
+                        doc.text(l, m, y); y += 6;
                     });
                     y += 3;
                 }
@@ -1549,17 +1790,17 @@
                 if (lista.enlaces && lista.enlaces.length) {
                     if (y > pageH - 40) { doc.addPage(); y = 20; }
                     doc.setFontSize(12); doc.setTextColor(39, 174, 96);
-                    doc.text('Enlaces:', margin, y); y += 6;
+                    doc.text('Enlaces:', m, y); y += 6;
                     doc.setFontSize(10);
                     for (const e of lista.enlaces) {
                         if (y > pageH - 20) { doc.addPage(); y = 20; }
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(`• ${e.titulo}`, margin, y); y += 5;
+                        doc.setTextColor(0);
+                        doc.text(`• ${e.titulo}`, m, y); y += 5;
                         doc.setTextColor(52, 152, 219);
-                        const lineas = doc.splitTextToSize(e.url, pageW - margin * 2 - 4);
+                        const lineas = doc.splitTextToSize(e.url, pageW - m * 2 - 4);
                         lineas.forEach(l => {
                             if (y > pageH - 20) { doc.addPage(); y = 20; }
-                            doc.textWithLink(l, margin + 4, y, { url: e.url }); y += 5;
+                            doc.textWithLink(l, m + 4, y, { url: e.url }); y += 5;
                         });
                         y += 1;
                     }
@@ -1569,27 +1810,26 @@
                 if (lista.imagenes && lista.imagenes.length) {
                     if (y > pageH - 60) { doc.addPage(); y = 20; }
                     doc.setFontSize(12); doc.setTextColor(39, 174, 96);
-                    doc.text('Imágenes:', margin, y); y += 6;
-                    let x = margin;
-                    const w = 42, h = 42, gap = 5;
+                    doc.text('Imágenes:', m, y); y += 6;
+                    let x = m;
+                    const w = 42, h = 42, g = 5;
                     for (const url of lista.imagenes) {
                         const data = await cargarImagenDataURL(url);
                         if (!data) continue;
-                        if (x + w > pageW - margin) { x = margin; y += h + gap; }
-                        if (y + h > pageH - 15) { doc.addPage(); y = 20; x = margin; }
+                        if (x + w > pageW - m) { x = m; y += h + g; }
+                        if (y + h > pageH - 15) { doc.addPage(); y = 20; x = m; }
                         try {
                             const fmt = data.startsWith('data:image/png') ? 'PNG' : 'JPEG';
                             doc.addImage(data, fmt, x, y, w, h);
-                        } catch (e) {}
-                        x += w + gap;
+                        } catch {}
+                        x += w + g;
                     }
-                    y += h + gap;
+                    y += h + g;
                 }
 
                 if (y > pageH - 15) { doc.addPage(); y = 20; }
-                doc.setFontSize(9); doc.setTextColor(150, 150, 150);
-                doc.text(`Generado el ${new Date().toLocaleDateString('es-ES')}`, margin, pageH - 10);
-
+                doc.setFontSize(9); doc.setTextColor(150);
+                doc.text(`Generado el ${new Date().toLocaleDateString('es-ES')}`, m, pageH - 10);
                 doc.save(`lista-${lista.nombre.replace(/\s+/g, '-')}.pdf`);
                 toast('PDF descargado', 'success');
             } catch (err) {
@@ -1602,13 +1842,12 @@
         // EXPORTAR / IMPORTAR
         // ============================================================
         document.getElementById('btnExportar').addEventListener('click', () => {
-            if (listas.length === 0) { toast('No hay listas para exportar', 'error'); return; }
-            const data = JSON.stringify(listas, null, 2);
-            const blob = new Blob([data], { type: 'application/json' });
+            if (listas.length === 0) { toast('No hay listas', 'error'); return; }
+            const blob = new Blob([JSON.stringify(listas, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            const fecha = new Date().toISOString().slice(0, 10);
-            a.href = url; a.download = `amigo-invisible-2026-${fecha}.json`;
+            a.href = url;
+            a.download = `amigo-invisible-2026-${new Date().toISOString().slice(0, 10)}.json`;
             document.body.appendChild(a); a.click(); a.remove();
             URL.revokeObjectURL(url);
             toast('Datos exportados', 'success');
@@ -1616,22 +1855,20 @@
 
         const inputImportar = document.getElementById('inputImportar');
         document.getElementById('btnImportar').addEventListener('click', () => inputImportar.click());
-        inputImportar.addEventListener('change', (e) => {
+        inputImportar.addEventListener('change', async e => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (ev) => {
+            reader.onload = async ev => {
                 try {
                     const data = JSON.parse(ev.target.result);
                     if (!Array.isArray(data)) throw new Error('Formato inválido');
                     if (!confirm(`Se importarán ${data.length} listas. ¿Reemplazar las actuales?`)) return;
                     listas = data.map(l => ({ ...l, tipo: l.tipo || 'adulto' }));
-                    guardarListas();
                     renderizarCarrusel();
+                    await sincronizarTodas();
                     toast('Datos importados', 'success');
-                } catch (err) {
-                    toast('Error al leer el archivo', 'error');
-                }
+                } catch { toast('Error al leer archivo', 'error'); }
             };
             reader.readAsText(file);
             e.target.value = '';
@@ -1640,8 +1877,30 @@
         // ============================================================
         // INICIALIZACIÓN
         // ============================================================
-        cargarListas();
-        renderizarSorteoNinos();
+        async function inicializar() {
+            // Tema
+            const temaGuardado = localStorage.getItem(STORAGE_TEMA);
+            aplicarTema(temaGuardado || 'dark');
+            crearLucesFondo();
+
+            // Nieve
+            const nieveGuardada = localStorage.getItem(STORAGE_NIEVE);
+            activarNieve(nieveGuardada === null ? true : nieveGuardada === '1');
+
+            // Contador + imagen + luces
+            setInterval(actualizarContador, 1000);
+            actualizarContador();
+            cargarImagenDelDia();
+
+            // Datos (async)
+            await cargarListas();
+            renderizarCarrusel();
+            await cargarEstadosSorteos();
+
+            if (!supabaseDisponible) mostrarAvisoSetup();
+        }
+
+        inicializar();
     </script>
 </body>
 </html>
