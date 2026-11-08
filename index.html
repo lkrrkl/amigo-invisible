@@ -317,7 +317,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .btn-enviar-email.exito{background:var(--verde);color:#fff}
 .btn-enviar-email.fallo{background:#e74c3c;color:#fff}
 
-/* ==== PANEL DE ERROR DE ENVÍO ==== */
 .error-envio-panel{
   flex-basis:100%;width:100%;margin-top:8px;padding:10px 12px;
   background:#fef3f2;border:1px solid #f5c6c0;border-left:4px solid #e74c3c;
@@ -586,7 +585,8 @@ body>header,body>section,body>footer{position:relative;z-index:1}
    ============================================================ */
 const SUPABASE_URL = 'https://fumpktmixrnifdythkvr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9mhjOYFNhCywiX92TtMQVQ_PfcG9UpX';
-const EDGE_FUNCTION_NAME = 'send-email';
+// ⬇️ CAMBIO CLAVE: el nombre real de tu Edge Function en Supabase
+const EDGE_FUNCTION_NAME = 'clever-function';
 const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/${EDGE_FUNCTION_NAME}`;
 
 let supabaseClient = null;
@@ -970,9 +970,9 @@ async function enviarEmailAutomatico({ to, subject, html }) {
         let pista = '';
 
         if (res.status === 404) {
-            pista = 'La Edge Function "send-email" no está desplegada o la URL es incorrecta. Ve a Supabase → Edge Functions → verifica que aparezca como "Deployed".';
+            pista = `La Edge Function "${EDGE_FUNCTION_NAME}" no está desplegada o la URL es incorrecta. Ve a Supabase → Edge Functions → verifica que aparezca como "Deployed" y que el nombre coincida.`;
         } else if (res.status === 401) {
-            pista = 'La función exige autenticación (JWT). En Supabase → Edge Functions → send-email → Settings, desactiva "Enforce JWT Verification" y vuelve a desplegar.';
+            pista = 'La función exige autenticación (JWT). En Supabase → Edge Functions → tu función → Settings, desactiva "Enforce JWT Verification" y vuelve a desplegar.';
         } else if (res.status === 403) {
             const low = String(mensaje).toLowerCase();
             if (low.includes('testing') || low.includes('own email') || low.includes('verify')) {
@@ -983,9 +983,9 @@ async function enviarEmailAutomatico({ to, subject, html }) {
         } else if (res.status === 500) {
             const low = String(mensaje).toLowerCase();
             if (low.includes('resend_api_key')) {
-                pista = 'Falta el secreto RESEND_API_KEY. Ve a Supabase → Edge Functions → send-email → Secrets y añádelo.';
+                pista = 'Falta el secreto RESEND_API_KEY. Ve a Supabase → Edge Functions → tu función → Secrets y añádelo.';
             } else {
-                pista = 'La función falló internamente. Revisa los logs en Supabase → Edge Functions → send-email → Logs.';
+                pista = 'La función falló internamente. Revisa los logs en Supabase → Edge Functions → tu función → Logs.';
             }
         } else if (res.status === 400) {
             pista = 'La función recibió datos incompletos. Comprueba que el correo destino sea válido.';
@@ -1009,7 +1009,6 @@ function enviarEmailFallback(to, subject, body) {
     } catch { return false; }
 }
 
-/* Muestra un panel de error dentro de la fila (li) del sorteo */
 function mostrarErrorEnvio(li, res, to, subject, texto) {
     const existing = li.querySelector('.error-envio-panel');
     if (existing) existing.remove();
@@ -1034,7 +1033,6 @@ function mostrarErrorEnvio(li, res, to, subject, texto) {
     li.appendChild(panel);
 }
 
-/* Diagnóstico de la Edge Function */
 async function diagnosticarEdge() {
     toast('Comprobando Edge Function...', 'info');
     try {
@@ -1043,20 +1041,20 @@ async function diagnosticarEdge() {
             headers: { 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
         if (res.status === 404) {
-            alert('❌ Edge Function NO encontrada (404).\n\nLa función "send-email" no está desplegada.\n\n1. Ve a Supabase → Edge Functions\n2. Deploy a new function → Via Editor\n3. Nombre: send-email\n4. Pega el código\n5. Pulsa "Deploy function"');
+            alert(`❌ Edge Function NO encontrada (404).\n\nNombre esperado: ${EDGE_FUNCTION_NAME}\nURL: ${EDGE_FUNCTION_URL}\n\n1. Ve a Supabase → Edge Functions\n2. Comprueba el nombre exacto de la función\n3. Si es distinto, actualiza la constante EDGE_FUNCTION_NAME en el HTML\n4. Pulsa "Deploy function"`);
             return;
         }
         if (res.status === 401) {
-            alert('❌ La función rechaza la petición (401).\n\nEn Supabase → Edge Functions → send-email → Settings, DESACTIVA "Enforce JWT Verification" (Verify JWT = OFF) y vuelve a desplegar.');
+            alert('❌ La función rechaza la petición (401).\n\nEn Supabase → Edge Functions → tu función → Details, DESACTIVA "Enforce JWT Verification" (Verify JWT = OFF) y vuelve a desplegar.');
             return;
         }
         if (res.ok) {
-            alert('✅ La Edge Function responde correctamente.\n\nSi el envío sigue fallando, el problema está en Resend:\n\n1. Verifica el secreto RESEND_API_KEY en Supabase → Edge Functions → send-email → Secrets.\n2. En el plan gratuito, Resend SOLO envía al correo con el que te registraste.\n3. Para enviar a otros correos: verifica un dominio en resend.com/domains y añade el secreto FROM_EMAIL.\n4. Revisa los logs en Supabase → Edge Functions → send-email → Logs.');
+            alert(`✅ La Edge Function "${EDGE_FUNCTION_NAME}" responde correctamente.\n\nSi el envío sigue fallando, el problema está en Resend:\n\n1. Verifica el secreto RESEND_API_KEY en Supabase → Edge Functions → tu función → Secrets.\n2. En el plan gratuito, Resend SOLO envía al correo con el que te registraste.\n3. Para enviar a otros correos: verifica un dominio en resend.com/domains y añade el secreto FROM_EMAIL.\n4. Revisa los logs en Supabase → Edge Functions → tu función → Logs.`);
             return;
         }
-        alert('Respuesta HTTP ' + res.status + '.\n\nRevisa los logs en Supabase → Edge Functions → send-email → Logs.');
+        alert('Respuesta HTTP ' + res.status + '.\n\nRevisa los logs en Supabase → Edge Functions → tu función → Logs.');
     } catch (e) {
-        alert('❌ No se pudo contactar la Edge Function.\n\n' + (e.message || e) + '\n\nURL: ' + EDGE_FUNCTION_URL);
+        alert('❌ No se pudo contactar la Edge Function.\n\n' + (e.message || e) + '\n\nURL: ' + EDGE_FUNCTION_URL + '\n\nPosibles causas:\n- CORS no configurado en la función (debe responder a OPTIONS con headers CORS).\n- La función no está desplegada.\n- Bloqueador de anuncios activo.');
     }
 }
 
