@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f1729">
 <title>Amigo Invisible 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <!--
@@ -136,6 +137,29 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   display:block;font-size:clamp(.4rem, .95vw, .65rem);
   font-weight:600;color:var(--dorado-claro);
   margin-top:2px;letter-spacing:.4px;text-transform:uppercase;
+}
+
+/* ============================================================
+   BOTÓN "CREAR LISTA" en la cabecera (abajo-derecha)
+   ============================================================ */
+.btn-crear{
+  background:linear-gradient(135deg,var(--rojo),var(--rojo-claro));color:#fff;
+  border:none;padding:12px 24px;font-size:.95rem;border-radius:30px;cursor:pointer;
+  box-shadow:0 6px 16px rgba(192,57,43,.3);transition:transform .2s, box-shadow .2s;font-weight:700;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn-crear:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(192,57,43,.4)}
+.btn-crear:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
+
+.btn-crear-header{
+  position:absolute;
+  right:14px;
+  bottom:14px;
+  z-index:3;
+  box-shadow:
+    0 8px 22px rgba(0,0,0,.5),
+    0 0 0 2px rgba(241,196,15,.55),
+    0 0 18px rgba(241,196,15,.35);
 }
 
 .cinta-mensajes{
@@ -317,15 +341,6 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 }
 #ordenar:focus{outline:none;border-color:var(--dorado)}
 
-.barra-acciones{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:20px}
-.btn-crear{
-  background:linear-gradient(135deg,var(--rojo),var(--rojo-claro));color:#fff;
-  border:none;padding:12px 24px;font-size:.95rem;border-radius:30px;cursor:pointer;
-  box-shadow:0 6px 16px rgba(192,57,43,.3);transition:transform .2s, box-shadow .2s;font-weight:700;
-}
-.btn-crear:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(192,57,43,.4)}
-.btn-crear:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
-
 .grid-listas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:8px}
 @media(max-width:1000px){.grid-listas{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.grid-listas{grid-template-columns:1fr;gap:14px}}
@@ -389,7 +404,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   padding-top:8px;border-top:1px dashed var(--borde);opacity:.75;
 }
 .acciones-tarjeta{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
-.btn-editar,.btn-jpg{
+.btn-editar,.btn-jpg,.btn-pdf{
   border:none;padding:7px 12px;border-radius:20px;cursor:pointer;font-weight:700;
   font-size:.78rem;transition:transform .15s, background .2s;
 }
@@ -397,12 +412,11 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .btn-editar:hover{background:var(--dorado-claro);transform:translateY(-1px)}
 .btn-jpg{background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff}
 .btn-jpg:hover{background:linear-gradient(135deg,#8e44ad,#7d3c98);transform:translateY(-1px)}
+.btn-pdf{background:#3498db;color:#fff}
+.btn-pdf:hover{background:#2980b9;transform:translateY(-1px)}
 
 /* ============================================================
    ★★★ LUCES NAVIDEÑAS EN LOS MARCOS ★★★
-   Orden: rojo → verde → amarillo → magenta → azul (se repite)
-   Gradiente circular: intenso al centro, transparente al borde
-   Espaciado: 30px entre luces · tile 150px (5 luces)
    ============================================================ */
 body.luces-navidad .cabecera-principal::after,
 body.luces-navidad .calendario-box::after,
@@ -464,13 +478,8 @@ body.luces-navidad .tarjeta-lista::before {
 }
 
 @keyframes lucesBrillar {
-  0%, 100% {
-    filter: drop-shadow(0 0 2px rgba(255,255,255,0.85));
-  }
-  50% {
-    filter: drop-shadow(0 0 4px rgba(255,255,255,1))
-            drop-shadow(0 0 10px rgba(255,230,150,0.65));
-  }
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.85)); }
+  50%      { filter: drop-shadow(0 0 4px rgba(255,255,255,1)) drop-shadow(0 0 10px rgba(255,230,150,0.65)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -694,13 +703,14 @@ body.luces-navidad .tarjeta-lista::before {
   .cabecera-principal{border-radius:16px}
   .cuenta-regresiva-overlay{
     left:10px;bottom:10px;
-    max-height:calc(45% - 10px);max-width:72%;padding:8px 10px;
+    max-height:calc(45% - 10px);max-width:62%;padding:8px 10px;
   }
   .cuenta-regresiva-overlay h2{font-size:.62rem;margin-bottom:4px}
   .cuenta-regresiva-overlay #contador span{font-size:.85rem;padding:4px 5px}
   .cuenta-regresiva-overlay #contador small{font-size:.42rem;margin-top:1px}
   .calendario-box{min-height:360px}
   body.luces-navidad .tarjeta-lista::before{inset:-3px;border-radius:19px}
+  .btn-crear-header{right:10px;bottom:10px;}
 }
 @media(max-width:600px){
   body{padding:12px;padding-top:72px}
@@ -713,7 +723,7 @@ body.luces-navidad .tarjeta-lista::before {
   .barra-controles{grid-template-columns:1fr}
   .filtros-rapidos{justify-content:stretch}
   .filtro-btn{flex:1;padding:11px 10px}
-  .cuenta-regresiva-overlay{max-height:calc(48% - 8px);max-width:78%}
+  .cuenta-regresiva-overlay{max-height:calc(48% - 8px);max-width:70%}
   .cuenta-regresiva-overlay h2{font-size:.55rem}
   .cuenta-regresiva-overlay #contador span{font-size:.72rem;padding:3px 4px}
   .cuenta-regresiva-overlay #contador small{font-size:.38rem}
@@ -725,6 +735,9 @@ body.luces-navidad .tarjeta-lista::before {
   .cal-santa{font-size:.8rem;top:-6px;right:-6px}
   .cinta-info{font-size:.66rem;padding:1px 6px}
   body.luces-navidad .tarjeta-lista::before{inset:-2px;border-radius:18px}
+  /* Botón compacto en móvil */
+  .btn-crear-header{padding:8px 10px;font-size:.8rem;right:8px;bottom:8px;border-radius:50%;width:44px;height:44px;justify-content:center;}
+  .btn-crear-header .btn-crear-texto{display:none;}
 }
 </style>
 </head>
@@ -741,6 +754,7 @@ body.luces-navidad .tarjeta-lista::before {
 
 <div id="avisoSupabase" style="max-width:1200px;margin:0 auto 15px;"></div>
 
+<!-- Cabecera con imagen de fondo + cuenta atrás + botón Crear lista -->
 <header class="cabecera-principal">
     <img class="cabecera-logo-img"
          src="https://lh3.googleusercontent.com/d/1s6hoUi64ln6RfmMkxEGEt-Q222QaCjoR"
@@ -754,6 +768,10 @@ body.luces-navidad .tarjeta-lista::before {
             <span id="segundos">0<small>Seg</small></span>
         </div>
     </section>
+    <button class="btn-crear btn-crear-header" id="btnCrearLista" type="button" title="Crear lista" aria-label="Crear lista">
+        <span class="btn-crear-icono">➕</span>
+        <span class="btn-crear-texto">Crear lista</span>
+    </button>
 </header>
 
 <div class="cinta-mensajes" aria-label="Mensajes navideños anónimos">
@@ -808,10 +826,6 @@ body.luces-navidad .tarjeta-lista::before {
             <option value="nombre">🔤 Nombre (A-Z)</option>
             <option value="deseos">🎁 Nº de deseos</option>
         </select>
-    </div>
-
-    <div class="barra-acciones">
-        <button class="btn-crear" id="btnCrearLista">➕ Crear lista</button>
     </div>
 
     <div class="grid-listas" id="gridListas"></div>
@@ -1488,11 +1502,15 @@ function renderizarCalendario() {
     grid.innerHTML = html;
 }
 
+/* ============================================================
+   IMAGEN DE FONDO DEL CALENDARIO — cambia cada 3 horas
+   ============================================================ */
+const PERIODO_IMAGEN_MS = 3 * 60 * 60 * 1000; // 3 horas
+
 function cargarImagenDelDia() {
-    const hoy = new Date();
-    const inicioAno = new Date(hoy.getFullYear(), 0, 0);
-    const diaDelAno = Math.floor((hoy - inicioAno) / 86400000);
-    const imagen = imagenesNavidenas[diaDelAno % imagenesNavidenas.length];
+    // Slot de 3 horas: bloques desde epoch
+    const slot = Math.floor(Date.now() / PERIODO_IMAGEN_MS);
+    const imagen = imagenesNavidenas[slot % imagenesNavidenas.length];
     const bg = document.getElementById('calendarioBg');
     if (!bg) return;
     const probe = new Image();
@@ -1501,10 +1519,18 @@ function cargarImagenDelDia() {
     probe.src = imagen.url;
 }
 
+function programarCambioImagenCalendario() {
+    const ahora = Date.now();
+    const siguiente = Math.ceil(ahora / PERIODO_IMAGEN_MS) * PERIODO_IMAGEN_MS;
+    const espera = (siguiente - ahora) + 1500; // +1.5s margen para asegurar el nuevo slot
+    setTimeout(() => {
+        cargarImagenDelDia();
+        programarCambioImagenCalendario();
+    }, espera);
+}
+
 /* ============================================================
    TARJETA DE LISTA
-   Acciones: sólo "Descargar lista" y "Editar".
-   Eliminar sólo aparece dentro del modal de edición.
    ============================================================ */
 function crearTarjetaLista(lista) {
     const tipo = lista.tipo || 'adulto';
@@ -1633,6 +1659,15 @@ function crearTarjetaLista(lista) {
     const acciones = document.createElement('div');
     acciones.className = 'acciones-tarjeta';
 
+    const btnPDF = document.createElement('button');
+    btnPDF.className = 'btn-pdf';
+    btnPDF.textContent = '📄 PDF';
+    btnPDF.type = 'button';
+    btnPDF.setAttribute('aria-label', 'Descargar PDF');
+    btnPDF.title = 'Descargar PDF con cabecera, calendario y lista';
+    btnPDF.addEventListener('click', (e) => { e.stopPropagation(); descargarPDF(lista); });
+    acciones.appendChild(btnPDF);
+
     const btnJPG = document.createElement('button');
     btnJPG.className = 'btn-jpg';
     btnJPG.textContent = '🖼️ Descargar lista';
@@ -1727,7 +1762,7 @@ function abrirLightbox(url) {
 lightbox.addEventListener('click', () => lightbox.classList.remove('activo'));
 
 /* ============================================================
-   ELIMINAR LISTA (sólo desde el modal de edición)
+   ELIMINAR LISTA
    ============================================================ */
 async function eliminarLista(id) {
     const lista = listas.find(l => l.id === id);
@@ -2080,6 +2115,278 @@ btnEnviarAnonimo.addEventListener('click', async () => {
 });
 
 /* ============================================================
+   HELPERS PARA PDF
+   ============================================================ */
+function cargarImagenDataURL(url) {
+    return new Promise(resolve => {
+        if (!url) return resolve(null);
+        if (url.startsWith('data:')) return resolve(url);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || 300;
+                canvas.height = img.naturalHeight || 300;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
+            } catch { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+    });
+}
+
+/* ============================================================
+   PDF — Cabecera + Calendario + Lista de deseos
+   ============================================================ */
+async function descargarPDF(lista) {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        toast('jsPDF no disponible (revisa tu conexión)', 'error');
+        return;
+    }
+    if (!window.html2canvas) {
+        toast('html2canvas no disponible (revisa tu conexión)', 'error');
+        return;
+    }
+    toast('Generando PDF...', 'info');
+
+    const teniaLuces = document.body.classList.contains('luces-navidad');
+    if (teniaLuces) document.body.classList.remove('luces-navidad');
+
+    try {
+        await new Promise(r => setTimeout(r, 400));
+
+        const headerEl = document.querySelector('.cabecera-principal');
+        const calEl = document.querySelector('.calendario-box');
+
+        // Ocultar botones flotantes en cabecera para que no salgan en el PDF
+        const btnHeader = document.getElementById('btnCrearLista');
+        const prevBtnDisplay = btnHeader ? btnHeader.style.display : '';
+        if (btnHeader) btnHeader.style.display = 'none';
+        const prevCountdownDisplay = document.querySelector('.cuenta-regresiva-overlay');
+        const prevOverlayDisplay = prevCountdownDisplay ? prevCountdownDisplay.style.display : '';
+        if (prevCountdownDisplay) prevCountdownDisplay.style.display = 'none';
+
+        let headerCanvas = null;
+        let calCanvas = null;
+
+        if (headerEl) {
+            headerCanvas = await html2canvas(headerEl, {
+                backgroundColor: '#0e3a1c',
+                scale: 2,
+                useCORS: true,
+                allowTaint: false,
+                logging: false,
+                imageTimeout: 8000
+            });
+        }
+        if (calEl) {
+            calCanvas = await html2canvas(calEl, {
+                backgroundColor: '#0e3a1c',
+                scale: 2,
+                useCORS: true,
+                allowTaint: false,
+                logging: false,
+                imageTimeout: 8000
+            });
+        }
+
+        // Restaurar visibilidad
+        if (btnHeader) btnHeader.style.display = prevBtnDisplay;
+        if (prevCountdownDisplay) prevCountdownDisplay.style.display = prevOverlayDisplay;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit:'mm', format:'a4' });
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const m = 12;
+        const contentW = pageW - m * 2;
+
+        const COLOR_VERDE  = [46, 158, 63];
+        const COLOR_ROJO   = [192, 57, 43];
+        const COLOR_DORADO = [212, 175, 55];
+        const COLOR_GRIS   = [95, 100, 110];
+        const COLOR_NEGRO  = [30, 30, 30];
+
+        function barraTricolor(y) {
+            const t = pageW / 3;
+            doc.setFillColor(...COLOR_ROJO);  doc.rect(0, y, t, 6, 'F');
+            doc.setFillColor(...COLOR_DORADO);doc.rect(t, y, t, 6, 'F');
+            doc.setFillColor(...COLOR_VERDE); doc.rect(2 * t, y, t, 6, 'F');
+        }
+
+        // Página 1
+        barraTricolor(0);
+        let y = 12;
+
+        if (headerCanvas) {
+            const img = headerCanvas.toDataURL('image/jpeg', 0.88);
+            const ratio = headerCanvas.height / headerCanvas.width;
+            let hW = contentW;
+            let hH = hW * ratio;
+            const MAX_H = 68;
+            if (hH > MAX_H) { hH = MAX_H; hW = hH / ratio; }
+            const xOff = m + (contentW - hW) / 2;
+            doc.addImage(img, 'JPEG', xOff, y, hW, hH);
+            y += hH + 6;
+        }
+
+        if (calCanvas) {
+            const img = calCanvas.toDataURL('image/jpeg', 0.88);
+            const ratio = calCanvas.height / calCanvas.width;
+            let cW = contentW;
+            let cH = cW * ratio;
+            const MAX_CAL_H = pageH - y - 40;
+            if (cH > MAX_CAL_H) { cH = MAX_CAL_H; cW = cH / ratio; }
+            const xOff = m + (contentW - cW) / 2;
+            doc.addImage(img, 'JPEG', xOff, y, cW, cH);
+            y += cH + 6;
+        }
+
+        // Tarjeta con nombre
+        doc.setFillColor(240, 248, 255);
+        doc.setDrawColor(...COLOR_DORADO);
+        doc.setLineWidth(0.9);
+        doc.roundedRect(m, y, contentW, 22, 3, 3, 'FD');
+        doc.setFillColor(...COLOR_VERDE);
+        doc.rect(m, y, 4, 22, 'F');
+
+        doc.setFontSize(11);
+        doc.setTextColor(...COLOR_VERDE);
+        doc.setFont('helvetica', 'bold');
+        doc.text('LISTA DE DESEOS', pageW / 2, y + 8, { align: 'center' });
+
+        doc.setFontSize(16);
+        doc.setTextColor(...COLOR_ROJO);
+        doc.text(`${lista.nombre}${(lista.tipo === 'nino' && lista.edad != null) ? `  ·  ${lista.edad} años` : ''}`, pageW / 2, y + 17, { align: 'center' });
+
+        // Página 2+: lista de deseos
+        doc.addPage();
+        barraTricolor(0);
+        let y2 = 20;
+
+        doc.setFontSize(14);
+        doc.setTextColor(...COLOR_ROJO);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Deseos de ${lista.nombre}`, m, y2);
+        y2 += 2;
+        doc.setDrawColor(...COLOR_DORADO);
+        doc.setLineWidth(0.6);
+        doc.line(m, y2, pageW - m, y2);
+        y2 += 10;
+
+        const deseos = (lista.deseos || []).filter(d =>
+            (d.nombre || '').trim() || (d.notas || '').trim()
+            || (d.enlace || '').trim() || (Array.isArray(d.imagenes) && d.imagenes.length)
+        );
+
+        if (deseos.length === 0) {
+            doc.setFontSize(11);
+            doc.setTextColor(...COLOR_GRIS);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Sin deseos registrados.', m, y2);
+        } else {
+            for (let i = 0; i < deseos.length; i++) {
+                const d = deseos[i];
+                if (y2 > pageH - 40) {
+                    doc.addPage();
+                    barraTricolor(0);
+                    y2 = 20;
+                }
+
+                doc.setFillColor(...COLOR_VERDE);
+                doc.circle(m + 6, y2 + 3, 4, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text(String(i + 1), m + 6, y2 + 4.5, { align: 'center' });
+
+                doc.setTextColor(...COLOR_NEGRO);
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text(d.nombre || 'Deseo', m + 14, y2 + 5);
+                y2 += 11;
+
+                if (d.notas) {
+                    doc.setFontSize(10);
+                    doc.setTextColor(...COLOR_GRIS);
+                    doc.setFont('helvetica', 'normal');
+                    const lineas = doc.splitTextToSize(d.notas, contentW - 16);
+                    lineas.forEach(l => {
+                        if (y2 > pageH - 20) { doc.addPage(); barraTricolor(0); y2 = 20; }
+                        doc.text(l, m + 14, y2);
+                        y2 += 5;
+                    });
+                }
+
+                if (d.enlace) {
+                    doc.setFontSize(10);
+                    doc.setTextColor(52, 152, 219);
+                    doc.setFont('helvetica', 'normal');
+                    const lineas = doc.splitTextToSize('Enlace: ' + d.enlace, contentW - 16);
+                    lineas.forEach(l => {
+                        if (y2 > pageH - 20) { doc.addPage(); barraTricolor(0); y2 = 20; }
+                        try { doc.textWithLink(l, m + 14, y2, { url: d.enlace }); }
+                        catch { doc.text(l, m + 14, y2); }
+                        y2 += 5;
+                    });
+                }
+
+                if (d.imagenes && d.imagenes.length) {
+                    let x = m + 14;
+                    const w = 28, h = 28, g = 3;
+                    for (const url of d.imagenes) {
+                        const data = await cargarImagenDataURL(url);
+                        if (!data) continue;
+                        if (x + w > pageW - m) { x = m + 14; y2 += h + g; }
+                        if (y2 + h > pageH - 15) { doc.addPage(); barraTricolor(0); y2 = 20; x = m + 14; }
+                        try {
+                            const fmt = data.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+                            doc.addImage(data, fmt, x, y2, w, h);
+                        } catch {}
+                        x += w + g;
+                    }
+                    y2 += h + 4;
+                }
+
+                doc.setDrawColor(225, 230, 235);
+                doc.setLineWidth(0.3);
+                doc.line(m + 12, y2, pageW - m, y2);
+                y2 += 6;
+            }
+        }
+
+        const totalPag = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= totalPag; p++) {
+            doc.setPage(p);
+            doc.setFillColor(...COLOR_DORADO);
+            doc.rect(0, pageH - 4, pageW, 4, 'F');
+            doc.setFontSize(8);
+            doc.setTextColor(...COLOR_GRIS);
+            doc.setFont('helvetica', 'italic');
+            doc.text(`Generado el ${new Date().toLocaleDateString('es-ES')} · Amigo Invisible 2026`, m, pageH - 6);
+            doc.text(`Página ${p} de ${totalPag}`, pageW - m, pageH - 6, { align: 'right' });
+        }
+
+        doc.save(`lista-${lista.nombre.replace(/\s+/g, '-')}.pdf`);
+        toast('PDF descargado', 'success');
+    } catch (err) {
+        console.error('Error al generar PDF:', err);
+        toast('Error al generar PDF', 'error');
+        const btnHeader = document.getElementById('btnCrearLista');
+        if (btnHeader) btnHeader.style.display = '';
+        const ov = document.querySelector('.cuenta-regresiva-overlay');
+        if (ov) ov.style.display = '';
+    } finally {
+        if (teniaLuces) document.body.classList.add('luces-navidad');
+    }
+}
+
+/* ============================================================
    JPG — Descargar imagen de toda la vista de la lista
    ============================================================ */
 async function descargarImagen(lista) {
@@ -2224,6 +2531,7 @@ async function inicializar() {
     actualizarContador();
     renderizarCalendario();
     cargarImagenDelDia();
+    programarCambioImagenCalendario();
 
     if (window.supabase && typeof window.supabase.createClient === 'function') {
         try {
