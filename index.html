@@ -7,6 +7,7 @@
 <title>Amigo Invisible 2026</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <!--
 SQL Supabase (solo se usan listas y mensajes_anonimos).
 
@@ -72,21 +73,22 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .btn-icono{
   width:46px;height:46px;border-radius:50%;border:2px solid var(--dorado);
   background:var(--tarjeta-bg);color:var(--texto);font-size:1.25rem;cursor:pointer;
-  box-shadow:0 4px 14px var(--sombra-fuerte);transition:transform .2s, background .2s;
+  box-shadow:0 4px 14px var(--sombra-fuerte);transition:transform .2s, background .2s, box-shadow .2s;
   display:flex;align-items:center;justify-content:center;
 }
 .btn-icono:hover{transform:scale(1.08);background:var(--acento-suave)}
 .btn-icono:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
 .btn-icono.inactivo{opacity:.45}
+.btn-icono.encendido{
+  border-color:var(--dorado-claro);
+  box-shadow:0 4px 14px var(--sombra-fuerte), 0 0 16px rgba(241,196,15,.7);
+}
 
 #nieve{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:500;overflow:hidden}
 #nieve.oculto{display:none}
 .copo{position:absolute;top:-30px;color:#fff;animation:caer linear infinite;user-select:none;text-shadow:0 0 4px rgba(255,255,255,.7);will-change:transform}
 @keyframes caer{to{transform:translateY(110vh)}}
 
-/* ============================================================
-   CABECERA FULL-WIDTH con countdown overlay
-   ============================================================ */
 .cabecera-principal{
   position:relative;width:100%;border-radius:20px;overflow:hidden;
   margin-bottom:16px;box-shadow:0 12px 34px var(--sombra-fuerte);
@@ -105,8 +107,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   border:1.5px solid rgba(241,196,15,.55);
   border-radius:14px;
-  padding:10px 12px;
-  color:#fff;
+  padding:10px 12px;color:#fff;
   display:flex;flex-direction:column;justify-content:center;
   box-shadow:0 8px 26px rgba(0,0,0,.55);
   z-index:2;
@@ -154,123 +155,75 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .cinta-sep{padding:0 16px;font-size:1rem;opacity:.9}
 .cinta-vacio{padding:0 30px;font-style:italic;opacity:.95}
 
-/* ============================================================
-   FILA: [Calendario 60%] [Mensaje anónimo 40%]
-   ============================================================ */
 .barra-info-linea{
   display:grid;
   grid-template-columns:1.5fr 1fr;
-  gap:14px;
-  margin:0 0 14px;
-  align-items:stretch;
+  gap:14px;margin:0 0 14px;align-items:stretch;
 }
 
-/* ==== CALENDARIO (imagen 100% visible) ==== */
 .calendario-box{
-  position:relative;
-  border-radius:18px;
-  overflow:hidden;
+  position:relative;border-radius:18px;overflow:hidden;
   box-shadow:0 10px 28px var(--sombra-fuerte);
   border:2px solid var(--dorado);
-  background:#0e3a1c;
-  min-height:400px;
-  display:flex;
+  background:#0e3a1c;min-height:400px;display:flex;
 }
 .calendario-bg{
   position:absolute;inset:0;
-  background-size:cover;
-  background-position:center;
-  z-index:0;
-  transition:background-image .5s;
+  background-size:cover;background-position:center;
+  z-index:0;transition:background-image .5s;
 }
-.calendario-contenido{
-  position:relative;z-index:2;
-  padding:14px;
-  width:100%;
-  display:flex;flex-direction:column;
-}
+.calendario-contenido{position:relative;z-index:2;padding:14px;width:100%;display:flex;flex-direction:column}
 .calendario-titulo{
-  color:#fff;
-  text-align:center;
+  color:#fff;text-align:center;
   font-size:clamp(.85rem, 1.6vw, 1.1rem);
-  margin:0 auto 12px;
-  text-transform:uppercase;
-  letter-spacing:1px;
-  font-weight:800;
-  padding:6px 20px;
-  border-radius:22px;
+  margin:0 auto 12px;text-transform:uppercase;letter-spacing:1px;font-weight:800;
+  padding:6px 20px;border-radius:22px;
   background:rgba(14,58,28,.62);
-  backdrop-filter:blur(6px);
-  -webkit-backdrop-filter:blur(6px);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   border:1px solid rgba(241,196,15,.35);
   box-shadow:0 3px 12px rgba(0,0,0,.4);
   text-shadow:0 2px 6px rgba(0,0,0,.85);
-  display:inline-block;
-  align-self:center;
+  display:inline-block;align-self:center;
 }
-
 .calendario-grid{
-  display:grid;
-  grid-template-columns:repeat(7, minmax(0, 1fr));
-  grid-auto-rows:minmax(38px, 1fr);
-  gap:4px;
-  flex-grow:1;
+  display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));
+  grid-auto-rows:minmax(38px, 1fr);gap:4px;flex-grow:1;
 }
 .cal-dia-semana{
-  text-align:center;
-  font-size:clamp(.6rem, 1vw, .72rem);
-  font-weight:800;
-  color:var(--dorado-claro);
-  text-transform:uppercase;
-  letter-spacing:.5px;
-  display:flex;align-items:center;justify-content:center;
-  padding:2px 0;
+  text-align:center;font-size:clamp(.6rem, 1vw, .72rem);font-weight:800;
+  color:var(--dorado-claro);text-transform:uppercase;letter-spacing:.5px;
+  display:flex;align-items:center;justify-content:center;padding:2px 0;
   text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.6);
 }
 .cal-celda{
-  position:relative;
-  display:flex;flex-direction:column;
+  position:relative;display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  background:rgba(255,255,255,.08);
-  border-radius:8px;
-  font-size:clamp(.7rem, 1.15vw, .88rem);
-  font-weight:700;
-  color:#fff;
-  min-width:0;
-  border:1px solid rgba(255,255,255,.1);
-  line-height:1;
-  transition:transform .15s;
-  text-shadow:0 1px 2px rgba(0,0,0,.5);
+  background:rgba(255,255,255,.08);border-radius:8px;
+  font-size:clamp(.7rem, 1.15vw, .88rem);font-weight:700;color:#fff;
+  min-width:0;border:1px solid rgba(255,255,255,.1);line-height:1;
+  transition:transform .15s;text-shadow:0 1px 2px rgba(0,0,0,.5);
 }
 .cal-celda.cal-vacia{background:transparent;border-color:transparent}
 .cal-num{font-size:clamp(.72rem, 1.2vw, .9rem);line-height:1}
 .cal-icono{font-size:clamp(.55rem, 1vw, .75rem);margin-top:1px;line-height:1}
-
 .cal-hoy{
-  outline:2px solid var(--dorado-claro);
-  outline-offset:-2px;
+  outline:2px solid var(--dorado-claro);outline-offset:-2px;
   box-shadow:0 0 16px rgba(241,196,15,.75), inset 0 0 10px rgba(241,196,15,.25);
 }
 .cal-santa{
-  position:absolute;
-  top:-8px;
-  right:-8px;
+  position:absolute;top:-8px;right:-8px;
   font-size:clamp(.85rem, 1.4vw, 1.15rem);
   filter:drop-shadow(0 2px 4px rgba(0,0,0,.8));
   animation:santaBounce 2s ease-in-out infinite;
-  z-index:3;
-  pointer-events:none;
-  line-height:1;
+  z-index:3;pointer-events:none;line-height:1;
 }
 @keyframes santaBounce{
   0%,100%{transform:translateY(0) rotate(-6deg)}
   50%{transform:translateY(-4px) rotate(6deg)}
 }
-
 .cal-adviento-inicio{
   background:linear-gradient(135deg, rgba(46,158,63,.78), rgba(61,187,84,.55));
-  border-color:rgba(61,187,84,.9);
-  box-shadow:0 0 8px rgba(61,187,84,.4);
+  border-color:rgba(61,187,84,.9);box-shadow:0 0 8px rgba(61,187,84,.4);
 }
 .cal-adviento{
   background:linear-gradient(135deg, rgba(212,175,55,.55), rgba(241,196,15,.4));
@@ -282,32 +235,23 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 }
 .cal-navidad{
   background:linear-gradient(135deg, rgba(192,57,43,.9), rgba(231,76,60,.7));
-  border-color:var(--dorado-claro);
-  box-shadow:0 0 14px rgba(241,196,15,.6);
-  font-weight:900;
+  border-color:var(--dorado-claro);box-shadow:0 0 14px rgba(241,196,15,.6);font-weight:900;
 }
 
 .calendario-leyenda{
   display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
-  margin-top:10px;padding-top:10px;
-  border-top:1px solid rgba(255,255,255,.18);
+  margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.18);
 }
 .leyenda-item{
-  font-size:clamp(.55rem, .9vw, .7rem);
-  font-weight:700;
-  color:#fff;
-  padding:3px 9px;
-  border-radius:10px;
-  white-space:nowrap;
-  text-shadow:0 1px 2px rgba(0,0,0,.5);
-  letter-spacing:.2px;
+  font-size:clamp(.55rem, .9vw, .7rem);font-weight:700;color:#fff;
+  padding:3px 9px;border-radius:10px;white-space:nowrap;
+  text-shadow:0 1px 2px rgba(0,0,0,.5);letter-spacing:.2px;
 }
 .leyenda-adviento-inicio{background:rgba(61,187,84,.5);border:1px solid rgba(61,187,84,.75)}
 .leyenda-adviento{background:rgba(212,175,55,.42);border:1px solid rgba(241,196,15,.7)}
 .leyenda-nochebuena{background:rgba(231,76,60,.55);border:1px solid rgba(255,107,107,.8)}
 .leyenda-navidad{background:rgba(192,57,43,.65);border:1px solid rgba(241,196,15,.85)}
 
-/* ==== Mensaje anónimo ==== */
 .anonimo-box{
   background:linear-gradient(160deg,var(--tarjeta-bg) 0%,var(--acento-suave) 100%);
   border:2px solid var(--dorado);border-radius:20px;padding:18px;
@@ -334,21 +278,11 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .anonimo-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;flex-wrap:wrap}
 .anonimo-contador{font-size:.78rem;color:var(--texto-suave);font-weight:600;display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px}
 .anonimo-contador.excede{color:var(--rojo)}
-
-/* NUEVO: indicación de que el mensaje se verá en la cinta */
 .cinta-info{
-  color:var(--verde);
-  font-weight:700;
-  font-size:.72rem;
-  white-space:nowrap;
-  letter-spacing:.15px;
-  background:rgba(46,158,63,.12);
-  padding:1px 8px;
-  border-radius:10px;
-  border:1px solid rgba(46,158,63,.3);
-  margin-left:2px;
+  color:var(--verde);font-weight:700;font-size:.72rem;white-space:nowrap;
+  letter-spacing:.15px;background:rgba(46,158,63,.12);
+  padding:1px 8px;border-radius:10px;border:1px solid rgba(46,158,63,.3);margin-left:2px;
 }
-
 .btn-enviar-anonimo{
   background:linear-gradient(135deg,var(--verde),var(--verde-hover));color:#fff;border:none;
   padding:9px 20px;border-radius:24px;cursor:pointer;font-weight:700;font-size:.88rem;
@@ -357,23 +291,17 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .btn-enviar-anonimo:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(46,158,63,.45)}
 .btn-enviar-anonimo:disabled{background:#95a5a6;cursor:not-allowed;opacity:.65;box-shadow:none}
 
-/* ============================================================
-   SECCIÓN LISTAS
-   ============================================================ */
 .seccion-listas{margin:28px 0}
 .seccion-listas h2{color:var(--rojo);margin-bottom:16px;text-align:center;font-size:1.5rem;letter-spacing:.3px}
 #contadorListas{color:var(--verde);font-size:1.05rem;font-weight:600}
 
-.barra-controles{
-  display:grid;grid-template-columns:1fr auto auto;gap:10px;margin-bottom:14px;align-items:center;
-}
+.barra-controles{display:grid;grid-template-columns:1fr auto auto;gap:10px;margin-bottom:14px;align-items:center}
 .barra-busqueda input{
   width:100%;padding:12px 18px;border-radius:30px;
   border:2px solid var(--dorado);background:var(--tarjeta-bg);color:var(--texto);
   font-size:.95rem;transition:box-shadow .2s;
 }
 .barra-busqueda input:focus{outline:none;box-shadow:0 0 0 4px rgba(212,175,55,.18)}
-
 .filtros-rapidos{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 .filtro-btn{
   border:2px solid var(--borde);background:var(--tarjeta-bg);color:var(--texto);
@@ -383,7 +311,6 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .filtro-btn:hover{border-color:var(--dorado)}
 .filtro-btn.activo{background:var(--verde);color:#fff;border-color:var(--verde);box-shadow:0 4px 10px rgba(46,158,63,.3)}
 .filtro-btn[data-filtro="nino"].activo{background:var(--rojo);border-color:var(--rojo);box-shadow:0 4px 10px rgba(192,57,43,.3)}
-
 #ordenar{
   padding:11px 16px;border-radius:24px;border:2px solid var(--borde);
   background:var(--tarjeta-bg);color:var(--texto);font-size:.85rem;font-weight:600;
@@ -439,10 +366,16 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   flex-shrink:0;background:var(--fondo);
 }
 .deseo-destacado-txt{min-width:0;flex:1}
+.deseo-destacado-nombre-row{display:flex;align-items:center;gap:4px;min-width:0;width:100%}
 .deseo-destacado-nombre{
-  font-size:.88rem;font-weight:700;color:var(--texto);
+  flex:1;min-width:0;font-size:.88rem;font-weight:700;color:var(--texto);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+.deseo-destacado-link{
+  flex-shrink:0;text-decoration:none;font-size:.9rem;line-height:1;
+  padding:2px 3px;border-radius:5px;transition:transform .15s, background .15s;cursor:pointer;
+}
+.deseo-destacado-link:hover{transform:scale(1.2);background:rgba(52,152,219,.14)}
 .deseo-destacado-notas{
   font-size:.76rem;color:var(--texto-suave);font-style:italic;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -452,14 +385,12 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   padding:4px 10px;border-radius:12px;background:var(--fondo);
   align-self:flex-start;border:1px solid var(--borde);margin-top:2px;
 }
-
 .card-hint{
   font-size:.72rem;color:var(--texto-suave);text-align:center;margin-top:10px;
   padding-top:8px;border-top:1px dashed var(--borde);opacity:.75;
 }
-
 .acciones-tarjeta{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
-.btn-editar,.btn-borrar,.btn-pdf{
+.btn-editar,.btn-borrar,.btn-pdf,.btn-jpg{
   border:none;padding:7px 12px;border-radius:20px;cursor:pointer;font-weight:700;
   font-size:.78rem;transition:transform .15s, background .2s;
 }
@@ -469,8 +400,104 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .btn-borrar:hover{background:var(--rojo);transform:translateY(-1px)}
 .btn-pdf{background:#3498db;color:#fff}
 .btn-pdf:hover{background:#2980b9;transform:translateY(-1px)}
+.btn-jpg{background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff}
+.btn-jpg:hover{background:linear-gradient(135deg,#8e44ad,#7d3c98);transform:translateY(-1px)}
 
-/* ==== Modales ==== */
+/* ============================================================
+   ★★★ LUCES NAVIDEÑAS EN LOS MARCOS ★★★
+   Orden: rojo → verde → amarillo → magenta → azul (se repite)
+   Gradiente circular: intenso al centro, transparente al borde
+   Espaciado: 30px entre luces · tile 150px (5 luces)
+   ============================================================ */
+body.luces-navidad .cabecera-principal::after,
+body.luces-navidad .calendario-box::after,
+body.luces-navidad .anonimo-box::after,
+body.luces-navidad .tarjeta-lista::before {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+  background-image:
+    /* ══ BORDE SUPERIOR: rojo, verde, amarillo, magenta, azul ══ */
+    radial-gradient(circle 5px at 15px  5px, rgba(255,34,34,1) 0%, rgba(255,34,34,.70) 40%, rgba(255,34,34,.20) 80%, rgba(255,34,34,0) 100%),
+    radial-gradient(circle 5px at 45px  5px, rgba(34,255,34,1) 0%, rgba(34,255,34,.70) 40%, rgba(34,255,34,.20) 80%, rgba(34,255,34,0) 100%),
+    radial-gradient(circle 5px at 75px  5px, rgba(255,230,0,1) 0%, rgba(255,230,0,.70) 40%, rgba(255,230,0,.20) 80%, rgba(255,230,0,0) 100%),
+    radial-gradient(circle 5px at 105px 5px, rgba(255,34,255,1) 0%, rgba(255,34,255,.70) 40%, rgba(255,34,255,.20) 80%, rgba(255,34,255,0) 100%),
+    radial-gradient(circle 5px at 135px 5px, rgba(34,119,255,1) 0%, rgba(34,119,255,.70) 40%, rgba(34,119,255,.20) 80%, rgba(34,119,255,0) 100%),
+    /* ══ BORDE INFERIOR: rojo, verde, amarillo, magenta, azul ══ */
+    radial-gradient(circle 5px at 15px  5px, rgba(255,34,34,1) 0%, rgba(255,34,34,.70) 40%, rgba(255,34,34,.20) 80%, rgba(255,34,34,0) 100%),
+    radial-gradient(circle 5px at 45px  5px, rgba(34,255,34,1) 0%, rgba(34,255,34,.70) 40%, rgba(34,255,34,.20) 80%, rgba(34,255,34,0) 100%),
+    radial-gradient(circle 5px at 75px  5px, rgba(255,230,0,1) 0%, rgba(255,230,0,.70) 40%, rgba(255,230,0,.20) 80%, rgba(255,230,0,0) 100%),
+    radial-gradient(circle 5px at 105px 5px, rgba(255,34,255,1) 0%, rgba(255,34,255,.70) 40%, rgba(255,34,255,.20) 80%, rgba(255,34,255,0) 100%),
+    radial-gradient(circle 5px at 135px 5px, rgba(34,119,255,1) 0%, rgba(34,119,255,.70) 40%, rgba(34,119,255,.20) 80%, rgba(34,119,255,0) 100%),
+    /* ══ BORDE IZQUIERDO: rojo, verde, amarillo, magenta, azul ══ */
+    radial-gradient(circle 5px at 5px 15px,  rgba(255,34,34,1) 0%, rgba(255,34,34,.70) 40%, rgba(255,34,34,.20) 80%, rgba(255,34,34,0) 100%),
+    radial-gradient(circle 5px at 5px 45px,  rgba(34,255,34,1) 0%, rgba(34,255,34,.70) 40%, rgba(34,255,34,.20) 80%, rgba(34,255,34,0) 100%),
+    radial-gradient(circle 5px at 5px 75px,  rgba(255,230,0,1) 0%, rgba(255,230,0,.70) 40%, rgba(255,230,0,.20) 80%, rgba(255,230,0,0) 100%),
+    radial-gradient(circle 5px at 5px 105px, rgba(255,34,255,1) 0%, rgba(255,34,255,.70) 40%, rgba(255,34,255,.20) 80%, rgba(255,34,255,0) 100%),
+    radial-gradient(circle 5px at 5px 135px, rgba(34,119,255,1) 0%, rgba(34,119,255,.70) 40%, rgba(34,119,255,.20) 80%, rgba(34,119,255,0) 100%),
+    /* ══ BORDE DERECHO: rojo, verde, amarillo, magenta, azul ══ */
+    radial-gradient(circle 5px at 5px 15px,  rgba(255,34,34,1) 0%, rgba(255,34,34,.70) 40%, rgba(255,34,34,.20) 80%, rgba(255,34,34,0) 100%),
+    radial-gradient(circle 5px at 5px 45px,  rgba(34,255,34,1) 0%, rgba(34,255,34,.70) 40%, rgba(34,255,34,.20) 80%, rgba(34,255,34,0) 100%),
+    radial-gradient(circle 5px at 5px 75px,  rgba(255,230,0,1) 0%, rgba(255,230,0,.70) 40%, rgba(255,230,0,.20) 80%, rgba(255,230,0,0) 100%),
+    radial-gradient(circle 5px at 5px 105px, rgba(255,34,255,1) 0%, rgba(255,34,255,.70) 40%, rgba(255,34,255,.20) 80%, rgba(255,34,255,0) 100%),
+    radial-gradient(circle 5px at 5px 135px, rgba(34,119,255,1) 0%, rgba(34,119,255,.70) 40%, rgba(34,119,255,.20) 80%, rgba(34,119,255,0) 100%);
+  background-size:
+    150px 10px, 150px 10px, 150px 10px, 150px 10px, 150px 10px,
+    150px 10px, 150px 10px, 150px 10px, 150px 10px, 150px 10px,
+    10px 150px, 10px 150px, 10px 150px, 10px 150px, 10px 150px,
+    10px 150px, 10px 150px, 10px 150px, 10px 150px, 10px 150px;
+  background-position:
+    0 0, 0 0, 0 0, 0 0, 0 0,
+    0 100%, 0 100%, 0 100%, 0 100%, 0 100%,
+    0 0, 0 0, 0 0, 0 0, 0 0,
+    100% 0, 100% 0, 100% 0, 100% 0, 100% 0;
+  background-repeat:
+    repeat-x, repeat-x, repeat-x, repeat-x, repeat-x,
+    repeat-x, repeat-x, repeat-x, repeat-x, repeat-x,
+    repeat-y, repeat-y, repeat-y, repeat-y, repeat-y,
+    repeat-y, repeat-y, repeat-y, repeat-y, repeat-y;
+  filter: drop-shadow(0 0 2px rgba(255,255,255,0.85));
+  animation: lucesBrillar 2.4s ease-in-out infinite;
+}
+
+/* Cuadrantes con overflow:hidden → luces dentro del marco */
+body.luces-navidad .cabecera-principal::after,
+body.luces-navidad .calendario-box::after,
+body.luces-navidad .anonimo-box::after {
+  inset: 0;
+  border-radius: inherit;
+}
+
+/* Tarjetas de lista → luces justo fuera del borde */
+body.luces-navidad .tarjeta-lista::before {
+  inset: -4px;
+  border-radius: 20px;
+}
+
+@keyframes lucesBrillar {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(255,255,255,0.85));
+  }
+  50% {
+    filter: drop-shadow(0 0 4px rgba(255,255,255,1))
+            drop-shadow(0 0 10px rgba(255,230,150,0.65));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.luces-navidad .cabecera-principal::after,
+  body.luces-navidad .calendario-box::after,
+  body.luces-navidad .anonimo-box::after,
+  body.luces-navidad .tarjeta-lista::before {
+    animation: none;
+    filter: drop-shadow(0 0 3px rgba(255,255,255,0.9));
+  }
+}
+
+/* ============================================================
+   MODALES
+   ============================================================ */
 .modal-overlay{
   display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);
   justify-content:center;align-items:center;z-index:10000;padding:15px;
@@ -548,17 +575,8 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   color:#fff !important;
   -webkit-text-fill-color:#fff;
   border:none;
-  padding:6px 10px;
-  border-radius:16px;
-  cursor:pointer;
-  font-size:.76rem;
-  font-weight:700;
-  white-space:nowrap;
-  transition:background .2s;
-  display:inline-flex;
-  align-items:center;
-  gap:4px;
-  margin-top:0;
+  padding:6px 10px;border-radius:16px;cursor:pointer;font-size:.76rem;font-weight:700;
+  white-space:nowrap;transition:background .2s;display:inline-flex;align-items:center;gap:4px;margin-top:0;
 }
 .btn-file-mini:hover{background:var(--verde-hover)}
 
@@ -627,117 +645,53 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 @keyframes toastEntrar{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 @keyframes toastSalir{to{opacity:0;transform:translateY(20px)}}
 
-/* ============================================================
-   FOOTER + panel plegado de mensajes (muy discreto)
-   ============================================================ */
 .pie-pagina{text-align:center;padding:36px 0 26px;margin-top:44px;z-index:1}
 .pie-pagina h1{color:var(--rojo);font-size:2.1rem;text-shadow:2px 2px 6px rgba(0,0,0,.15);margin-top:14px;letter-spacing:.3px}
 .pie-pagina .sub{font-size:.85rem;color:var(--texto-suave);margin-top:8px}
 
 .mensajes-footer-detalles{
-  max-width:760px;
-  margin:36px auto 0;
-  opacity:.45;
-  transition:opacity .25s;
-  text-align:left;
+  max-width:760px;margin:36px auto 0;opacity:.45;
+  transition:opacity .25s;text-align:left;
 }
 .mensajes-footer-detalles:hover,
 .mensajes-footer-detalles[open]{opacity:1}
-
 .mensajes-footer-detalles summary{
-  list-style:none;
-  cursor:pointer;
-  width:22px;
-  height:22px;
-  margin:0 auto;
-  border-radius:50%;
-  background:var(--borde);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:.6rem;
-  color:var(--texto-suave);
-  user-select:none;
-  transition:background .2s, color .2s, transform .2s;
-  position:relative;
+  list-style:none;cursor:pointer;width:22px;height:22px;margin:0 auto;
+  border-radius:50%;background:var(--borde);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.6rem;color:var(--texto-suave);user-select:none;
+  transition:background .2s, color .2s, transform .2s;position:relative;
 }
 .mensajes-footer-detalles summary::-webkit-details-marker{display:none}
 .mensajes-footer-detalles summary:hover{background:var(--dorado);color:#222;transform:scale(1.1)}
-.mensajes-footer-detalles summary::before{
-  content:'▾';
-  transition:transform .25s;
-  line-height:1;
-  font-size:.7rem;
-}
+.mensajes-footer-detalles summary::before{content:'▾';transition:transform .25s;line-height:1;font-size:.7rem}
 .mensajes-footer-detalles[open] summary::before{transform:rotate(180deg)}
-.mensajes-footer-detalles summary:focus-visible{
-  outline:2px solid var(--dorado);
-  outline-offset:2px;
-}
+.mensajes-footer-detalles summary:focus-visible{outline:2px solid var(--dorado);outline-offset:2px}
 
 .mensajes-footer-lista{
-  margin-top:14px;
-  max-height:320px;
-  overflow-y:auto;
-  background:var(--tarjeta-bg);
-  border-radius:14px;
-  padding:8px;
-  box-shadow:0 6px 18px var(--sombra);
-  border:1px solid var(--borde);
+  margin-top:14px;max-height:320px;overflow-y:auto;
+  background:var(--tarjeta-bg);border-radius:14px;padding:8px;
+  box-shadow:0 6px 18px var(--sombra);border:1px solid var(--borde);
   animation:footerPanelIn .25s ease-out;
 }
 @keyframes footerPanelIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-
 .mensaje-footer-item{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:10px;
-  padding:9px 12px;
-  border-bottom:1px dashed var(--borde);
-  font-size:.85rem;
-  color:var(--texto);
-  border-radius:8px;
-  transition:background .15s;
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+  padding:9px 12px;border-bottom:1px dashed var(--borde);
+  font-size:.85rem;color:var(--texto);border-radius:8px;transition:background .15s;
 }
 .mensaje-footer-item:last-child{border-bottom:none}
 .mensaje-footer-item:hover{background:var(--acento-suave)}
-
 .mensaje-footer-txt{flex:1;min-width:0;word-break:break-word;line-height:1.45}
-.mensaje-footer-fecha{
-  font-size:.68rem;
-  color:var(--texto-suave);
-  display:block;
-  margin-bottom:2px;
-  letter-spacing:.2px;
-}
-
+.mensaje-footer-fecha{font-size:.68rem;color:var(--texto-suave);display:block;margin-bottom:2px;letter-spacing:.2px}
 .btn-borrar-mensaje{
-  background:transparent;
-  border:1px solid transparent;
-  color:var(--rojo-claro);
-  cursor:pointer;
-  font-size:.95rem;
-  padding:3px 7px;
-  border-radius:8px;
-  flex-shrink:0;
-  line-height:1;
+  background:transparent;border:1px solid transparent;color:var(--rojo-claro);
+  cursor:pointer;font-size:.95rem;padding:3px 7px;border-radius:8px;flex-shrink:0;line-height:1;
   transition:background .15s, border-color .15s, transform .15s;
 }
-.btn-borrar-mensaje:hover{
-  background:rgba(231,76,60,.14);
-  border-color:rgba(231,76,60,.35);
-  transform:scale(1.05);
-}
+.btn-borrar-mensaje:hover{background:rgba(231,76,60,.14);border-color:rgba(231,76,60,.35);transform:scale(1.05)}
 .btn-borrar-mensaje:focus-visible{outline:2px solid var(--rojo);outline-offset:2px}
-
-.mensajes-footer-vacio{
-  text-align:center;
-  font-size:.82rem;
-  color:var(--texto-suave);
-  padding:18px 10px;
-  font-style:italic;
-}
+.mensajes-footer-vacio{text-align:center;font-size:.82rem;color:var(--texto-suave);padding:18px 10px;font-style:italic}
 
 #avisoSupabase{display:none;background:#e67e22;color:#fff;padding:14px 18px;border-radius:12px;margin-bottom:16px;font-size:.9rem;border-left:5px solid #d35400}
 #avisoSupabase.activo{display:block}
@@ -752,14 +706,13 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   .cabecera-principal{border-radius:16px}
   .cuenta-regresiva-overlay{
     left:10px;bottom:10px;
-    max-height:calc(45% - 10px);
-    max-width:72%;
-    padding:8px 10px;
+    max-height:calc(45% - 10px);max-width:72%;padding:8px 10px;
   }
   .cuenta-regresiva-overlay h2{font-size:.62rem;margin-bottom:4px}
   .cuenta-regresiva-overlay #contador span{font-size:.85rem;padding:4px 5px}
   .cuenta-regresiva-overlay #contador small{font-size:.42rem;margin-top:1px}
   .calendario-box{min-height:360px}
+  body.luces-navidad .tarjeta-lista::before{inset:-3px;border-radius:19px}
 }
 @media(max-width:600px){
   body{padding:12px;padding-top:72px}
@@ -772,10 +725,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   .barra-controles{grid-template-columns:1fr}
   .filtros-rapidos{justify-content:stretch}
   .filtro-btn{flex:1;padding:11px 10px}
-  .cuenta-regresiva-overlay{
-    max-height:calc(48% - 8px);
-    max-width:78%;
-  }
+  .cuenta-regresiva-overlay{max-height:calc(48% - 8px);max-width:78%}
   .cuenta-regresiva-overlay h2{font-size:.55rem}
   .cuenta-regresiva-overlay #contador span{font-size:.72rem;padding:3px 4px}
   .cuenta-regresiva-overlay #contador small{font-size:.38rem}
@@ -786,6 +736,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   .cal-dia-semana{font-size:.58rem}
   .cal-santa{font-size:.8rem;top:-6px;right:-6px}
   .cinta-info{font-size:.66rem;padding:1px 6px}
+  body.luces-navidad .tarjeta-lista::before{inset:-2px;border-radius:18px}
 }
 </style>
 </head>
@@ -796,6 +747,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 
 <div class="barra-superior">
     <button class="btn-icono" id="btnNieve" title="Nieve" aria-label="Nieve">❄️</button>
+    <button class="btn-icono inactivo" id="btnLuces" title="Activar luces navideñas" aria-label="Luces navideñas">💡</button>
     <button class="btn-icono" id="btnTema" title="Tema" aria-label="Tema">☀️</button>
 </div>
 
@@ -938,7 +890,6 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
     <h1>🎄 Amigo Invisible 2026 🎄</h1>
     <p class="sub">Hecho con ❤️ para compartir en Navidad</p>
 
-    <!-- Panel plegado, sin nombre, muy discreto, con todos los mensajes -->
     <details class="mensajes-footer-detalles" id="mensajesFooterDetalles">
         <summary title="Ver todos los mensajes anónimos" aria-label="Ver todos los mensajes anónimos"></summary>
         <div class="mensajes-footer-lista" id="mensajesFooterLista"></div>
@@ -960,6 +911,7 @@ let supabaseDisponible = false;
 const STORAGE_KEY = 'amigoInvisible2026_listas_cache';
 const STORAGE_TEMA = 'amigoInvisible2026_tema';
 const STORAGE_NIEVE = 'amigoInvisible2026_nieve';
+const STORAGE_LUCES = 'amigoInvisible2026_luces';
 const STORAGE_MENSAJES = 'amigoInvisible2026_mensajes_anonimos';
 
 const PLACEHOLDER_IMG = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
@@ -976,28 +928,6 @@ let deseosTemporales = [];
 let ultimaListaEnfocada = null;
 let filtroActual = 'todos';
 let ordenActual = 'recientes';
-
-const listasEjemplo = [
-    { id:'ejemplo1', tipo:'adulto', nombre:'Ana',
-      deseos: [
-        { nombre:'Libro de aventuras', notas:'Novela de misterio',
-          imagenes:['https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=100&h=100&fit=crop&q=60'],
-          enlace:'https://www.amazon.com' },
-        { nombre:'Taza navideña', notas:'Con diseño de renos', imagenes:[], enlace:'' }
-      ] },
-    { id:'ejemplo2', tipo:'adulto', nombre:'Carlos',
-      deseos:[{ nombre:'Auriculares inalámbricos', notas:'', imagenes:[], enlace:'' }] },
-    { id:'ejemplo3', tipo:'adulto', nombre:'Pedro',
-      deseos:[
-        { nombre:'Sudadera verde', notas:'Talla M', imagenes:[], enlace:'' },
-        { nombre:'Calcetines navideños', notas:'', imagenes:[], enlace:'' }
-      ] },
-    { id:'ejemplo4', tipo:'nino', nombre:'Lucía', edad:7,
-      deseos:[
-        { nombre:'Set de pinturas', notas:'', imagenes:[], enlace:'' },
-        { nombre:'Peluche de unicornio', notas:'', imagenes:[], enlace:'' }
-      ] }
-];
 
 const imagenesNavidenas = [
     { url:'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&auto=format&fit=crop&q=70', credito:'Unsplash - Annie Spratt' },
@@ -1078,6 +1008,10 @@ function normalizarDeseo(d) {
     };
 }
 
+function esListaEjemplo(l) {
+    return l && /^ejemplo\d+$/.test(String(l.id || ''));
+}
+
 function normalizarLista(l) {
     if (!l || typeof l !== 'object') return l;
     if (!Array.isArray(l.deseos)) l.deseos = [];
@@ -1094,9 +1028,7 @@ function normalizarLista(l) {
    ============================================================ */
 function rowToLocal(r) {
     return normalizarLista({
-        id: r.id,
-        tipo: r.tipo || 'adulto',
-        nombre: r.nombre,
+        id: r.id, tipo: r.tipo || 'adulto', nombre: r.nombre,
         edad: r.edad != null ? r.edad : null,
         deseos: Array.isArray(r.deseos) ? r.deseos : null,
         createdAt: r.created_at || null
@@ -1105,10 +1037,7 @@ function rowToLocal(r) {
 
 function localToRow(l) {
     const row = {
-        id: l.id,
-        tipo: l.tipo,
-        nombre: l.nombre,
-        edad: l.edad,
+        id: l.id, tipo: l.tipo, nombre: l.nombre, edad: l.edad,
         deseos: (l.deseos || []).map(d => ({
             nombre: d.nombre || '',
             notas: d.notas || '',
@@ -1143,7 +1072,7 @@ async function cargarListas() {
                     mostrarAvisoSetup();
                 } else { throw error; }
             } else if (data && data.length > 0) {
-                listas = data.map(rowToLocal);
+                listas = data.map(rowToLocal).filter(l => !esListaEjemplo(l));
                 try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch {}
                 return;
             } else {
@@ -1152,13 +1081,13 @@ async function cargarListas() {
                     try {
                         const parsed = JSON.parse(cache);
                         if (Array.isArray(parsed) && parsed.length > 0) {
-                            listas = parsed.map(normalizarLista);
+                            listas = parsed.map(normalizarLista).filter(l => !esListaEjemplo(l));
                             await sincronizarTodas();
                             return;
                         }
                     } catch {}
                 }
-                listas = listasEjemplo.map(normalizarLista);
+                listas = [];
                 await sincronizarTodas();
                 return;
             }
@@ -1168,9 +1097,9 @@ async function cargarListas() {
     if (cache) {
         try { listas = JSON.parse(cache); } catch {}
         if (!Array.isArray(listas)) listas = [];
-        listas = listas.map(normalizarLista);
+        listas = listas.map(normalizarLista).filter(l => !esListaEjemplo(l));
     } else {
-        listas = listasEjemplo.map(normalizarLista);
+        listas = [];
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch {}
     }
 }
@@ -1276,22 +1205,15 @@ async function guardarMensajeAnonimo(texto) {
 async function eliminarMensajeAnonimo(id) {
     if (!id) return;
     if (!confirm('¿Eliminar este mensaje navideño?')) return;
-
     const idx = mensajesAnonimos.findIndex(m => String(m.id) === String(id));
     if (idx === -1) return;
     mensajesAnonimos.splice(idx, 1);
-
     try { localStorage.setItem(STORAGE_MENSAJES, JSON.stringify(mensajesAnonimos)); } catch {}
-
-    // Intentar borrar también en Supabase (solo si el id no es local 'msg_...')
     if (supabaseDisponible && !String(id).startsWith('msg_')) {
         try {
             await supabaseClient.from('mensajes_anonimos').delete().eq('id', id);
-        } catch (e) {
-            console.error('Delete mensaje Supabase error:', e);
-        }
+        } catch (e) { console.error('Delete mensaje Supabase error:', e); }
     }
-
     renderizarCinta();
     renderizarMensajesFooter();
     toast('Mensaje eliminado', 'success');
@@ -1325,12 +1247,10 @@ function renderizarCinta() {
 function renderizarMensajesFooter() {
     const cont = document.getElementById('mensajesFooterLista');
     if (!cont) return;
-
     if (!Array.isArray(mensajesAnonimos) || mensajesAnonimos.length === 0) {
         cont.innerHTML = '<p class="mensajes-footer-vacio">🎄 Aún no hay mensajes navideños.</p>';
         return;
     }
-
     cont.innerHTML = mensajesAnonimos.map(m => {
         const fechaTxt = formatearFechaCorta(m.fecha);
         const id = escapeHtml(m.id || '');
@@ -1344,7 +1264,6 @@ function renderizarMensajesFooter() {
             </div>
         `;
     }).join('');
-
     cont.querySelectorAll('.btn-borrar-mensaje').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1377,7 +1296,7 @@ function crearLucesFondo() {
 }
 
 /* ============================================================
-   TEMA Y NIEVE
+   TEMA
    ============================================================ */
 const btnTema = document.getElementById('btnTema');
 function aplicarTema(tema) {
@@ -1391,6 +1310,9 @@ btnTema.addEventListener('click', () => {
     aplicarTema(actual === 'dark' ? 'light' : 'dark');
 });
 
+/* ============================================================
+   NIEVE
+   ============================================================ */
 const btnNieve = document.getElementById('btnNieve');
 const contNieve = document.getElementById('nieve');
 function crearNieve() {
@@ -1423,6 +1345,32 @@ function activarNieve(activa) {
 }
 btnNieve.addEventListener('click', () => activarNieve(contNieve.classList.contains('oculto')));
 
+/* ============================================================
+   LUCES NAVIDEÑAS (marcos)
+   ============================================================ */
+const btnLuces = document.getElementById('btnLuces');
+function activarLuces(activa) {
+    if (activa) {
+        document.body.classList.add('luces-navidad');
+        btnLuces.classList.remove('inactivo');
+        btnLuces.classList.add('encendido');
+        btnLuces.textContent = '🎆';
+        btnLuces.title = 'Desactivar luces navideñas';
+        btnLuces.setAttribute('aria-pressed', 'true');
+    } else {
+        document.body.classList.remove('luces-navidad');
+        btnLuces.classList.add('inactivo');
+        btnLuces.classList.remove('encendido');
+        btnLuces.textContent = '💡';
+        btnLuces.title = 'Activar luces navideñas';
+        btnLuces.setAttribute('aria-pressed', 'false');
+    }
+    try { localStorage.setItem(STORAGE_LUCES, activa ? '1' : '0'); } catch {}
+}
+btnLuces.addEventListener('click', () => {
+    activarLuces(!document.body.classList.contains('luces-navidad'));
+});
+
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) document.body.classList.add('paused');
     else document.body.classList.remove('paused');
@@ -1443,7 +1391,6 @@ function abrirModal(modalEl, focusSelector) {
         if (target) target.focus();
     }, 80);
 }
-
 function cerrarModal(modalEl) {
     if (!modalEl) return;
     modalEl.classList.remove('activo');
@@ -1455,7 +1402,6 @@ function cerrarModal(modalEl) {
         }
     }
 }
-
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         const activos = document.querySelectorAll('.modal-overlay.activo');
@@ -1464,7 +1410,6 @@ document.addEventListener('keydown', (e) => {
         if (lb.classList.contains('activo')) lb.classList.remove('activo');
     }
 });
-
 document.querySelectorAll('.modal-overlay').forEach(m => {
     m.addEventListener('click', e => {
         if (e.target !== m) return;
@@ -1514,14 +1459,12 @@ const FECHAS_IMPORTANTES = {
 function renderizarCalendario() {
     const grid = document.getElementById('calendarioGrid');
     if (!grid) return;
-
     const año = 2026;
     const mes = 11;
     const primerDia = new Date(año, mes, 1);
     const diasEnMes = new Date(año, mes + 1, 0).getDate();
     const diaSemanaInicio = primerDia.getDay();
     const offset = (diaSemanaInicio === 0) ? 6 : diaSemanaInicio - 1;
-
     const hoy = new Date();
     const esDiciembre2026 = (hoy.getFullYear() === año && hoy.getMonth() === mes);
     const diaHoy = esDiciembre2026 ? hoy.getDate() : -1;
@@ -1530,31 +1473,23 @@ function renderizarCalendario() {
     ['L', 'M', 'X', 'J', 'V', 'S', 'D'].forEach(d => {
         html += `<div class="cal-dia-semana">${d}</div>`;
     });
-
     for (let i = 0; i < offset; i++) {
         html += '<div class="cal-celda cal-vacia"></div>';
     }
-
     for (let dia = 1; dia <= diasEnMes; dia++) {
         const info = FECHAS_IMPORTANTES[dia];
         const esHoy = (dia === diaHoy);
         const clases = ['cal-celda'];
         if (info) clases.push('cal-importante', 'cal-' + info.clase);
         if (esHoy) clases.push('cal-hoy');
-
         let titleBase = info ? `${dia} dic · ${info.titulo}` : `${dia} de diciembre de 2026`;
         if (esHoy) titleBase = `HOY · ${titleBase}`;
-
         let contenido =
             `<span class="cal-num">${dia}</span>` +
             (info ? `<span class="cal-icono">${info.icono}</span>` : '');
-        if (esHoy) {
-            contenido += `<span class="cal-santa" aria-hidden="true">🎅</span>`;
-        }
-
+        if (esHoy) contenido += `<span class="cal-santa" aria-hidden="true">🎅</span>`;
         html += `<div class="${clases.join(' ')}" title="${titleBase}" aria-label="${titleBase}">${contenido}</div>`;
     }
-
     const totalCeldas = offset + diasEnMes;
     const resto = totalCeldas % 7;
     if (resto !== 0) {
@@ -1562,7 +1497,6 @@ function renderizarCalendario() {
             html += '<div class="cal-celda cal-vacia"></div>';
         }
     }
-
     grid.innerHTML = html;
 }
 
@@ -1573,19 +1507,14 @@ function cargarImagenDelDia() {
     const imagen = imagenesNavidenas[diaDelAno % imagenesNavidenas.length];
     const bg = document.getElementById('calendarioBg');
     if (!bg) return;
-
     const probe = new Image();
-    probe.onload = () => {
-        bg.style.backgroundImage = `url('${imagen.url}')`;
-    };
-    probe.onerror = () => {
-        bg.style.backgroundImage = `url('${PLACEHOLDER_IMG}')`;
-    };
+    probe.onload = () => { bg.style.backgroundImage = `url('${imagen.url}')`; };
+    probe.onerror = () => { bg.style.backgroundImage = `url('${PLACEHOLDER_IMG}')`; };
     probe.src = imagen.url;
 }
 
 /* ============================================================
-   TARJETA DE LISTA
+   TARJETA DE LISTA (con icono 🔗 por deseo)
    ============================================================ */
 function crearTarjetaLista(lista) {
     const tipo = lista.tipo || 'adulto';
@@ -1612,6 +1541,7 @@ function crearTarjetaLista(lista) {
         if (e.target.closest('.acciones-tarjeta')) return;
         if (e.target.closest('img')) return;
         if (e.target.closest('.deseo-enlace-inline')) return;
+        if (e.target.closest('.deseo-destacado-link')) return;
         abrir();
     });
     card.addEventListener('keydown', (e) => {
@@ -1665,10 +1595,27 @@ function crearTarjetaLista(lista) {
             }
             const txt = document.createElement('div');
             txt.className = 'deseo-destacado-txt';
-            const nombre = document.createElement('div');
+
+            const nombreRow = document.createElement('div');
+            nombreRow.className = 'deseo-destacado-nombre-row';
+            const nombre = document.createElement('span');
             nombre.className = 'deseo-destacado-nombre';
             nombre.textContent = d.nombre || 'Deseo';
-            txt.appendChild(nombre);
+            nombreRow.appendChild(nombre);
+            if (d.enlace) {
+                const link = document.createElement('a');
+                link.className = 'deseo-destacado-link';
+                link.href = normalizarURL(d.enlace) || d.enlace;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = '🔗';
+                link.title = 'Ver enlace del deseo';
+                link.setAttribute('aria-label', 'Ver enlace del deseo');
+                link.addEventListener('click', ev => ev.stopPropagation());
+                nombreRow.appendChild(link);
+            }
+            txt.appendChild(nombreRow);
+
             if (d.notas) {
                 const notas = document.createElement('div');
                 notas.className = 'deseo-destacado-notas';
@@ -1702,6 +1649,13 @@ function crearTarjetaLista(lista) {
     btnPDF.addEventListener('click', (e) => { e.stopPropagation(); descargarPDF(lista); });
     acciones.appendChild(btnPDF);
 
+    const btnJPG = document.createElement('button');
+    btnJPG.className = 'btn-jpg'; btnJPG.textContent = '🖼️ JPG'; btnJPG.type = 'button';
+    btnJPG.setAttribute('aria-label', 'Descargar imagen');
+    btnJPG.title = 'Descargar toda la vista de la lista como imagen';
+    btnJPG.addEventListener('click', (e) => { e.stopPropagation(); descargarImagen(lista); });
+    acciones.appendChild(btnJPG);
+
     const btnBorrar = document.createElement('button');
     btnBorrar.className = 'btn-borrar'; btnBorrar.textContent = '🗑️'; btnBorrar.type = 'button';
     btnBorrar.title = 'Eliminar lista';
@@ -1724,10 +1678,8 @@ function crearTarjetaLista(lista) {
 function obtenerListasFiltradasYOrdenadas() {
     const t = (document.getElementById('buscador').value || '').toLowerCase().trim();
     let arr = listas.slice();
-
     if (filtroActual === 'adulto') arr = arr.filter(l => (l.tipo || 'adulto') === 'adulto');
     else if (filtroActual === 'nino') arr = arr.filter(l => l.tipo === 'nino');
-
     if (t) {
         arr = arr.filter(l => {
             const base = (l.nombre || '').toLowerCase();
@@ -1739,7 +1691,6 @@ function obtenerListasFiltradasYOrdenadas() {
             );
         });
     }
-
     if (ordenActual === 'nombre') {
         arr.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
     } else if (ordenActual === 'deseos') {
@@ -1755,10 +1706,8 @@ function renderizarListas() {
     const vacio = document.getElementById('mensajeVacioListas');
     const contadorTotal = document.getElementById('contadorListas');
     contadorTotal.textContent = `(${listas.length})`;
-
     const arr = obtenerListasFiltradasYOrdenadas();
     grid.innerHTML = '';
-
     if (arr.length === 0) {
         vacio.style.display = '';
         vacio.textContent = listas.length === 0
@@ -1778,12 +1727,10 @@ document.querySelectorAll('.filtro-btn').forEach(btn => {
         renderizarListas();
     });
 });
-
 document.getElementById('ordenar').addEventListener('change', (e) => {
     ordenActual = e.target.value;
     renderizarListas();
 });
-
 document.getElementById('buscador').addEventListener('input', renderizarListas);
 
 /* ============================================================
@@ -1815,18 +1762,15 @@ async function eliminarLista(id) {
    MODAL VISUALIZAR
    ============================================================ */
 const modalVisualizar = document.getElementById('modalVisualizar');
-
 function abrirVisualizacion(id) {
     const lista = listas.find(l => l.id === id);
     if (!lista) return;
     const tipo = lista.tipo || 'adulto';
     document.getElementById('visTitulo').textContent = lista.nombre;
     const cont = document.getElementById('visContenido');
-
     let html = '';
     html += `<div class="vis-cabecera"><span class="badge-tipo ${tipo}">${tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño'}</span></div>`;
     if (tipo === 'nino' && lista.edad != null) html += `<p class="vis-linea">🎂 ${escapeHtml(String(lista.edad))} años</p>`;
-
     const deseos = Array.isArray(lista.deseos) ? lista.deseos : [];
     const deseosValidos = deseos.filter(d =>
         (d.nombre || '').trim() || (d.notas || '').trim()
@@ -2039,7 +1983,6 @@ function abrirModalCrear(tipoDefault = 'adulto') {
     renderizarDeseos();
     abrirModal(modal, '#nombrePersona');
 }
-
 document.getElementById('btnCrearLista').addEventListener('click', () => abrirModalCrear('adulto'));
 
 function abrirModalEditar(id) {
@@ -2074,10 +2017,8 @@ document.getElementById('btnGuardarLista').addEventListener('click', async () =>
     const nombre = nombreInput.value.trim();
     const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
     const edad = edadInput.value.trim();
-
     if (!nombre) { toast('Ingresa el nombre', 'error'); nombreInput.focus(); return; }
     if (tipo === 'nino' && !edad) { toast('Ingresa la edad del niño/a', 'error'); edadInput.focus(); return; }
-
     const existe = listas.some(l =>
         l.nombre.toLowerCase() === nombre.toLowerCase() &&
         (l.tipo || 'adulto') === tipo &&
@@ -2158,7 +2099,7 @@ btnEnviarAnonimo.addEventListener('click', async () => {
 });
 
 /* ============================================================
-   PDF
+   HELPERS PDF / JPG
    ============================================================ */
 function cargarImagenDataURL(url) {
     return new Promise(resolve => {
@@ -2183,97 +2124,347 @@ function cargarImagenDataURL(url) {
     });
 }
 
+/* ============================================================
+   PDF DECORADO
+   ============================================================ */
 async function descargarPDF(lista) {
     if (!window.jspdf || !window.jspdf.jsPDF) {
         const w = window.open('', '_blank');
         if (w) {
             const deseosHtml = (lista.deseos || []).map((d, i) => `
-                <div style="margin-bottom:16px;border-left:3px solid #d4af37;padding:4px 12px;">
+                <div style="margin-bottom:16px;border-left:4px solid #d4af37;padding:8px 14px;background:#fdf6e3;border-radius:8px;">
                     <h3 style="margin:0 0 4px;color:#2e9e3f;">${i + 1}. ${escapeHtml(d.nombre || 'Deseo')}</h3>
-                    ${d.notas ? `<p>${escapeHtml(d.notas)}</p>` : ''}
-                    ${d.enlace ? `<p><a href="${escapeHtml(d.enlace)}">${escapeHtml(d.enlace)}</a></p>` : ''}
+                    ${d.notas ? `<p style="margin:4px 0;">${escapeHtml(d.notas)}</p>` : ''}
+                    ${d.enlace ? `<p style="margin:4px 0;"><a href="${escapeHtml(d.enlace)}">${escapeHtml(d.enlace)}</a></p>` : ''}
                 </div>`).join('');
-            w.document.write(`<html><head><title>Lista - ${escapeHtml(lista.nombre)}</title></head><body style="font-family:Arial; padding:30px;">
-                <h1>Amigo Invisible 2026</h1><h2>${escapeHtml(lista.nombre)}</h2>${deseosHtml}
-            </body></html>`);
+            w.document.write(`<html><head><title>Lista - ${escapeHtml(lista.nombre)}</title></head>
+                <body style="font-family:Arial;padding:30px;background:#fff;">
+                <div style="background:linear-gradient(90deg,#c0392b,#d4af37,#2e9e3f);height:10px;border-radius:5px;margin-bottom:20px;"></div>
+                <h1 style="color:#c0392b;text-align:center;margin:0;">Amigo Invisible 2026</h1>
+                <h2 style="color:#2e9e3f;text-align:center;margin:8px 0 24px;">${escapeHtml(lista.nombre)}</h2>
+                ${deseosHtml}
+                <div style="background:linear-gradient(90deg,#2e9e3f,#d4af37,#c0392b);height:10px;border-radius:5px;margin-top:20px;"></div>
+                </body></html>`);
             w.document.close();
             setTimeout(() => w.print(), 300);
         }
         return;
     }
+    toast('Generando PDF...', 'info');
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit:'mm', format:'a4' });
         const pageW = doc.internal.pageSize.getWidth();
         const pageH = doc.internal.pageSize.getHeight();
         const m = 15;
-        let y = 20;
 
-        doc.setFontSize(22); doc.setTextColor(192,57,43);
-        doc.text('Amigo Invisible 2026', m, y); y += 10;
-        doc.setFontSize(16); doc.setTextColor(46,158,63);
-        doc.text('Lista de deseos', m, y); y += 12;
-        doc.setFontSize(14); doc.setTextColor(0);
-        doc.text(`Nombre: ${lista.nombre}`, m, y); y += 8;
-        if ((lista.tipo || 'adulto') === 'nino' && lista.edad != null) { doc.text(`Edad: ${lista.edad} años`, m, y); y += 8; }
-        doc.text(`Tipo: ${(lista.tipo || 'adulto') === 'adulto' ? 'Adultos' : 'Niños'}`, m, y); y += 10;
+        const COLOR_VERDE = [46, 158, 63];
+        const COLOR_ROJO  = [192, 57, 43];
+        const COLOR_DORADO = [212, 175, 55];
+        const COLOR_DORADO_CLARO = [241, 196, 15];
+        const COLOR_GRIS  = [95, 100, 110];
+        const COLOR_NEGRO = [30, 30, 30];
 
-        const deseos = Array.isArray(lista.deseos) ? lista.deseos : [];
-        if (deseos.length > 0) {
-            doc.setFontSize(13); doc.setTextColor(46,158,63);
-            if (y > pageH - 20) { doc.addPage(); y = 20; }
-            doc.text('Deseos:', m, y); y += 8;
+        function barraTricolor(y, h) {
+            const tercio = pageW / 3;
+            doc.setFillColor(...COLOR_ROJO);
+            doc.rect(0, y, tercio, h, 'F');
+            doc.setFillColor(...COLOR_DORADO);
+            doc.rect(tercio, y, tercio, h, 'F');
+            doc.setFillColor(...COLOR_VERDE);
+            doc.rect(2 * tercio, y, tercio, h, 'F');
+        }
+
+        function decorarPagina() {
+            barraTricolor(0, 6);
+            doc.setFillColor(...COLOR_DORADO_CLARO);
+            doc.circle(10, 14, 1.6, 'F');
+            doc.circle(pageW - 10, 14, 1.6, 'F');
+            doc.setFillColor(...COLOR_DORADO);
+            doc.rect(0, pageH - 5, pageW, 5, 'F');
+        }
+
+        decorarPagina();
+
+        doc.setFillColor(240, 248, 255);
+        doc.rect(m, 22, pageW - m * 2, 30, 'F');
+        doc.setDrawColor(...COLOR_DORADO);
+        doc.setLineWidth(0.9);
+        doc.rect(m, 22, pageW - m * 2, 30, 'S');
+
+        doc.setFontSize(22);
+        doc.setTextColor(...COLOR_ROJO);
+        doc.setFont('helvetica', 'bold');
+        doc.text('AMIGO INVISIBLE 2026', pageW / 2, 34, { align: 'center' });
+
+        doc.setDrawColor(...COLOR_DORADO);
+        doc.setLineWidth(0.4);
+        doc.line(m + 25, 37, pageW - m - 25, 37);
+
+        doc.setFontSize(13);
+        doc.setTextColor(...COLOR_VERDE);
+        doc.setFont('helvetica', 'bold');
+        doc.text('LISTA DE DESEOS', pageW / 2, 45, { align: 'center' });
+
+        let y = 60;
+        doc.setFillColor(250, 250, 245);
+        doc.setDrawColor(...COLOR_VERDE);
+        doc.setLineWidth(0.6);
+        doc.roundedRect(m, y, pageW - m * 2, 22, 3, 3, 'FD');
+        doc.setFillColor(...COLOR_VERDE);
+        doc.rect(m, y, 4, 22, 'F');
+
+        doc.setFontSize(12);
+        doc.setTextColor(...COLOR_NEGRO);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Nombre:', m + 8, y + 9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(lista.nombre || ''), m + 30, y + 9);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text('Tipo:', m + 8, y + 17);
+        doc.setFont('helvetica', 'normal');
+        doc.text((lista.tipo || 'adulto') === 'adulto' ? 'Adulto' : 'Nino', m + 30, y + 17);
+
+        if ((lista.tipo || 'adulto') === 'nino' && lista.edad != null) {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Edad:', m + 95, y + 9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(lista.edad + ' anos', m + 115, y + 9);
+        }
+
+        y += 30;
+
+        const deseos = (lista.deseos || []).filter(d =>
+            (d.nombre || '').trim() || (d.notas || '').trim()
+            || (d.enlace || '').trim() || (Array.isArray(d.imagenes) && d.imagenes.length)
+        );
+
+        doc.setFontSize(14);
+        doc.setTextColor(...COLOR_ROJO);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Deseos', m, y);
+        y += 2;
+        doc.setDrawColor(...COLOR_DORADO);
+        doc.setLineWidth(0.6);
+        doc.line(m, y, pageW - m, y);
+        y += 10;
+
+        if (deseos.length === 0) {
+            doc.setFontSize(11);
+            doc.setTextColor(...COLOR_GRIS);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Sin deseos registrados.', m, y);
+        } else {
             for (let i = 0; i < deseos.length; i++) {
                 const d = deseos[i];
-                if (y > pageH - 25) { doc.addPage(); y = 20; }
-                doc.setFontSize(12); doc.setTextColor(192,57,43);
-                doc.text(`${i + 1}. ${d.nombre || 'Deseo'}`, m, y); y += 6;
-                if (d.notas) {
-                    doc.setFontSize(10); doc.setTextColor(60);
-                    const lineas = doc.splitTextToSize(d.notas, pageW - m * 2 - 4);
-                    lineas.forEach(l => {
-                        if (y > pageH - 20) { doc.addPage(); y = 20; }
-                        doc.text(l, m + 4, y); y += 5;
-                    });
+                if (y > pageH - 45) {
+                    doc.addPage();
+                    decorarPagina();
+                    y = 20;
                 }
-                if (d.enlace) {
-                    doc.setFontSize(10); doc.setTextColor(52,152,219);
-                    const lineas = doc.splitTextToSize(d.enlace, pageW - m * 2 - 4);
+
+                doc.setFillColor(...COLOR_VERDE);
+                doc.circle(m + 6, y + 3, 4, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text(String(i + 1), m + 6, y + 4.5, { align: 'center' });
+
+                doc.setTextColor(...COLOR_NEGRO);
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text(d.nombre || 'Deseo', m + 14, y + 5);
+                y += 11;
+
+                if (d.notas) {
+                    doc.setFontSize(10);
+                    doc.setTextColor(...COLOR_GRIS);
+                    doc.setFont('helvetica', 'normal');
+                    const lineas = doc.splitTextToSize(d.notas, pageW - m * 2 - 16);
                     lineas.forEach(l => {
-                        if (y > pageH - 20) { doc.addPage(); y = 20; }
-                        try { doc.textWithLink(l, m + 4, y, { url: d.enlace }); }
-                        catch { doc.text(l, m + 4, y); }
+                        if (y > pageH - 25) { doc.addPage(); decorarPagina(); y = 20; }
+                        doc.text(l, m + 14, y);
                         y += 5;
                     });
                 }
+
+                if (d.enlace) {
+                    doc.setFontSize(10);
+                    doc.setTextColor(52, 152, 219);
+                    doc.setFont('helvetica', 'normal');
+                    const lineas = doc.splitTextToSize('Enlace: ' + d.enlace, pageW - m * 2 - 16);
+                    lineas.forEach(l => {
+                        if (y > pageH - 25) { doc.addPage(); decorarPagina(); y = 20; }
+                        try { doc.textWithLink(l, m + 14, y, { url: d.enlace }); }
+                        catch { doc.text(l, m + 14, y); }
+                        y += 5;
+                    });
+                }
+
                 if (d.imagenes && d.imagenes.length) {
-                    let x = m + 4;
-                    const w = 32, h = 32, g = 4;
+                    let x = m + 14;
+                    const w = 30, h = 30, g = 3;
                     for (const url of d.imagenes) {
                         const data = await cargarImagenDataURL(url);
                         if (!data) continue;
-                        if (x + w > pageW - m) { x = m + 4; y += h + g; }
-                        if (y + h > pageH - 15) { doc.addPage(); y = 20; x = m + 4; }
+                        if (x + w > pageW - m) { x = m + 14; y += h + g; }
+                        if (y + h > pageH - 20) { doc.addPage(); decorarPagina(); y = 20; x = m + 14; }
                         try {
                             const fmt = data.startsWith('data:image/png') ? 'PNG' : 'JPEG';
                             doc.addImage(data, fmt, x, y, w, h);
                         } catch {}
                         x += w + g;
                     }
-                    y += h + g;
+                    y += h + 4;
                 }
-                y += 3;
+
+                doc.setDrawColor(225, 230, 235);
+                doc.setLineWidth(0.3);
+                doc.line(m + 12, y, pageW - m, y);
+                y += 6;
             }
         }
 
-        if (y > pageH - 15) { doc.addPage(); y = 20; }
-        doc.setFontSize(9); doc.setTextColor(150);
-        doc.text(`Generado el ${new Date().toLocaleDateString('es-ES')}`, m, pageH - 10);
+        const totalPaginas = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= totalPaginas; p++) {
+            doc.setPage(p);
+            doc.setFontSize(8);
+            doc.setTextColor(...COLOR_GRIS);
+            doc.setFont('helvetica', 'italic');
+            doc.text(`Generado el ${new Date().toLocaleDateString('es-ES')} - Amigo Invisible 2026`, m, pageH - 7);
+            doc.text(`Pagina ${p} de ${totalPaginas}`, pageW - m, pageH - 7, { align: 'right' });
+        }
+
         doc.save(`lista-${lista.nombre.replace(/\s+/g, '-')}.pdf`);
         toast('PDF descargado', 'success');
     } catch (err) {
         console.error(err);
         toast('Error al generar PDF', 'error');
+    }
+}
+
+/* ============================================================
+   JPG — Imagen de toda la vista de la lista
+   ============================================================ */
+async function descargarImagen(lista) {
+    if (!window.html2canvas) {
+        toast('html2canvas no disponible (revisa tu conexión)', 'error');
+        return;
+    }
+    toast('Generando imagen...', 'info');
+
+    const tipo = lista.tipo || 'adulto';
+    const deseos = (lista.deseos || []).filter(d =>
+        (d.nombre || '').trim() || (d.notas || '').trim()
+        || (d.enlace || '').trim() || (Array.isArray(d.imagenes) && d.imagenes.length)
+    );
+
+    const cont = document.createElement('div');
+    cont.style.cssText = `
+        position: fixed;
+        left: -99999px;
+        top: 0;
+        width: 720px;
+        background: #ffffff;
+        padding: 0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #1f2937;
+        box-sizing: border-box;
+        overflow: hidden;
+    `;
+
+    let html = `
+        <div style="height:12px;background:linear-gradient(90deg,#c0392b,#d4af37,#2e9e3f);"></div>
+        <div style="background:linear-gradient(135deg,#0e3a1c 0%,#1a5c2a 55%,#c0392b 140%);padding:26px 32px;color:#fff;text-align:center;">
+            <div style="font-size:28px;font-weight:900;letter-spacing:1px;text-shadow:0 2px 8px rgba(0,0,0,0.55);">AMIGO INVISIBLE 2026</div>
+            <div style="font-size:13px;color:#f1c40f;letter-spacing:3px;text-transform:uppercase;margin-top:6px;font-weight:700;">Lista de deseos</div>
+        </div>
+        <div style="padding:26px 32px 30px;">
+            <div style="display:flex;align-items:center;gap:12px;background:#fdf6e3;border-left:5px solid #2e9e3f;border-radius:12px;padding:14px 18px;margin-bottom:22px;flex-wrap:wrap;">
+                <div style="font-size:24px;font-weight:900;color:#c0392b;">${escapeHtml(lista.nombre)}</div>
+                <span style="background:${tipo === 'adulto' ? '#2e9e3f' : '#c0392b'};color:#fff;padding:3px 12px;border-radius:14px;font-size:12px;font-weight:700;">${tipo === 'adulto' ? 'Adulto' : 'Nino'}</span>
+                ${(tipo === 'nino' && lista.edad != null) ? `<span style="color:#5b6472;font-size:13px;font-weight:600;">${lista.edad} anos</span>` : ''}
+            </div>
+    `;
+
+    if (deseos.length === 0) {
+        html += '<p style="text-align:center;color:#95a5a6;font-style:italic;padding:30px;">Sin deseos registrados.</p>';
+    } else {
+        deseos.forEach((d, i) => {
+            const tieneImgs = Array.isArray(d.imagenes) && d.imagenes.length;
+            html += `
+                <div style="background:#fff;border:1px solid #e5eaf0;border-left:5px solid #d4af37;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                        <div style="background:#2e9e3f;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${i + 1}</div>
+                        <div style="font-weight:800;color:#1f2937;font-size:15px;">${escapeHtml(d.nombre || 'Deseo')}</div>
+                        ${d.enlace ? `<span style="text-decoration:none;font-size:15px;margin-left:auto;">🔗</span>` : ''}
+                    </div>
+                    ${d.notas ? `<div style="font-size:13px;color:#5b6472;line-height:1.5;margin-left:36px;">${escapeHtml(d.notas)}</div>` : ''}
+                    ${d.enlace ? `<div style="font-size:11px;color:#3498db;margin-left:36px;margin-top:4px;word-break:break-all;">${escapeHtml(d.enlace)}</div>` : ''}
+                    ${tieneImgs ? `
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-left:36px;margin-top:8px;">
+                            ${d.imagenes.map(u => `<img crossorigin="anonymous" src="${escapeHtml(u)}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e5eaf0;" />`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+    }
+
+    html += `
+            <div style="text-align:center;color:#5b6472;font-size:11px;margin-top:24px;font-style:italic;">
+                Generado el ${new Date().toLocaleDateString('es-ES')} - Amigo Invisible 2026
+            </div>
+        </div>
+        <div style="height:12px;background:linear-gradient(90deg,#2e9e3f,#d4af37,#c0392b);"></div>
+    `;
+
+    cont.innerHTML = html;
+    document.body.appendChild(cont);
+
+    try {
+        const imgs = Array.from(cont.querySelectorAll('img'));
+        await Promise.all(imgs.map(img => new Promise(res => {
+            if (img.complete) return res();
+            img.onload = () => res();
+            img.onerror = () => res();
+            setTimeout(res, 2500);
+        })));
+
+        const canvas = await html2canvas(cont, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            logging: false,
+            imageTimeout: 8000,
+            windowWidth: cont.scrollWidth,
+            windowHeight: cont.scrollHeight
+        });
+
+        canvas.toBlob(blob => {
+            if (!blob) {
+                toast('No se pudo generar la imagen', 'error');
+                return;
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lista-${lista.nombre.replace(/\s+/g, '-')}.jpg`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            toast('Imagen descargada', 'success');
+        }, 'image/jpeg', 0.92);
+    } catch (err) {
+        console.error('html2canvas error:', err);
+        toast('No se pudo generar la imagen', 'error');
+    } finally {
+        setTimeout(() => {
+            if (cont.parentNode) cont.parentNode.removeChild(cont);
+        }, 300);
     }
 }
 
@@ -2290,9 +2481,12 @@ async function inicializar() {
     try { nieveGuardada = localStorage.getItem(STORAGE_NIEVE); } catch {}
     activarNieve(nieveGuardada === null ? true : nieveGuardada === '1');
 
+    let lucesGuardadas = null;
+    try { lucesGuardadas = localStorage.getItem(STORAGE_LUCES); } catch {}
+    activarLuces(lucesGuardadas === '1');
+
     setInterval(actualizarContador, 1000);
     actualizarContador();
-
     renderizarCalendario();
     cargarImagenDelDia();
 
