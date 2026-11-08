@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f1729">
 <title>Amigo Invisible 2026</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <!--
@@ -390,16 +389,12 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   padding-top:8px;border-top:1px dashed var(--borde);opacity:.75;
 }
 .acciones-tarjeta{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
-.btn-editar,.btn-borrar,.btn-pdf,.btn-jpg{
+.btn-editar,.btn-jpg{
   border:none;padding:7px 12px;border-radius:20px;cursor:pointer;font-weight:700;
   font-size:.78rem;transition:transform .15s, background .2s;
 }
 .btn-editar{background:var(--dorado);color:#222}
 .btn-editar:hover{background:var(--dorado-claro);transform:translateY(-1px)}
-.btn-borrar{background:var(--rojo-claro);color:#fff}
-.btn-borrar:hover{background:var(--rojo);transform:translateY(-1px)}
-.btn-pdf{background:#3498db;color:#fff}
-.btn-pdf:hover{background:#2980b9;transform:translateY(-1px)}
 .btn-jpg{background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff}
 .btn-jpg:hover{background:linear-gradient(135deg,#8e44ad,#7d3c98);transform:translateY(-1px)}
 
@@ -418,25 +413,21 @@ body.luces-navidad .tarjeta-lista::before {
   pointer-events: none;
   z-index: 1;
   background-image:
-    /* ══ BORDE SUPERIOR: rojo, verde, amarillo, magenta, azul ══ */
     radial-gradient(circle 5px at 15px  5px, rgba(255,34,34,1) 0%, rgba(255,34,34,.70) 40%, rgba(255,34,34,.20) 80%, rgba(255,34,34,0) 100%),
     radial-gradient(circle 5px at 45px  5px, rgba(34,255,34,1) 0%, rgba(34,255,34,.70) 40%, rgba(34,255,34,.20) 80%, rgba(34,255,34,0) 100%),
     radial-gradient(circle 5px at 75px  5px, rgba(255,230,0,1) 0%, rgba(255,230,0,.70) 40%, rgba(255,230,0,.20) 80%, rgba(255,230,0,0) 100%),
     radial-gradient(circle 5px at 105px 5px, rgba(255,34,255,1) 0%, rgba(255,34,255,.70) 40%, rgba(255,34,255,.20) 80%, rgba(255,34,255,0) 100%),
     radial-gradient(circle 5px at 135px 5px, rgba(34,119,255,1) 0%, rgba(34,119,255,.70) 40%, rgba(34,119,255,.20) 80%, rgba(34,119,255,0) 100%),
-    /* ══ BORDE INFERIOR: rojo, verde, amarillo, magenta, azul ══ */
     radial-gradient(circle 5px at 15px  5px, rgba(255,34,34,1) 0%, rgba(255,34,34,.70) 40%, rgba(255,34,34,.20) 80%, rgba(255,34,34,0) 100%),
     radial-gradient(circle 5px at 45px  5px, rgba(34,255,34,1) 0%, rgba(34,255,34,.70) 40%, rgba(34,255,34,.20) 80%, rgba(34,255,34,0) 100%),
     radial-gradient(circle 5px at 75px  5px, rgba(255,230,0,1) 0%, rgba(255,230,0,.70) 40%, rgba(255,230,0,.20) 80%, rgba(255,230,0,0) 100%),
     radial-gradient(circle 5px at 105px 5px, rgba(255,34,255,1) 0%, rgba(255,34,255,.70) 40%, rgba(255,34,255,.20) 80%, rgba(255,34,255,0) 100%),
     radial-gradient(circle 5px at 135px 5px, rgba(34,119,255,1) 0%, rgba(34,119,255,.70) 40%, rgba(34,119,255,.20) 80%, rgba(34,119,255,0) 100%),
-    /* ══ BORDE IZQUIERDO: rojo, verde, amarillo, magenta, azul ══ */
     radial-gradient(circle 5px at 5px 15px,  rgba(255,34,34,1) 0%, rgba(255,34,34,.70) 40%, rgba(255,34,34,.20) 80%, rgba(255,34,34,0) 100%),
     radial-gradient(circle 5px at 5px 45px,  rgba(34,255,34,1) 0%, rgba(34,255,34,.70) 40%, rgba(34,255,34,.20) 80%, rgba(34,255,34,0) 100%),
     radial-gradient(circle 5px at 5px 75px,  rgba(255,230,0,1) 0%, rgba(255,230,0,.70) 40%, rgba(255,230,0,.20) 80%, rgba(255,230,0,0) 100%),
     radial-gradient(circle 5px at 5px 105px, rgba(255,34,255,1) 0%, rgba(255,34,255,.70) 40%, rgba(255,34,255,.20) 80%, rgba(255,34,255,0) 100%),
     radial-gradient(circle 5px at 5px 135px, rgba(34,119,255,1) 0%, rgba(34,119,255,.70) 40%, rgba(34,119,255,.20) 80%, rgba(34,119,255,0) 100%),
-    /* ══ BORDE DERECHO: rojo, verde, amarillo, magenta, azul ══ */
     radial-gradient(circle 5px at 5px 15px,  rgba(255,34,34,1) 0%, rgba(255,34,34,.70) 40%, rgba(255,34,34,.20) 80%, rgba(255,34,34,0) 100%),
     radial-gradient(circle 5px at 5px 45px,  rgba(34,255,34,1) 0%, rgba(34,255,34,.70) 40%, rgba(34,255,34,.20) 80%, rgba(34,255,34,0) 100%),
     radial-gradient(circle 5px at 5px 75px,  rgba(255,230,0,1) 0%, rgba(255,230,0,.70) 40%, rgba(255,230,0,.20) 80%, rgba(255,230,0,0) 100%),
@@ -461,15 +452,12 @@ body.luces-navidad .tarjeta-lista::before {
   animation: lucesBrillar 2.4s ease-in-out infinite;
 }
 
-/* Cuadrantes con overflow:hidden → luces dentro del marco */
 body.luces-navidad .cabecera-principal::after,
 body.luces-navidad .calendario-box::after,
 body.luces-navidad .anonimo-box::after {
   inset: 0;
   border-radius: inherit;
 }
-
-/* Tarjetas de lista → luces justo fuera del borde */
 body.luces-navidad .tarjeta-lista::before {
   inset: -4px;
   border-radius: 20px;
@@ -1514,7 +1502,9 @@ function cargarImagenDelDia() {
 }
 
 /* ============================================================
-   TARJETA DE LISTA (con icono 🔗 por deseo)
+   TARJETA DE LISTA
+   Acciones: sólo "Descargar lista" y "Editar".
+   Eliminar sólo aparece dentro del modal de edición.
    ============================================================ */
 function crearTarjetaLista(lista) {
     const tipo = lista.tipo || 'adulto';
@@ -1643,28 +1633,19 @@ function crearTarjetaLista(lista) {
     const acciones = document.createElement('div');
     acciones.className = 'acciones-tarjeta';
 
-    const btnPDF = document.createElement('button');
-    btnPDF.className = 'btn-pdf'; btnPDF.textContent = '📄 PDF'; btnPDF.type = 'button';
-    btnPDF.setAttribute('aria-label', 'Descargar PDF');
-    btnPDF.addEventListener('click', (e) => { e.stopPropagation(); descargarPDF(lista); });
-    acciones.appendChild(btnPDF);
-
     const btnJPG = document.createElement('button');
-    btnJPG.className = 'btn-jpg'; btnJPG.textContent = '🖼️ JPG'; btnJPG.type = 'button';
-    btnJPG.setAttribute('aria-label', 'Descargar imagen');
+    btnJPG.className = 'btn-jpg';
+    btnJPG.textContent = '🖼️ Descargar lista';
+    btnJPG.type = 'button';
+    btnJPG.setAttribute('aria-label', 'Descargar lista');
     btnJPG.title = 'Descargar toda la vista de la lista como imagen';
     btnJPG.addEventListener('click', (e) => { e.stopPropagation(); descargarImagen(lista); });
     acciones.appendChild(btnJPG);
 
-    const btnBorrar = document.createElement('button');
-    btnBorrar.className = 'btn-borrar'; btnBorrar.textContent = '🗑️'; btnBorrar.type = 'button';
-    btnBorrar.title = 'Eliminar lista';
-    btnBorrar.setAttribute('aria-label', 'Eliminar lista');
-    btnBorrar.addEventListener('click', (e) => { e.stopPropagation(); eliminarLista(lista.id); });
-    acciones.appendChild(btnBorrar);
-
     const btnEditar = document.createElement('button');
-    btnEditar.className = 'btn-editar'; btnEditar.textContent = '✏️ Editar'; btnEditar.type = 'button';
+    btnEditar.className = 'btn-editar';
+    btnEditar.textContent = '✏️ Editar';
+    btnEditar.type = 'button';
     btnEditar.addEventListener('click', (e) => { e.stopPropagation(); abrirModalEditar(lista.id); });
     acciones.appendChild(btnEditar);
 
@@ -1746,7 +1727,7 @@ function abrirLightbox(url) {
 lightbox.addEventListener('click', () => lightbox.classList.remove('activo'));
 
 /* ============================================================
-   ELIMINAR LISTA
+   ELIMINAR LISTA (sólo desde el modal de edición)
    ============================================================ */
 async function eliminarLista(id) {
     const lista = listas.find(l => l.id === id);
@@ -2099,253 +2080,7 @@ btnEnviarAnonimo.addEventListener('click', async () => {
 });
 
 /* ============================================================
-   HELPERS PDF / JPG
-   ============================================================ */
-function cargarImagenDataURL(url) {
-    return new Promise(resolve => {
-        if (!url) return resolve(null);
-        if (url.startsWith('data:')) return resolve(url);
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth || 300;
-                canvas.height = img.naturalHeight || 300;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0);
-                resolve(canvas.toDataURL('image/jpeg', 0.85));
-            } catch { resolve(null); }
-        };
-        img.onerror = () => resolve(null);
-        img.src = url;
-    });
-}
-
-/* ============================================================
-   PDF DECORADO
-   ============================================================ */
-async function descargarPDF(lista) {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-        const w = window.open('', '_blank');
-        if (w) {
-            const deseosHtml = (lista.deseos || []).map((d, i) => `
-                <div style="margin-bottom:16px;border-left:4px solid #d4af37;padding:8px 14px;background:#fdf6e3;border-radius:8px;">
-                    <h3 style="margin:0 0 4px;color:#2e9e3f;">${i + 1}. ${escapeHtml(d.nombre || 'Deseo')}</h3>
-                    ${d.notas ? `<p style="margin:4px 0;">${escapeHtml(d.notas)}</p>` : ''}
-                    ${d.enlace ? `<p style="margin:4px 0;"><a href="${escapeHtml(d.enlace)}">${escapeHtml(d.enlace)}</a></p>` : ''}
-                </div>`).join('');
-            w.document.write(`<html><head><title>Lista - ${escapeHtml(lista.nombre)}</title></head>
-                <body style="font-family:Arial;padding:30px;background:#fff;">
-                <div style="background:linear-gradient(90deg,#c0392b,#d4af37,#2e9e3f);height:10px;border-radius:5px;margin-bottom:20px;"></div>
-                <h1 style="color:#c0392b;text-align:center;margin:0;">Amigo Invisible 2026</h1>
-                <h2 style="color:#2e9e3f;text-align:center;margin:8px 0 24px;">${escapeHtml(lista.nombre)}</h2>
-                ${deseosHtml}
-                <div style="background:linear-gradient(90deg,#2e9e3f,#d4af37,#c0392b);height:10px;border-radius:5px;margin-top:20px;"></div>
-                </body></html>`);
-            w.document.close();
-            setTimeout(() => w.print(), 300);
-        }
-        return;
-    }
-    toast('Generando PDF...', 'info');
-    try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit:'mm', format:'a4' });
-        const pageW = doc.internal.pageSize.getWidth();
-        const pageH = doc.internal.pageSize.getHeight();
-        const m = 15;
-
-        const COLOR_VERDE = [46, 158, 63];
-        const COLOR_ROJO  = [192, 57, 43];
-        const COLOR_DORADO = [212, 175, 55];
-        const COLOR_DORADO_CLARO = [241, 196, 15];
-        const COLOR_GRIS  = [95, 100, 110];
-        const COLOR_NEGRO = [30, 30, 30];
-
-        function barraTricolor(y, h) {
-            const tercio = pageW / 3;
-            doc.setFillColor(...COLOR_ROJO);
-            doc.rect(0, y, tercio, h, 'F');
-            doc.setFillColor(...COLOR_DORADO);
-            doc.rect(tercio, y, tercio, h, 'F');
-            doc.setFillColor(...COLOR_VERDE);
-            doc.rect(2 * tercio, y, tercio, h, 'F');
-        }
-
-        function decorarPagina() {
-            barraTricolor(0, 6);
-            doc.setFillColor(...COLOR_DORADO_CLARO);
-            doc.circle(10, 14, 1.6, 'F');
-            doc.circle(pageW - 10, 14, 1.6, 'F');
-            doc.setFillColor(...COLOR_DORADO);
-            doc.rect(0, pageH - 5, pageW, 5, 'F');
-        }
-
-        decorarPagina();
-
-        doc.setFillColor(240, 248, 255);
-        doc.rect(m, 22, pageW - m * 2, 30, 'F');
-        doc.setDrawColor(...COLOR_DORADO);
-        doc.setLineWidth(0.9);
-        doc.rect(m, 22, pageW - m * 2, 30, 'S');
-
-        doc.setFontSize(22);
-        doc.setTextColor(...COLOR_ROJO);
-        doc.setFont('helvetica', 'bold');
-        doc.text('AMIGO INVISIBLE 2026', pageW / 2, 34, { align: 'center' });
-
-        doc.setDrawColor(...COLOR_DORADO);
-        doc.setLineWidth(0.4);
-        doc.line(m + 25, 37, pageW - m - 25, 37);
-
-        doc.setFontSize(13);
-        doc.setTextColor(...COLOR_VERDE);
-        doc.setFont('helvetica', 'bold');
-        doc.text('LISTA DE DESEOS', pageW / 2, 45, { align: 'center' });
-
-        let y = 60;
-        doc.setFillColor(250, 250, 245);
-        doc.setDrawColor(...COLOR_VERDE);
-        doc.setLineWidth(0.6);
-        doc.roundedRect(m, y, pageW - m * 2, 22, 3, 3, 'FD');
-        doc.setFillColor(...COLOR_VERDE);
-        doc.rect(m, y, 4, 22, 'F');
-
-        doc.setFontSize(12);
-        doc.setTextColor(...COLOR_NEGRO);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Nombre:', m + 8, y + 9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(String(lista.nombre || ''), m + 30, y + 9);
-
-        doc.setFont('helvetica', 'bold');
-        doc.text('Tipo:', m + 8, y + 17);
-        doc.setFont('helvetica', 'normal');
-        doc.text((lista.tipo || 'adulto') === 'adulto' ? 'Adulto' : 'Nino', m + 30, y + 17);
-
-        if ((lista.tipo || 'adulto') === 'nino' && lista.edad != null) {
-            doc.setFont('helvetica', 'bold');
-            doc.text('Edad:', m + 95, y + 9);
-            doc.setFont('helvetica', 'normal');
-            doc.text(lista.edad + ' anos', m + 115, y + 9);
-        }
-
-        y += 30;
-
-        const deseos = (lista.deseos || []).filter(d =>
-            (d.nombre || '').trim() || (d.notas || '').trim()
-            || (d.enlace || '').trim() || (Array.isArray(d.imagenes) && d.imagenes.length)
-        );
-
-        doc.setFontSize(14);
-        doc.setTextColor(...COLOR_ROJO);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Deseos', m, y);
-        y += 2;
-        doc.setDrawColor(...COLOR_DORADO);
-        doc.setLineWidth(0.6);
-        doc.line(m, y, pageW - m, y);
-        y += 10;
-
-        if (deseos.length === 0) {
-            doc.setFontSize(11);
-            doc.setTextColor(...COLOR_GRIS);
-            doc.setFont('helvetica', 'italic');
-            doc.text('Sin deseos registrados.', m, y);
-        } else {
-            for (let i = 0; i < deseos.length; i++) {
-                const d = deseos[i];
-                if (y > pageH - 45) {
-                    doc.addPage();
-                    decorarPagina();
-                    y = 20;
-                }
-
-                doc.setFillColor(...COLOR_VERDE);
-                doc.circle(m + 6, y + 3, 4, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'bold');
-                doc.text(String(i + 1), m + 6, y + 4.5, { align: 'center' });
-
-                doc.setTextColor(...COLOR_NEGRO);
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.text(d.nombre || 'Deseo', m + 14, y + 5);
-                y += 11;
-
-                if (d.notas) {
-                    doc.setFontSize(10);
-                    doc.setTextColor(...COLOR_GRIS);
-                    doc.setFont('helvetica', 'normal');
-                    const lineas = doc.splitTextToSize(d.notas, pageW - m * 2 - 16);
-                    lineas.forEach(l => {
-                        if (y > pageH - 25) { doc.addPage(); decorarPagina(); y = 20; }
-                        doc.text(l, m + 14, y);
-                        y += 5;
-                    });
-                }
-
-                if (d.enlace) {
-                    doc.setFontSize(10);
-                    doc.setTextColor(52, 152, 219);
-                    doc.setFont('helvetica', 'normal');
-                    const lineas = doc.splitTextToSize('Enlace: ' + d.enlace, pageW - m * 2 - 16);
-                    lineas.forEach(l => {
-                        if (y > pageH - 25) { doc.addPage(); decorarPagina(); y = 20; }
-                        try { doc.textWithLink(l, m + 14, y, { url: d.enlace }); }
-                        catch { doc.text(l, m + 14, y); }
-                        y += 5;
-                    });
-                }
-
-                if (d.imagenes && d.imagenes.length) {
-                    let x = m + 14;
-                    const w = 30, h = 30, g = 3;
-                    for (const url of d.imagenes) {
-                        const data = await cargarImagenDataURL(url);
-                        if (!data) continue;
-                        if (x + w > pageW - m) { x = m + 14; y += h + g; }
-                        if (y + h > pageH - 20) { doc.addPage(); decorarPagina(); y = 20; x = m + 14; }
-                        try {
-                            const fmt = data.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-                            doc.addImage(data, fmt, x, y, w, h);
-                        } catch {}
-                        x += w + g;
-                    }
-                    y += h + 4;
-                }
-
-                doc.setDrawColor(225, 230, 235);
-                doc.setLineWidth(0.3);
-                doc.line(m + 12, y, pageW - m, y);
-                y += 6;
-            }
-        }
-
-        const totalPaginas = doc.internal.getNumberOfPages();
-        for (let p = 1; p <= totalPaginas; p++) {
-            doc.setPage(p);
-            doc.setFontSize(8);
-            doc.setTextColor(...COLOR_GRIS);
-            doc.setFont('helvetica', 'italic');
-            doc.text(`Generado el ${new Date().toLocaleDateString('es-ES')} - Amigo Invisible 2026`, m, pageH - 7);
-            doc.text(`Pagina ${p} de ${totalPaginas}`, pageW - m, pageH - 7, { align: 'right' });
-        }
-
-        doc.save(`lista-${lista.nombre.replace(/\s+/g, '-')}.pdf`);
-        toast('PDF descargado', 'success');
-    } catch (err) {
-        console.error(err);
-        toast('Error al generar PDF', 'error');
-    }
-}
-
-/* ============================================================
-   JPG — Imagen de toda la vista de la lista
+   JPG — Descargar imagen de toda la vista de la lista
    ============================================================ */
 async function descargarImagen(lista) {
     if (!window.html2canvas) {
@@ -2456,7 +2191,7 @@ async function descargarImagen(lista) {
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
-            toast('Imagen descargada', 'success');
+            toast('Lista descargada', 'success');
         }, 'image/jpeg', 0.92);
     } catch (err) {
         console.error('html2canvas error:', err);
