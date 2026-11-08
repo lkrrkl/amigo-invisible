@@ -12,18 +12,12 @@ SQL Supabase (ejecutar una vez en SQL Editor):
 
 CREATE TABLE IF NOT EXISTS listas (
   id TEXT PRIMARY KEY, tipo TEXT NOT NULL DEFAULT 'adulto',
-  nombre TEXT NOT NULL, email TEXT, edad INTEGER,
+  nombre TEXT NOT NULL, edad INTEGER,
   padre_id TEXT, padre_nombre TEXT, madre_id TEXT, madre_nombre TEXT,
-  notas TEXT, imagenes JSONB DEFAULT '[]'::jsonb, enlaces JSONB DEFAULT '[]'::jsonb,
   deseos JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
 
 ALTER TABLE listas ADD COLUMN IF NOT EXISTS deseos JSONB DEFAULT '[]'::jsonb;
-
-CREATE TABLE IF NOT EXISTS sorteos (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tipo TEXT NOT NULL, fecha TIMESTAMPTZ DEFAULT NOW(),
-  resultado JSONB DEFAULT '[]'::jsonb);
 
 CREATE TABLE IF NOT EXISTS mensajes_anonimos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -31,11 +25,9 @@ CREATE TABLE IF NOT EXISTS mensajes_anonimos (
   fecha TIMESTAMPTZ DEFAULT NOW());
 
 ALTER TABLE listas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sorteos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mensajes_anonimos ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "public_listas" ON listas FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "public_sorteos" ON sorteos FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "public_mensajes" ON mensajes_anonimos FOR ALL USING (true) WITH CHECK (true);
 -->
 <style>
@@ -107,28 +99,35 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .barra-info-linea{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0 12px;align-items:stretch;}
 
 .cuenta-regresiva{
+  grid-column:1 / -1;
   background-color:var(--verde);color:#fff;
-  padding:clamp(8px,2cqw,16px) clamp(10px,2.5cqw,18px);
+  padding:clamp(12px,2.5cqw,22px) clamp(14px,3cqw,26px);
   border-radius:12px;text-align:center;
   box-shadow:0 4px 12px var(--sombra);
   display:flex;flex-direction:column;justify-content:center;
   container-type:inline-size;min-width:0;
 }
 .cuenta-regresiva h2{
-  font-size:clamp(.78rem, 3.6cqw, 1rem);
-  margin-bottom:clamp(4px,1cqw,8px);
+  font-size:clamp(.85rem, 3.8cqw, 1.15rem);
+  margin-bottom:clamp(8px,1.6cqw,14px);
   color:var(--dorado-claro);line-height:1.25;word-break:break-word;
 }
 #contador{
-  display:flex;justify-content:center;gap:clamp(4px,1.2cqw,10px);flex-wrap:wrap;
-  font-size:clamp(.85rem, 4.6cqw, 1.15rem);font-weight:bold;line-height:1.2;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:clamp(4px,1.2cqw,10px);
+  font-size:clamp(.85rem, 4.6cqw, 1.15rem);
+  font-weight:bold;line-height:1.2;
 }
 #contador span{
   background:rgba(0,0,0,.3);
-  padding:clamp(3px,1cqw,6px) clamp(5px,1.4cqw,9px);
-  border-radius:6px;min-width:clamp(38px, 11.5cqw, 58px);text-align:center;
+  padding:clamp(4px,1.2cqw,8px) clamp(5px,1.4cqw,9px);
+  border-radius:6px;
+  text-align:center;
+  min-width:0;
+  overflow:hidden;
 }
-#contador small{display:block;font-size:clamp(.55rem, 2.4cqw, .72rem);font-weight:normal;color:var(--dorado-claro);margin-top:1px;}
+#contador small{display:block;font-size:clamp(.55rem, 2.4cqw, .72rem);font-weight:normal;color:var(--dorado-claro);margin-top:2px;}
 
 .anonimo-box{background:var(--tarjeta-bg);border:2px solid var(--dorado);border-radius:12px;padding:12px 14px;box-shadow:0 4px 12px var(--sombra);display:flex;flex-direction:column;}
 .anonimo-box h2{font-size:.88rem;color:#fff;background:var(--rojo);padding:3px 10px;border-radius:20px;display:inline-block;align-self:flex-start;margin-bottom:8px;font-weight:700;}
@@ -141,7 +140,7 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .btn-enviar-anonimo:hover:not(:disabled){background:var(--verde-hover)}
 .btn-enviar-anonimo:disabled{background:#95a5a6;cursor:not-allowed;opacity:.7}
 
-.dias-details{background:var(--tarjeta-bg);border-radius:12px;box-shadow:0 4px 12px var(--sombra);border-left:6px solid var(--dorado);overflow:hidden;}
+.dias-details{grid-column:1 / -1;background:var(--tarjeta-bg);border-radius:12px;box-shadow:0 4px 12px var(--sombra);border-left:6px solid var(--dorado);overflow:hidden;}
 .dias-details summary{padding:10px 14px;cursor:pointer;font-weight:600;color:var(--rojo);font-size:.92rem;list-style:none;display:flex;align-items:center;gap:8px;user-select:none;transition:background .2s;}
 .dias-details summary:hover{background:var(--fondo)}
 .dias-details summary::-webkit-details-marker{display:none}
@@ -152,18 +151,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .dias-details li:last-child{border-bottom:none}
 .dias-details .fecha{font-weight:bold;color:var(--verde)}
 
-.sorteos-linea{background:var(--tarjeta-bg);padding:10px 12px;border-radius:12px;box-shadow:0 4px 12px var(--sombra);border:2px solid var(--dorado);display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;}
-.sorteo-item{display:flex;align-items:center;gap:4px;padding:3px 6px;border-radius:8px;background:var(--fondo)}
-.btn-dado{background:var(--dorado);color:#222;border:none;width:32px;height:32px;border-radius:50%;font-size:1.15rem;cursor:pointer;box-shadow:0 2px 6px var(--sombra);transition:transform .2s,background .2s;display:flex;align-items:center;justify-content:center;}
-.btn-dado:hover{background:var(--dorado-claro);transform:rotate(15deg) scale(1.05)}
-.btn-dado:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
-.sorteo-label{font-size:.75rem;font-weight:600;color:var(--texto)}
-.sorteo-badge{font-size:.7rem;padding:1px 4px;border-radius:10px;font-weight:600;background:#95a5a6;color:#fff;min-width:20px;text-align:center;}
-.sorteo-badge.hecho{background:var(--verde)}
-.btn-icono-mini{background:transparent;border:none;font-size:.85rem;cursor:pointer;padding:1px 3px;border-radius:6px;}
-.btn-icono-mini:hover{background:var(--borde)}
-
-.sorteos-info{grid-column:1 / -1;text-align:center;font-size:.72rem;color:var(--texto-suave);min-height:1em;margin:2px 0 0;}
 @media(max-width:800px){.barra-info-linea{grid-template-columns:1fr}}
 
 .cinta-mensajes{position:relative;background:linear-gradient(90deg,#c0392b,#33AB44,#c0392b);border-radius:10px;overflow:hidden;padding:10px 0;margin:6px 0 22px;box-shadow:0 4px 12px var(--sombra);}
@@ -237,7 +224,7 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .modal-contenido{background:var(--modal-bg);padding:22px;border-radius:16px;width:100%;max-width:960px;max-height:calc(100vh - 40px);overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.5);border:3px solid var(--dorado);position:relative;margin:auto;}
 .modal-contenido h2{color:var(--rojo);margin-bottom:14px;text-align:center}
 .modal-contenido label{display:block;margin-top:12px;font-weight:bold;color:var(--verde)}
-.modal-contenido input[type="text"],.modal-contenido input[type="email"],
+.modal-contenido input[type="text"],
 .modal-contenido input[type="number"],.modal-contenido textarea,.modal-contenido select{width:100%;padding:9px;margin-top:5px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--texto);border-radius:8px;font-family:inherit;font-size:.95rem;}
 .modal-contenido input:focus,.modal-contenido textarea:focus,.modal-contenido select:focus{outline:2px solid var(--dorado);outline-offset:1px;}
 .modal-contenido textarea{resize:vertical;min-height:60px}
@@ -299,40 +286,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .vis-vacio{color:var(--texto-suave);font-size:.9rem;text-align:center;padding:14px}
 .vis-enlace{color:#3498db;text-decoration:none;font-size:.85rem;word-break:break-all;display:inline-block;margin-top:2px}
 .vis-enlace:hover{text-decoration:underline}
-
-#resultadoSorteo{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:14px 0}
-
-.envio-emails{margin-top:16px;padding:14px;background:var(--tarjeta-bg);border-radius:10px;border:2px dashed var(--dorado);}
-.envio-emails h3{color:var(--rojo);font-size:1rem;margin-bottom:6px}
-.envio-emails p{font-size:.82rem;color:var(--texto-suave);margin-bottom:8px}
-.lista-envios{list-style:none;display:flex;flex-direction:column;gap:6px}
-.lista-envios li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;background:var(--fondo);border-radius:8px;font-size:.85rem;flex-wrap:wrap;}
-.lista-envios li .nombre-envio{font-weight:600;color:var(--texto)}
-.lista-envios li .email-envio{color:var(--texto-suave);font-size:.78rem;word-break:break-all}
-.lista-envios li .detalle-envio{font-size:.75rem;color:var(--texto-suave);margin-top:2px}
-.btn-enviar-email{background:#3498db;color:#fff;border:none;padding:6px 12px;border-radius:20px;cursor:pointer;font-weight:600;font-size:.78rem;white-space:nowrap;}
-.btn-enviar-email:hover:not(:disabled){background:#2980b9}
-.btn-enviar-email:disabled{background:#95a5a6;cursor:not-allowed;opacity:.6}
-.btn-enviar-email.enviando{background:#f39c12;color:#fff}
-.btn-enviar-email.exito{background:var(--verde);color:#fff}
-.btn-enviar-email.fallo{background:#e74c3c;color:#fff}
-
-.error-envio-panel{
-  flex-basis:100%;width:100%;margin-top:8px;padding:10px 12px;
-  background:#fef3f2;border:1px solid #f5c6c0;border-left:4px solid #e74c3c;
-  border-radius:8px;font-size:.8rem;
-}
-[data-theme="dark"] .error-envio-panel{background:#2a1a1a;border-color:#5a2a2a;border-left-color:#e74c3c;}
-.error-titulo{font-weight:700;color:#c0392b;margin-bottom:4px;}
-.error-detalle{color:var(--texto);margin-bottom:6px;word-break:break-word;}
-.error-pista{color:var(--texto-suave);font-style:italic;margin-bottom:8px;word-break:break-word;line-height:1.4;}
-.error-acciones{display:flex;gap:8px;flex-wrap:wrap;}
-.btn-mailto-mini{background:#3498db;color:#fff;border:none;padding:5px 12px;border-radius:16px;cursor:pointer;font-size:.75rem;font-weight:600;}
-.btn-mailto-mini:hover{background:#2980b9;}
-.btn-cerrar-error{background:transparent;color:var(--texto-suave);border:1px solid var(--borde);padding:5px 12px;border-radius:16px;cursor:pointer;font-size:.75rem;}
-.btn-cerrar-error:hover{background:var(--fondo);}
-
-.aviso-sorteo{text-align:center;color:var(--texto-suave);margin-bottom:12px;font-size:.88rem}
 
 .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:11000;justify-content:center;align-items:center;cursor:zoom-out;padding:20px;}
 .lightbox.activo{display:flex}
@@ -423,23 +376,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
             <li><span class="fecha">25 Dic (vie):</span> Navidad. Entrega de regalos.</li>
         </ul>
     </details>
-
-    <section class="sorteos-linea">
-        <div class="sorteo-item">
-            <button class="btn-dado" id="btnSorteo" title="Realizar Sorteo de Adultos">🎲</button>
-            <span class="sorteo-label">Adultos</span>
-            <span class="sorteo-badge" id="badgeSorteoAdultos">⏳</span>
-            <button class="btn-icono-mini" id="btnReenviarAdultos" style="display:none;" title="Reenviar sorteo de adultos">📧</button>
-        </div>
-        <div class="sorteo-item">
-            <button class="btn-dado" id="btnSorteoNinos" title="Realizar Sorteo de Niños">🎲</button>
-            <span class="sorteo-label">Niños</span>
-            <span class="sorteo-badge" id="badgeSorteoNinos">⏳</span>
-            <button class="btn-icono-mini" id="btnReenviarNinos" style="display:none;" title="Reenviar sorteo de niños">📧</button>
-        </div>
-    </section>
-
-    <p class="sorteos-info" id="sorteosInfo"></p>
 </div>
 
 <div class="cinta-mensajes" aria-label="Mensajes navideños anónimos">
@@ -484,11 +420,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
         <label for="nombrePersona" id="labelNombre">Nombre de la persona:</label>
         <input type="text" id="nombrePersona" placeholder="Ej: María" required>
 
-        <div id="grupoEmail">
-            <label for="emailPersona">Correo electrónico:</label>
-            <input type="email" id="emailPersona" placeholder="correo@ejemplo.com">
-        </div>
-
         <div id="grupoEdad" class="oculto">
             <label for="edadNino">Edad del niño/a:</label>
             <input type="number" id="edadNino" min="0" max="17" placeholder="Ej: 8">
@@ -504,9 +435,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
             <div class="indicador-padre" id="madreIndicator"></div>
 
             <datalist id="listaAdultos"></datalist>
-            <p style="font-size:.78rem;color:var(--texto-suave);margin-top:6px;">
-                ⚠️ Los adultos coincidentes <strong>no podrán</strong> recibir a este niño.
-            </p>
         </div>
 
         <div class="seccion-deseos">
@@ -538,33 +466,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
     </div>
 </div>
 
-<div class="modal-overlay" id="modalSorteo" role="dialog" aria-modal="true">
-    <div class="modal-contenido">
-        <h2>🎲 Sorteo de Adultos (Secreto)</h2>
-        <p class="aviso-sorteo">Haz clic en 📧 para enviar el correo con la asignación (adulto + niños).</p>
-        <div id="resultadoSorteo"></div>
-        <div id="envioEmailsAdultos"></div>
-        <div class="botones-modal">
-            <button class="btn-cancelar" id="btnProbarConexion" type="button" style="margin-right:auto;">🔍 Diagnóstico</button>
-            <button class="btn-cancelar" id="btnRepetirSorteo" type="button">🔄 Repetir</button>
-            <button class="btn-guardar" id="btnCerrarSorteo" type="button">Cerrar</button>
-        </div>
-    </div>
-</div>
-
-<div class="modal-overlay" id="modalSorteoNinos" role="dialog" aria-modal="true">
-    <div class="modal-contenido">
-        <h2>🎈 Sorteo de Niños (Secreto)</h2>
-        <p class="aviso-sorteo">Envía cada resultado al correo del adulto correspondiente.</p>
-        <div id="envioEmailsNinos"></div>
-        <div class="botones-modal">
-            <button class="btn-cancelar" id="btnProbarConexionNinos" type="button" style="margin-right:auto;">🔍 Diagnóstico</button>
-            <button class="btn-cancelar" id="btnRepetirSorteoNinos" type="button">🔄 Repetir</button>
-            <button class="btn-guardar" id="btnCerrarSorteoNinos" type="button">Cerrar</button>
-        </div>
-    </div>
-</div>
-
 <div class="lightbox" id="lightbox">
     <img id="lightboxImg" src="" alt="Imagen ampliada">
 </div>
@@ -585,9 +486,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
    ============================================================ */
 const SUPABASE_URL = 'https://fumpktmixrnifdythkvr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9mhjOYFNhCywiX92TtMQVQ_PfcG9UpX';
-// ⬇️ CAMBIO CLAVE: el nombre real de tu Edge Function en Supabase
-const EDGE_FUNCTION_NAME = 'clever-function';
-const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/${EDGE_FUNCTION_NAME}`;
 
 let supabaseClient = null;
 let supabaseDisponible = false;
@@ -595,8 +493,6 @@ let supabaseDisponible = false;
 const STORAGE_KEY = 'amigoInvisible2026_listas_cache';
 const STORAGE_TEMA = 'amigoInvisible2026_tema';
 const STORAGE_NIEVE = 'amigoInvisible2026_nieve';
-const STORAGE_SORTEO_A = 'sorteo_adultos_ultimo';
-const STORAGE_SORTEO_N = 'sorteo_ninos_ultimo';
 const STORAGE_MENSAJES = 'amigoInvisible2026_mensajes_anonimos';
 
 const PLACEHOLDER_IMG = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
@@ -610,27 +506,25 @@ let listas = [];
 let mensajesAnonimos = [];
 let listaEditandoId = null;
 let deseosTemporales = [];
-let ultimoSorteoAdultos = null;
-let ultimoSorteoNinos = null;
 let ultimaListaEnfocada = null;
 
 const listasEjemplo = [
-    { id:'ejemplo1', tipo:'adulto', nombre:'Ana', email:'ana@ejemplo.com',
+    { id:'ejemplo1', tipo:'adulto', nombre:'Ana',
       deseos: [
         { nombre:'Libro de aventuras', notas:'Novela de misterio',
           imagenes:['https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=100&h=100&fit=crop&q=60'],
           enlace:'https://www.amazon.com' },
         { nombre:'Taza navideña', notas:'Con diseño de renos', imagenes:[], enlace:'' }
       ] },
-    { id:'ejemplo2', tipo:'adulto', nombre:'Carlos', email:'carlos@ejemplo.com',
+    { id:'ejemplo2', tipo:'adulto', nombre:'Carlos',
       deseos:[{ nombre:'Auriculares inalámbricos', notas:'', imagenes:[], enlace:'' }] },
-    { id:'ejemplo3', tipo:'adulto', nombre:'Pedro', email:'pedro@ejemplo.com',
+    { id:'ejemplo3', tipo:'adulto', nombre:'Pedro',
       deseos:[
         { nombre:'Sudadera verde', notas:'Talla M', imagenes:[], enlace:'' },
         { nombre:'Calcetines navideños', notas:'', imagenes:[], enlace:'' }
       ] },
     { id:'ejemplo4', tipo:'nino', nombre:'Lucía', edad:7,
-      padreId:'ejemplo1', padreNombre:'Ana', madreId:'ejemplo2', madreNombre:'Carlos',
+      padreNombre:'Ana', madreNombre:'Carlos',
       deseos:[
         { nombre:'Set de pinturas', notas:'', imagenes:[], enlace:'' },
         { nombre:'Peluche de unicornio', notas:'', imagenes:[], enlace:'' }
@@ -661,26 +555,6 @@ function toast(msg, tipo = 'info') {
 function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c =>
         ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-}
-
-function shuffle(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-}
-
-function validarEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-
-function formatearFecha(iso) {
-    if (!iso) return '';
-    try {
-        return new Date(iso).toLocaleString('es-ES', {
-            day:'2-digit', month:'2-digit', year:'numeric',
-            hour:'2-digit', minute:'2-digit'
-        });
-    } catch { return iso; }
 }
 
 function formatearFechaCorta(iso) {
@@ -719,27 +593,9 @@ function normalizarDeseo(d) {
 function normalizarLista(l) {
     if (!l || typeof l !== 'object') return l;
     if (!Array.isArray(l.deseos) || l.deseos.length === 0) {
-        const legacy = [];
-        if (l.texto || (Array.isArray(l.imagenes) && l.imagenes.length)) {
-            legacy.push({
-                nombre: '', notas: l.texto || '',
-                imagenes: Array.isArray(l.imagenes) ? l.imagenes.slice() : [],
-                enlace: ''
-            });
-        }
-        if (Array.isArray(l.enlaces)) {
-            l.enlaces.forEach(e => {
-                if (!e) return;
-                legacy.push({
-                    nombre: e.nombreProducto || e.titulo || '', notas: '',
-                    imagenes: e.imagen ? [e.imagen] : [], enlace: e.url || ''
-                });
-            });
-        }
-        l.deseos = legacy;
+        l.deseos = [];
     }
     l.deseos = l.deseos.map(normalizarDeseo);
-    delete l.texto; delete l.imagenes; delete l.enlaces;
     return l;
 }
 
@@ -749,12 +605,9 @@ function normalizarLista(l) {
 function rowToLocal(r) {
     return normalizarLista({
         id: r.id, tipo: r.tipo || 'adulto', nombre: r.nombre,
-        email: r.email || '', edad: r.edad != null ? r.edad : null,
+        edad: r.edad != null ? r.edad : null,
         padreId: r.padre_id || null, padreNombre: r.padre_nombre || '',
         madreId: r.madre_id || null, madreNombre: r.madre_nombre || '',
-        texto: r.notas || '',
-        imagenes: Array.isArray(r.imagenes) ? r.imagenes : [],
-        enlaces: Array.isArray(r.enlaces) ? r.enlaces : [],
         deseos: Array.isArray(r.deseos) ? r.deseos : null
     });
 }
@@ -762,7 +615,7 @@ function rowToLocal(r) {
 function localToRow(l) {
     return {
         id: l.id, tipo: l.tipo, nombre: l.nombre,
-        email: l.email || null, edad: l.edad,
+        edad: l.edad,
         padre_id: l.padreId || null, padre_nombre: l.padreNombre || null,
         madre_id: l.madreId || null, madre_nombre: l.madreNombre || null,
         deseos: (l.deseos || []).map(d => ({
@@ -865,201 +718,11 @@ async function eliminarListaSupabase(id) {
     }
 }
 
-async function cargarEstadosSorteos() {
-    if (supabaseDisponible) {
-        try {
-            const { data, error } = await supabaseClient
-                .from('sorteos').select('tipo,fecha,resultado').order('fecha', { ascending: false });
-            if (error) throw error;
-            const ultimos = {};
-            (data || []).forEach(s => { if (!ultimos[s.tipo]) ultimos[s.tipo] = s; });
-            if (ultimos.adultos) ultimoSorteoAdultos = { fecha: ultimos.adultos.fecha, resultado: ultimos.adultos.resultado || [] };
-            if (ultimos.ninos) ultimoSorteoNinos = { fecha: ultimos.ninos.fecha, resultado: ultimos.ninos.resultado || [] };
-            actualizarEstadoSorteosUI();
-            return;
-        } catch (e) { console.error('Load sorteos error:', e); }
-    }
-    try {
-        const a = localStorage.getItem(STORAGE_SORTEO_A);
-        if (a) ultimoSorteoAdultos = JSON.parse(a);
-        const n = localStorage.getItem(STORAGE_SORTEO_N);
-        if (n) ultimoSorteoNinos = JSON.parse(n);
-    } catch {}
-    actualizarEstadoSorteosUI();
-}
-
-async function registrarSorteo(tipo, resultado) {
-    const fecha = new Date().toISOString();
-    const registro = { fecha, resultado };
-    try {
-        const key = tipo === 'adultos' ? STORAGE_SORTEO_A : STORAGE_SORTEO_N;
-        localStorage.setItem(key, JSON.stringify(registro));
-    } catch {}
-    if (supabaseDisponible) {
-        try {
-            const { error } = await supabaseClient.from('sorteos').insert({ tipo, fecha, resultado });
-            if (error) throw error;
-        } catch (e) { console.error('Registrar sorteo error:', e); }
-    }
-    return registro;
-}
-
-function actualizarEstadoSorteosUI() {
-    const setItem = (badgeId, reenviarId, sorteo) => {
-        const badge = document.getElementById(badgeId);
-        const btn = document.getElementById(reenviarId);
-        if (!badge || !btn) return;
-        if (sorteo && sorteo.fecha) {
-            badge.textContent = '✅';
-            badge.classList.add('hecho');
-            badge.title = `Realizado el ${formatearFecha(sorteo.fecha)}`;
-            btn.style.display = 'inline-flex';
-        } else {
-            badge.textContent = '⏳';
-            badge.classList.remove('hecho');
-            badge.title = 'Pendiente';
-            btn.style.display = 'none';
-        }
-    };
-    setItem('badgeSorteoAdultos', 'btnReenviarAdultos', ultimoSorteoAdultos);
-    setItem('badgeSorteoNinos', 'btnReenviarNinos', ultimoSorteoNinos);
-
-    const info = document.getElementById('sorteosInfo');
-    if (info) {
-        const partes = [];
-        if (ultimoSorteoAdultos?.fecha) partes.push(`Adultos: ${formatearFecha(ultimoSorteoAdultos.fecha)}`);
-        if (ultimoSorteoNinos?.fecha) partes.push(`Niños: ${formatearFecha(ultimoSorteoNinos.fecha)}`);
-        info.textContent = partes.length ? '📅 ' + partes.join(' · ') : '';
-    }
-}
-
 function mostrarAvisoSetup() {
     const aviso = document.getElementById('avisoSupabase');
     aviso.classList.add('activo');
     aviso.innerHTML = '⚠️ <strong>Supabase no está configurado.</strong> Ejecuta el SQL del comentario del <code>&lt;head&gt;</code> en el SQL Editor.';
 }
-
-/* ============================================================
-   ENVÍO AUTOMÁTICO VÍA EDGE FUNCTION
-   ============================================================ */
-async function enviarEmailAutomatico({ to, subject, html }) {
-    try {
-        const res = await fetch(EDGE_FUNCTION_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_KEY}`
-            },
-            body: JSON.stringify({ to, subject, html })
-        });
-
-        let data = null;
-        const ct = (res.headers.get('content-type') || '').toLowerCase();
-        if (ct.includes('application/json')) {
-            try { data = await res.json(); } catch { data = null; }
-        } else {
-            try {
-                const txt = await res.text();
-                data = { error: txt || `HTTP ${res.status}` };
-            } catch { data = { error: `HTTP ${res.status}` }; }
-        }
-
-        if (res.ok) return { ok: true, id: data && data.id };
-
-        let mensaje = (data && (data.error || data.message)) || `Error HTTP ${res.status}`;
-        let pista = '';
-
-        if (res.status === 404) {
-            pista = `La Edge Function "${EDGE_FUNCTION_NAME}" no está desplegada o la URL es incorrecta. Ve a Supabase → Edge Functions → verifica que aparezca como "Deployed" y que el nombre coincida.`;
-        } else if (res.status === 401) {
-            pista = 'La función exige autenticación (JWT). En Supabase → Edge Functions → tu función → Settings, desactiva "Enforce JWT Verification" y vuelve a desplegar.';
-        } else if (res.status === 403) {
-            const low = String(mensaje).toLowerCase();
-            if (low.includes('testing') || low.includes('own email') || low.includes('verify')) {
-                pista = 'Resend rechazó el envío. En el plan gratuito solo puedes enviar al correo con el que te registraste en Resend. Verifica un dominio en resend.com/domains y añade el secreto FROM_EMAIL.';
-            } else {
-                pista = 'Permiso denegado. Verifica que el secreto RESEND_API_KEY sea válido y que el remitente (FROM_EMAIL) esté verificado en Resend.';
-            }
-        } else if (res.status === 500) {
-            const low = String(mensaje).toLowerCase();
-            if (low.includes('resend_api_key')) {
-                pista = 'Falta el secreto RESEND_API_KEY. Ve a Supabase → Edge Functions → tu función → Secrets y añádelo.';
-            } else {
-                pista = 'La función falló internamente. Revisa los logs en Supabase → Edge Functions → tu función → Logs.';
-            }
-        } else if (res.status === 400) {
-            pista = 'La función recibió datos incompletos. Comprueba que el correo destino sea válido.';
-        }
-
-        return { ok: false, status: res.status, error: mensaje, pista, raw: data };
-    } catch (e) {
-        console.error('enviarEmailAutomatico error:', e);
-        return {
-            ok: false, status: 0,
-            error: 'No se pudo contactar la Edge Function',
-            pista: 'Comprueba tu conexión a internet. URL: ' + EDGE_FUNCTION_URL
-        };
-    }
-}
-
-function enviarEmailFallback(to, subject, body) {
-    try {
-        window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        return true;
-    } catch { return false; }
-}
-
-function mostrarErrorEnvio(li, res, to, subject, texto) {
-    const existing = li.querySelector('.error-envio-panel');
-    if (existing) existing.remove();
-
-    const panel = document.createElement('div');
-    panel.className = 'error-envio-panel';
-
-    let html = `<div class="error-titulo">⚠️ No se pudo enviar automáticamente</div>`;
-    html += `<div class="error-detalle">${escapeHtml(res.error || 'Error desconocido')}</div>`;
-    if (res.pista) html += `<div class="error-pista">💡 ${escapeHtml(res.pista)}</div>`;
-    html += `<div class="error-acciones">
-        <button type="button" class="btn-mailto-mini">📬 Abrir en mi correo (manual)</button>
-        <button type="button" class="btn-cerrar-error">✕ Cerrar</button>
-    </div>`;
-
-    panel.innerHTML = html;
-    panel.querySelector('.btn-mailto-mini').addEventListener('click', () => {
-        enviarEmailFallback(to, subject, texto);
-    });
-    panel.querySelector('.btn-cerrar-error').addEventListener('click', () => panel.remove());
-
-    li.appendChild(panel);
-}
-
-async function diagnosticarEdge() {
-    toast('Comprobando Edge Function...', 'info');
-    try {
-        const res = await fetch(EDGE_FUNCTION_URL, {
-            method: 'OPTIONS',
-            headers: { 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        if (res.status === 404) {
-            alert(`❌ Edge Function NO encontrada (404).\n\nNombre esperado: ${EDGE_FUNCTION_NAME}\nURL: ${EDGE_FUNCTION_URL}\n\n1. Ve a Supabase → Edge Functions\n2. Comprueba el nombre exacto de la función\n3. Si es distinto, actualiza la constante EDGE_FUNCTION_NAME en el HTML\n4. Pulsa "Deploy function"`);
-            return;
-        }
-        if (res.status === 401) {
-            alert('❌ La función rechaza la petición (401).\n\nEn Supabase → Edge Functions → tu función → Details, DESACTIVA "Enforce JWT Verification" (Verify JWT = OFF) y vuelve a desplegar.');
-            return;
-        }
-        if (res.ok) {
-            alert(`✅ La Edge Function "${EDGE_FUNCTION_NAME}" responde correctamente.\n\nSi el envío sigue fallando, el problema está en Resend:\n\n1. Verifica el secreto RESEND_API_KEY en Supabase → Edge Functions → tu función → Secrets.\n2. En el plan gratuito, Resend SOLO envía al correo con el que te registraste.\n3. Para enviar a otros correos: verifica un dominio en resend.com/domains y añade el secreto FROM_EMAIL.\n4. Revisa los logs en Supabase → Edge Functions → tu función → Logs.`);
-            return;
-        }
-        alert('Respuesta HTTP ' + res.status + '.\n\nRevisa los logs en Supabase → Edge Functions → tu función → Logs.');
-    } catch (e) {
-        alert('❌ No se pudo contactar la Edge Function.\n\n' + (e.message || e) + '\n\nURL: ' + EDGE_FUNCTION_URL + '\n\nPosibles causas:\n- CORS no configurado en la función (debe responder a OPTIONS con headers CORS).\n- La función no está desplegada.\n- Bloqueador de anuncios activo.');
-    }
-}
-
-document.getElementById('btnProbarConexion').addEventListener('click', diagnosticarEdge);
-document.getElementById('btnProbarConexionNinos').addEventListener('click', diagnosticarEdge);
 
 /* ============================================================
    MENSAJES ANÓNIMOS
@@ -1269,7 +932,7 @@ function actualizarContador() {
     const el = document.getElementById('contador');
     if (!el) return;
     if (diff <= 0) {
-        el.innerHTML = '<span style="font-size:1.1em;">¡Feliz Navidad! 🎄</span>';
+        el.innerHTML = '<span style="grid-column:1/-1;font-size:1.2em;">¡Feliz Navidad! 🎄</span>';
         return;
     }
     const d = Math.floor(diff / 86400000);
@@ -1328,11 +991,6 @@ function crearTarjetaLista(lista) {
     header.appendChild(badges);
     card.appendChild(header);
 
-    if (tipo === 'adulto' && lista.email) {
-        const p = document.createElement('p');
-        p.className = 'meta-info'; p.textContent = `✉️ ${lista.email}`;
-        card.appendChild(p);
-    }
     if (tipo === 'nino') {
         const p = document.createElement('p');
         p.className = 'meta-info'; p.textContent = `🎂 ${lista.edad ?? '?'} años`;
@@ -1505,7 +1163,6 @@ function abrirVisualizacion(id) {
 
     let html = '';
     html += `<div class="vis-cabecera"><span class="badge-tipo ${tipo}">${tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño'}</span></div>`;
-    if (tipo === 'adulto' && lista.email) html += `<p class="vis-linea">✉️ ${escapeHtml(lista.email)}</p>`;
     if (tipo === 'nino' && lista.edad != null) html += `<p class="vis-linea">🎂 ${escapeHtml(String(lista.edad))} años</p>`;
     if (tipo === 'nino' && (lista.padreNombre || lista.madreNombre)) {
         html += `<p class="vis-linea">👨‍👩‍👧 Padre: ${escapeHtml(lista.padreNombre || '—')} · Madre: ${escapeHtml(lista.madreNombre || '—')}</p>`;
@@ -1556,7 +1213,6 @@ const modal = document.getElementById('modalLista');
 const modalTitulo = document.getElementById('modalTitulo');
 const listaIdInput = document.getElementById('listaId');
 const nombreInput = document.getElementById('nombrePersona');
-const emailInput = document.getElementById('emailPersona');
 const edadInput = document.getElementById('edadNino');
 const padreInput = document.getElementById('padreInput');
 const madreInput = document.getElementById('madreInput');
@@ -1582,10 +1238,10 @@ function actualizarIndicador(input, indicator) {
     if (!val) { indicator.textContent = ''; return; }
     const match = resolverAdultoId(val);
     if (match) {
-        indicator.textContent = '✓ Coincide con un adulto registrado (excluido del sorteo)';
+        indicator.textContent = '✓ Coincide con un adulto registrado';
         indicator.style.color = 'var(--verde)';
     } else {
-        indicator.textContent = '⚠ No coincide con ningún adulto (sin exclusión)';
+        indicator.textContent = '⚠ No coincide con ningún adulto';
         indicator.style.color = '#e67e22';
     }
 }
@@ -1597,7 +1253,6 @@ function actualizarCamposTipo() {
     const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
     const esNino = tipo === 'nino';
     document.getElementById('labelNombre').textContent = esNino ? 'Nombre del niño/a:' : 'Nombre de la persona:';
-    document.getElementById('grupoEmail').classList.toggle('oculto', esNino);
     document.getElementById('grupoEdad').classList.toggle('oculto', !esNino);
     document.getElementById('grupoPadres').classList.toggle('oculto', !esNino);
     if (esNino) popularDatalistAdultos();
@@ -1750,7 +1405,6 @@ function abrirModalCrear(tipoDefault = 'adulto') {
     modalTitulo.textContent = 'Crear lista de deseo';
     listaIdInput.value = '';
     nombreInput.value = '';
-    emailInput.value = '';
     edadInput.value = '';
     padreInput.value = '';
     madreInput.value = '';
@@ -1773,7 +1427,6 @@ function abrirModalEditar(id) {
     modalTitulo.textContent = 'Editar lista de deseo';
     listaIdInput.value = id;
     nombreInput.value = lista.nombre;
-    emailInput.value = lista.email || '';
     edadInput.value = lista.edad != null ? lista.edad : '';
     const tipo = lista.tipo || 'adulto';
     document.querySelector(`input[name="tipoLista"][value="${tipo}"]`).checked = true;
@@ -1815,14 +1468,11 @@ btnEliminarLista.addEventListener('click', () => {
 document.getElementById('btnGuardarLista').addEventListener('click', async () => {
     const nombre = nombreInput.value.trim();
     const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
-    const email = emailInput.value.trim();
     const edad = edadInput.value.trim();
     const padreNombre = padreInput.value.trim();
     const madreNombre = madreInput.value.trim();
 
     if (!nombre) { toast('Ingresa el nombre', 'error'); nombreInput.focus(); return; }
-    if (tipo === 'adulto' && !email) { toast('El correo es obligatorio', 'error'); emailInput.focus(); return; }
-    if (tipo === 'adulto' && !validarEmail(email)) { toast('Correo inválido', 'error'); emailInput.focus(); return; }
     if (tipo === 'nino' && !edad) { toast('Ingresa la edad del niño/a', 'error'); edadInput.focus(); return; }
 
     const existe = listas.some(l =>
@@ -1843,7 +1493,6 @@ document.getElementById('btnGuardarLista').addEventListener('click', async () =>
     const nueva = {
         id: listaEditandoId || 'lista_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
         nombre, tipo,
-        email: tipo === 'adulto' ? email : '',
         edad: tipo === 'nino' ? parseInt(edad, 10) : null,
         padreNombre: tipo === 'nino' ? padreNombre : '',
         madreNombre: tipo === 'nino' ? madreNombre : '',
@@ -1898,336 +1547,6 @@ btnEnviarAnonimo.addEventListener('click', async () => {
         toast('No se pudo enviar el mensaje', 'error');
         btnEnviarAnonimo.disabled = false;
     }
-});
-
-/* ============================================================
-   HELPERS DE EMAIL
-   ============================================================ */
-function obtenerNinosDeAdulto(adultoId) {
-    if (!ultimoSorteoNinos || !Array.isArray(ultimoSorteoNinos.resultado)) return [];
-    const item = ultimoSorteoNinos.resultado.find(r => r.adultoId === adultoId);
-    return item ? item.ninos : [];
-}
-
-function construirHtmlAsignacion({ nombre, para, ninos, esSoloNinos }) {
-    const nombresNinos = Array.isArray(ninos) && ninos.length
-        ? `<ul style="margin:8px 0;padding-left:20px;">${ninos.map(n => `<li>${escapeHtml(n.nombre)}${n.edad != null ? ` (${n.edad} años)` : ''}</li>`).join('')}</ul>`
-        : '';
-
-    if (esSoloNinos) {
-        return `
-            <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:20px;background:#f0f8ff;border-radius:12px;border:2px solid #d4af37;">
-                <h1 style="color:#c0392b;text-align:center;margin-bottom:8px;">🎄 Amigo Invisible 2026</h1>
-                <p style="color:#33AB44;text-align:center;font-weight:bold;margin-bottom:18px;">Sorteo de Niños</p>
-                <p>¡Hola <strong>${escapeHtml(nombre)}</strong>!</p>
-                <p>Ya se realizó el sorteo de niños del Amigo Invisible 2026.</p>
-                <p>🎁 Te toca comprar regalos para:</p>
-                ${nombresNinos}
-                <p style="background:#fff3cd;padding:10px;border-radius:8px;border-left:4px solid #d4af37;margin:16px 0;">
-                    ⚠️ <strong>RECUERDA:</strong> esto es <strong>SECRETO</strong>.
-                </p>
-                <p>La entrega de regalos será el <strong>25 de diciembre</strong>.</p>
-                <p style="text-align:center;margin-top:20px;color:#c0392b;font-size:18px;">¡Feliz Navidad! 🎅🎄</p>
-            </div>`;
-    }
-
-    return `
-        <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:20px;background:#f0f8ff;border-radius:12px;border:2px solid #d4af37;">
-            <h1 style="color:#c0392b;text-align:center;margin-bottom:8px;">🎄 Amigo Invisible 2026</h1>
-            <p style="color:#33AB44;text-align:center;font-weight:bold;margin-bottom:18px;">Tu asignación secreta</p>
-            <p>¡Hola <strong>${escapeHtml(nombre)}</strong>!</p>
-            <p>Ya se realizó el sorteo del Amigo Invisible 2026.</p>
-            <p style="font-size:18px;margin:16px 0;">🎁 Tu amigo invisible es: <strong style="color:#c0392b;">${escapeHtml(para || '—')}</strong></p>
-            ${ninos && ninos.length ? `<p>👶 Además te tocan estos niños:</p>${nombresNinos}` : ''}
-            <p style="background:#fff3cd;padding:10px;border-radius:8px;border-left:4px solid #d4af37;margin:16px 0;">
-                ⚠️ <strong>RECUERDA:</strong> esto es <strong>SECRETO</strong>.
-            </p>
-            <p>La entrega de regalos será el <strong>25 de diciembre</strong>.</p>
-            <p style="text-align:center;margin-top:20px;color:#c0392b;font-size:18px;">¡Feliz Navidad! 🎅🎄</p>
-        </div>`;
-}
-
-function construirTextoAsignacion({ nombre, para, ninos, esSoloNinos }) {
-    let cuerpo = `¡Hola ${nombre}!\n\n`;
-    if (esSoloNinos) {
-        cuerpo += `Ya se realizó el sorteo de niños del Amigo Invisible 2026.\n\n`;
-        cuerpo += `🎁 Te toca comprar regalos para:\n`;
-    } else {
-        cuerpo += `Ya se realizó el sorteo del Amigo Invisible 2026.\n\n`;
-        cuerpo += `🎁 Tu amigo invisible es: ${para || '—'}\n`;
-        if (ninos && ninos.length) {
-            cuerpo += `\n👶 Además te tocan estos niños:\n`;
-        }
-    }
-    if (Array.isArray(ninos)) {
-        ninos.forEach(n => {
-            cuerpo += `- ${n.nombre}${n.edad != null ? ` (${n.edad} años)` : ''}\n`;
-        });
-    }
-    cuerpo += `\n⚠️ RECUERDA: esto es SECRETO.\n`;
-    cuerpo += `La entrega de regalos será el 25 de diciembre.\n\n`;
-    cuerpo += `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`;
-    return cuerpo;
-}
-
-/* ============================================================
-   SORTEO ADULTOS
-   ============================================================ */
-const modalSorteo = document.getElementById('modalSorteo');
-
-document.getElementById('btnSorteo').addEventListener('click', async () => {
-    const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
-    if (adultos.length < 2) { toast('Necesitas al menos 2 adultos', 'error'); return; }
-    const invalidos = adultos.filter(a => !validarEmail(a.email || ''));
-    if (invalidos.length) { toast('Emails inválidos: ' + invalidos.map(a => a.nombre).join(', '), 'error'); return; }
-    const emails = adultos.map(a => (a.email || '').toLowerCase().trim());
-    const dup = emails.filter((e, i) => emails.indexOf(e) !== i);
-    if (dup.length) { toast('Correos repetidos: ' + [...new Set(dup)].join(', '), 'error'); return; }
-    const nombres = adultos.map(a => a.nombre.trim());
-    const nd = nombres.filter((n, i) => nombres.indexOf(n) !== i);
-    if (nd.length) { toast('Nombres duplicados: ' + [...new Set(nd)].join(', '), 'error'); return; }
-    await ejecutarSorteoAdultos();
-    abrirModal(modalSorteo, '#btnCerrarSorteo');
-});
-
-async function ejecutarSorteoAdultos() {
-    const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
-    const nombres = adultos.map(l => l.nombre);
-    const info = {};
-    adultos.forEach(a => info[a.nombre] = a);
-
-    const parejasAnt = new Set();
-    if (ultimoSorteoAdultos && Array.isArray(ultimoSorteoAdultos.resultado)) {
-        ultimoSorteoAdultos.resultado.forEach(p => parejasAnt.add(`${p.de}→${p.para}`));
-    }
-
-    let resultado, intentos = 0;
-    do {
-        const shuffled = shuffle([...nombres]);
-        resultado = shuffled.map((n, i) => {
-            const para = shuffled[(i + 1) % shuffled.length];
-            return { de: n, para, deEmail: info[n]?.email || '', paraEmail: info[para]?.email || '' };
-        });
-        intentos++;
-        const repite = resultado.some(r => parejasAnt.has(`${r.de}→${r.para}`));
-        if (!repite) break;
-    } while (intentos < 40);
-
-    const registro = await registrarSorteo('adultos', resultado);
-    ultimoSorteoAdultos = { fecha: registro.fecha, resultado };
-    actualizarEstadoSorteosUI();
-    renderizarResultadoAdultos(resultado);
-    toast('✅ Sorteo de adultos realizado el ' + formatearFecha(registro.fecha), 'success');
-}
-
-function renderizarResultadoAdultos(resultado) {
-    const cont = document.getElementById('resultadoSorteo');
-    cont.innerHTML = '';
-
-    const lista = document.createElement('ul');
-    lista.className = 'lista-envios';
-
-    resultado.forEach(({ de, para, deEmail, paraEmail }) => {
-        const li = document.createElement('li');
-        const info = document.createElement('div');
-        info.innerHTML = `<div class="nombre-envio">👤 ${escapeHtml(de)}</div><div class="email-envio">✉️ ${escapeHtml(deEmail)}</div>`;
-        li.appendChild(info);
-
-        const adultoObj = listas.find(l => l.nombre === de);
-        const ninos = adultoObj ? obtenerNinosDeAdulto(adultoObj.id) : [];
-
-        const btn = document.createElement('button');
-        btn.className = 'btn-enviar-email';
-        btn.textContent = '📧 Reenviar correo';
-        btn.type = 'button';
-
-        btn.addEventListener('click', async () => {
-            if (btn.disabled) return;
-            btn.disabled = true;
-            btn.classList.add('enviando');
-            btn.textContent = '⏳ Enviando...';
-
-            const html = construirHtmlAsignacion({ nombre: de, para, ninos });
-            const texto = construirTextoAsignacion({ nombre: de, para, ninos });
-            const subject = '🎄 Amigo Invisible 2026 - Tu asignación secreta';
-
-            const res = await enviarEmailAutomatico({ to: deEmail, subject, html });
-
-            if (res.ok) {
-                btn.classList.remove('enviando');
-                btn.classList.add('exito');
-                btn.textContent = '✅ Enviado';
-                toast(`Correo enviado a ${de} 🎄`, 'success');
-            } else {
-                btn.classList.remove('enviando');
-                btn.classList.add('fallo');
-                btn.textContent = '❌ Reintentar';
-                btn.disabled = false;
-                mostrarErrorEnvio(li, res, deEmail, subject, texto);
-                toast('No se pudo enviar. Revisa el error en la fila.', 'error');
-            }
-        });
-        li.appendChild(btn);
-        lista.appendChild(li);
-    });
-
-    cont.appendChild(lista);
-
-    if (!ultimoSorteoNinos) {
-        const aviso = document.createElement('p');
-        aviso.style.cssText = 'font-size:.8rem;color:var(--texto-suave);margin-top:10px;text-align:center;';
-        aviso.textContent = 'ℹ️ Aún no hay sorteo de niños. Si lo haces, los correos incluirán también los niños asignados.';
-        cont.appendChild(aviso);
-    } else {
-        const aviso = document.createElement('p');
-        aviso.style.cssText = 'font-size:.8rem;color:var(--verde);margin-top:10px;text-align:center;';
-        aviso.textContent = '✅ Se incluirán automáticamente los niños asignados en cada correo.';
-        cont.appendChild(aviso);
-    }
-}
-
-document.getElementById('btnCerrarSorteo').addEventListener('click', () => cerrarModal(modalSorteo));
-document.getElementById('btnRepetirSorteo').addEventListener('click', async () => { await ejecutarSorteoAdultos(); });
-
-document.getElementById('btnReenviarAdultos').addEventListener('click', () => {
-    if (!ultimoSorteoAdultos || !ultimoSorteoAdultos.resultado) { toast('No hay sorteo guardado', 'error'); return; }
-    const info = {};
-    listas.filter(l => (l.tipo || 'adulto') === 'adulto').forEach(a => info[a.nombre] = a);
-    const resultado = ultimoSorteoAdultos.resultado.map(r => ({
-        de: r.de, para: r.para,
-        deEmail: info[r.de]?.email || r.deEmail || '',
-        paraEmail: info[r.para]?.email || r.paraEmail || ''
-    }));
-    renderizarResultadoAdultos(resultado);
-    abrirModal(modalSorteo, '#btnCerrarSorteo');
-});
-
-/* ============================================================
-   SORTEO NIÑOS
-   ============================================================ */
-const modalSorteoNinos = document.getElementById('modalSorteoNinos');
-
-document.getElementById('btnSorteoNinos').addEventListener('click', async () => {
-    const ninos = listas.filter(l => (l.tipo || 'adulto') === 'nino');
-    const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto' && validarEmail(l.email || ''));
-    if (ninos.length === 0) { toast('No hay niños registrados', 'error'); return; }
-    if (adultos.length === 0) { toast('No hay adultos con email válido', 'error'); return; }
-
-    const base = Math.floor(ninos.length / adultos.length);
-    const extra = ninos.length % adultos.length;
-    let resultado = null;
-
-    for (let intento = 0; intento < 500; intento++) {
-        const adultosShuffled = shuffle([...adultos]);
-        const idxExtra = shuffle(adultosShuffled.map((_, i) => i)).slice(0, extra);
-        const capacidad = {};
-        adultosShuffled.forEach((a, i) => { capacidad[a.id] = base + (idxExtra.includes(i) ? 1 : 0); });
-        const asignacion = {};
-        adultosShuffled.forEach(a => asignacion[a.id] = []);
-
-        const ninosShuffled = shuffle([...ninos]);
-        let exito = true;
-        for (const nino of ninosShuffled) {
-            const elegibles = adultosShuffled.filter(a =>
-                a.id !== nino.padreId && a.id !== nino.madreId &&
-                asignacion[a.id].length < capacidad[a.id]);
-            if (elegibles.length === 0) { exito = false; break; }
-            const elegido = elegibles[Math.floor(Math.random() * elegibles.length)];
-            asignacion[elegido.id].push(nino);
-        }
-        if (exito) {
-            resultado = adultosShuffled
-                .filter(a => asignacion[a.id].length > 0)
-                .map(a => ({
-                    adultoId: a.id, adultoNombre: a.nombre, adultoEmail: a.email,
-                    ninos: asignacion[a.id].map(n => ({ nombre: n.nombre, edad: n.edad }))
-                }));
-            break;
-        }
-    }
-
-    if (!resultado) { toast('No se pudo con las exclusiones actuales. Revisa padres/madres o añade adultos.', 'error'); return; }
-
-    const registro = await registrarSorteo('ninos', resultado);
-    ultimoSorteoNinos = { fecha: registro.fecha, resultado };
-    actualizarEstadoSorteosUI();
-    abrirModalSorteoNinos(resultado);
-    toast('✅ Sorteo de niños realizado el ' + formatearFecha(registro.fecha), 'success');
-});
-
-function abrirModalSorteoNinos(resultado) {
-    const cont = document.getElementById('envioEmailsNinos');
-    cont.innerHTML = '';
-    const envioDiv = document.createElement('div');
-    envioDiv.className = 'envio-emails';
-    envioDiv.innerHTML = `
-        <h3>📧 Enviar resultados por correo (secreto)</h3>
-        <p>Cada adulto solo debe conocer los niños que le tocan. Envía individualmente.</p>
-        <ul class="lista-envios"></ul>`;
-    const ul = envioDiv.querySelector('.lista-envios');
-
-    resultado.forEach(item => {
-        const li = document.createElement('li');
-        const info = document.createElement('div');
-        const nombresN = item.ninos.map(n => n.nombre).join(', ');
-        info.innerHTML = `<div class="nombre-envio">👤 ${escapeHtml(item.adultoNombre)}</div><div class="email-envio">✉️ ${escapeHtml(item.adultoEmail)}</div><div class="detalle-envio">👶 ${escapeHtml(nombresN)}</div>`;
-        li.appendChild(info);
-
-        const btn = document.createElement('button');
-        btn.className = 'btn-enviar-email';
-        btn.textContent = '📧 Enviar';
-        btn.type = 'button';
-
-        btn.addEventListener('click', async () => {
-            if (btn.disabled) return;
-            btn.disabled = true;
-            btn.classList.add('enviando');
-            btn.textContent = '⏳ Enviando...';
-
-            const html = construirHtmlAsignacion({ nombre: item.adultoNombre, ninos: item.ninos, esSoloNinos: true });
-            const texto = construirTextoAsignacion({ nombre: item.adultoNombre, ninos: item.ninos, esSoloNinos: true });
-            const subject = '🎄 Amigo Invisible 2026 - Niños a tu cargo';
-
-            const res = await enviarEmailAutomatico({ to: item.adultoEmail, subject, html });
-
-            if (res.ok) {
-                btn.classList.remove('enviando');
-                btn.classList.add('exito');
-                btn.textContent = '✅ Enviado';
-                toast(`Correo enviado a ${item.adultoNombre} 🎄`, 'success');
-            } else {
-                btn.classList.remove('enviando');
-                btn.classList.add('fallo');
-                btn.textContent = '❌ Reintentar';
-                btn.disabled = false;
-                mostrarErrorEnvio(li, res, item.adultoEmail, subject, texto);
-                toast('No se pudo enviar. Revisa el error en la fila.', 'error');
-            }
-        });
-        li.appendChild(btn);
-        ul.appendChild(li);
-    });
-    cont.appendChild(envioDiv);
-    abrirModal(modalSorteoNinos, '#btnCerrarSorteoNinos');
-}
-
-document.getElementById('btnCerrarSorteoNinos').addEventListener('click', () => cerrarModal(modalSorteoNinos));
-document.getElementById('btnRepetirSorteoNinos').addEventListener('click', () => {
-    cerrarModal(modalSorteoNinos);
-    setTimeout(() => document.getElementById('btnSorteoNinos').click(), 100);
-});
-
-document.getElementById('btnReenviarNinos').addEventListener('click', () => {
-    if (!ultimoSorteoNinos || !ultimoSorteoNinos.resultado) { toast('No hay sorteo guardado', 'error'); return; }
-    const resultado = ultimoSorteoNinos.resultado.map(item => {
-        const adulto = listas.find(l => l.id === item.adultoId);
-        return {
-            ...item,
-            adultoEmail: adulto ? adulto.email : item.adultoEmail,
-            adultoNombre: adulto ? adulto.nombre : item.adultoNombre
-        };
-    });
-    abrirModalSorteoNinos(resultado);
 });
 
 /* ============================================================
@@ -2288,7 +1607,6 @@ async function descargarPDF(lista) {
         doc.text('Lista de deseos', m, y); y += 12;
         doc.setFontSize(14); doc.setTextColor(0);
         doc.text(`Nombre: ${lista.nombre}`, m, y); y += 8;
-        if ((lista.tipo || 'adulto') === 'adulto' && lista.email) { doc.text(`Email: ${lista.email}`, m, y); y += 8; }
         if ((lista.tipo || 'adulto') === 'nino' && lista.edad != null) { doc.text(`Edad: ${lista.edad} años`, m, y); y += 8; }
         doc.text(`Tipo: ${(lista.tipo || 'adulto') === 'adulto' ? 'Adultos' : 'Niños'}`, m, y); y += 10;
 
@@ -2377,7 +1695,6 @@ async function inicializar() {
 
     await cargarListas();
     renderizarListas();
-    await cargarEstadosSorteos();
     await cargarMensajesAnonimos();
     renderizarCinta();
     actualizarContadorCaracteres();
