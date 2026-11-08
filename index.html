@@ -106,41 +106,29 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 
 .barra-info-linea{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0 12px;align-items:stretch;}
 
-/* CUENTA REGRESIVA (responsive con container queries) */
 .cuenta-regresiva{
   background-color:var(--verde);color:#fff;
   padding:clamp(8px,2cqw,16px) clamp(10px,2.5cqw,18px);
   border-radius:12px;text-align:center;
   box-shadow:0 4px 12px var(--sombra);
   display:flex;flex-direction:column;justify-content:center;
-  container-type:inline-size;
-  min-width:0;
+  container-type:inline-size;min-width:0;
 }
 .cuenta-regresiva h2{
   font-size:clamp(.78rem, 3.6cqw, 1rem);
   margin-bottom:clamp(4px,1cqw,8px);
-  color:var(--dorado-claro);
-  line-height:1.25;
-  word-break:break-word;
+  color:var(--dorado-claro);line-height:1.25;word-break:break-word;
 }
 #contador{
   display:flex;justify-content:center;gap:clamp(4px,1.2cqw,10px);flex-wrap:wrap;
-  font-size:clamp(.85rem, 4.6cqw, 1.15rem);
-  font-weight:bold;line-height:1.2;
+  font-size:clamp(.85rem, 4.6cqw, 1.15rem);font-weight:bold;line-height:1.2;
 }
 #contador span{
   background:rgba(0,0,0,.3);
   padding:clamp(3px,1cqw,6px) clamp(5px,1.4cqw,9px);
-  border-radius:6px;
-  min-width:clamp(38px, 11.5cqw, 58px);
-  text-align:center;
+  border-radius:6px;min-width:clamp(38px, 11.5cqw, 58px);text-align:center;
 }
-#contador small{
-  display:block;
-  font-size:clamp(.55rem, 2.4cqw, .72rem);
-  font-weight:normal;color:var(--dorado-claro);
-  margin-top:1px;
-}
+#contador small{display:block;font-size:clamp(.55rem, 2.4cqw, .72rem);font-weight:normal;color:var(--dorado-claro);margin-top:1px;}
 
 .anonimo-box{background:var(--tarjeta-bg);border:2px solid var(--dorado);border-radius:12px;padding:12px 14px;box-shadow:0 4px 12px var(--sombra);display:flex;flex-direction:column;}
 .anonimo-box h2{font-size:.88rem;color:#fff;background:var(--rojo);padding:3px 10px;border-radius:20px;display:inline-block;align-self:flex-start;margin-bottom:8px;font-weight:700;}
@@ -226,17 +214,8 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .deseos-lista-card{display:flex;flex-direction:column;gap:6px;margin:6px 0 4px;flex-grow:1}
 .deseo-card{background:var(--fondo);border:1px solid var(--borde);border-left:3px solid var(--dorado);border-radius:6px;padding:6px 9px;}
 .deseo-card h4{font-size:.85rem;color:var(--verde);margin:0;word-break:break-word;line-height:1.3}
-.deseo-notas-inline{
-  font-size:.76rem;color:var(--texto-suave);
-  margin:4px 0 0;font-style:italic;
-  line-height:1.35;word-break:break-word;
-}
-.deseo-enlace-inline{
-  display:inline-block;font-size:.74rem;
-  color:#3498db;text-decoration:none;
-  margin-top:4px;font-weight:600;
-  word-break:break-all;
-}
+.deseo-notas-inline{font-size:.76rem;color:var(--texto-suave);margin:4px 0 0;font-style:italic;line-height:1.35;word-break:break-word;}
+.deseo-enlace-inline{display:inline-block;font-size:.74rem;color:#3498db;text-decoration:none;margin-top:4px;font-weight:600;word-break:break-all;}
 .deseo-enlace-inline:hover{text-decoration:underline}
 .miniaturas{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .miniaturas img{width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);cursor:zoom-in;transition:transform .2s;background:var(--fondo);}
@@ -298,7 +277,7 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .btn-agregar{background:var(--verde);color:#fff;border:none;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:.88rem;margin-top:10px;font-weight:600;}
 .btn-agregar:hover{background:var(--verde-hover)}
 
-.botones-modal{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap}
+.botones-modal{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap;align-items:center}
 .btn-guardar,.btn-cancelar,.btn-eliminar-lista{border:none;padding:9px 20px;border-radius:25px;font-size:.95rem;cursor:pointer;font-weight:bold;}
 .btn-guardar{background:var(--verde);color:#fff}
 .btn-guardar:hover{background:var(--verde-hover)}
@@ -337,6 +316,22 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .btn-enviar-email.enviando{background:#f39c12;color:#fff}
 .btn-enviar-email.exito{background:var(--verde);color:#fff}
 .btn-enviar-email.fallo{background:#e74c3c;color:#fff}
+
+/* ==== PANEL DE ERROR DE ENVÍO ==== */
+.error-envio-panel{
+  flex-basis:100%;width:100%;margin-top:8px;padding:10px 12px;
+  background:#fef3f2;border:1px solid #f5c6c0;border-left:4px solid #e74c3c;
+  border-radius:8px;font-size:.8rem;
+}
+[data-theme="dark"] .error-envio-panel{background:#2a1a1a;border-color:#5a2a2a;border-left-color:#e74c3c;}
+.error-titulo{font-weight:700;color:#c0392b;margin-bottom:4px;}
+.error-detalle{color:var(--texto);margin-bottom:6px;word-break:break-word;}
+.error-pista{color:var(--texto-suave);font-style:italic;margin-bottom:8px;word-break:break-word;line-height:1.4;}
+.error-acciones{display:flex;gap:8px;flex-wrap:wrap;}
+.btn-mailto-mini{background:#3498db;color:#fff;border:none;padding:5px 12px;border-radius:16px;cursor:pointer;font-size:.75rem;font-weight:600;}
+.btn-mailto-mini:hover{background:#2980b9;}
+.btn-cerrar-error{background:transparent;color:var(--texto-suave);border:1px solid var(--borde);padding:5px 12px;border-radius:16px;cursor:pointer;font-size:.75rem;}
+.btn-cerrar-error:hover{background:var(--fondo);}
 
 .aviso-sorteo{text-align:center;color:var(--texto-suave);margin-bottom:12px;font-size:.88rem}
 
@@ -551,6 +546,7 @@ body>header,body>section,body>footer{position:relative;z-index:1}
         <div id="resultadoSorteo"></div>
         <div id="envioEmailsAdultos"></div>
         <div class="botones-modal">
+            <button class="btn-cancelar" id="btnProbarConexion" type="button" style="margin-right:auto;">🔍 Diagnóstico</button>
             <button class="btn-cancelar" id="btnRepetirSorteo" type="button">🔄 Repetir</button>
             <button class="btn-guardar" id="btnCerrarSorteo" type="button">Cerrar</button>
         </div>
@@ -563,6 +559,7 @@ body>header,body>section,body>footer{position:relative;z-index:1}
         <p class="aviso-sorteo">Envía cada resultado al correo del adulto correspondiente.</p>
         <div id="envioEmailsNinos"></div>
         <div class="botones-modal">
+            <button class="btn-cancelar" id="btnProbarConexionNinos" type="button" style="margin-right:auto;">🔍 Diagnóstico</button>
             <button class="btn-cancelar" id="btnRepetirSorteoNinos" type="button">🔄 Repetir</button>
             <button class="btn-guardar" id="btnCerrarSorteoNinos" type="button">Cerrar</button>
         </div>
@@ -594,7 +591,6 @@ const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/${EDGE_FUNCTION_NAME}`;
 
 let supabaseClient = null;
 let supabaseDisponible = false;
-let edgeFunctionDisponible = true;
 
 const STORAGE_KEY = 'amigoInvisible2026_listas_cache';
 const STORAGE_TEMA = 'amigoInvisible2026_tema';
@@ -659,7 +655,7 @@ function toast(msg, tipo = 'info') {
     t.className = `toast toast-${tipo}`;
     t.textContent = msg;
     cont.appendChild(t);
-    setTimeout(() => { t.classList.add('salir'); setTimeout(() => t.remove(), 300); }, 3500);
+    setTimeout(() => { t.classList.add('salir'); setTimeout(() => t.remove(), 300); }, 4000);
 }
 
 function escapeHtml(s) {
@@ -944,12 +940,9 @@ function mostrarAvisoSetup() {
 }
 
 /* ============================================================
-   ENVÍO DE EMAIL AUTOMÁTICO VÍA EDGE FUNCTION
+   ENVÍO AUTOMÁTICO VÍA EDGE FUNCTION
    ============================================================ */
 async function enviarEmailAutomatico({ to, subject, html }) {
-    if (!edgeFunctionDisponible) {
-        return { ok: false, error: 'Edge Function no disponible' };
-    }
     try {
         const res = await fetch(EDGE_FUNCTION_URL, {
             method: 'POST',
@@ -959,18 +952,53 @@ async function enviarEmailAutomatico({ to, subject, html }) {
             },
             body: JSON.stringify({ to, subject, html })
         });
-        const data = await res.json();
-        if (!res.ok) {
-            if (res.status === 404) {
-                edgeFunctionDisponible = false;
-                return { ok: false, error: 'Edge Function no desplegada', notFound: true };
-            }
-            return { ok: false, error: data.error || data.message || 'Error desconocido' };
+
+        let data = null;
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        if (ct.includes('application/json')) {
+            try { data = await res.json(); } catch { data = null; }
+        } else {
+            try {
+                const txt = await res.text();
+                data = { error: txt || `HTTP ${res.status}` };
+            } catch { data = { error: `HTTP ${res.status}` }; }
         }
-        return { ok: true, id: data.id };
+
+        if (res.ok) return { ok: true, id: data && data.id };
+
+        let mensaje = (data && (data.error || data.message)) || `Error HTTP ${res.status}`;
+        let pista = '';
+
+        if (res.status === 404) {
+            pista = 'La Edge Function "send-email" no está desplegada o la URL es incorrecta. Ve a Supabase → Edge Functions → verifica que aparezca como "Deployed".';
+        } else if (res.status === 401) {
+            pista = 'La función exige autenticación (JWT). En Supabase → Edge Functions → send-email → Settings, desactiva "Enforce JWT Verification" y vuelve a desplegar.';
+        } else if (res.status === 403) {
+            const low = String(mensaje).toLowerCase();
+            if (low.includes('testing') || low.includes('own email') || low.includes('verify')) {
+                pista = 'Resend rechazó el envío. En el plan gratuito solo puedes enviar al correo con el que te registraste en Resend. Verifica un dominio en resend.com/domains y añade el secreto FROM_EMAIL.';
+            } else {
+                pista = 'Permiso denegado. Verifica que el secreto RESEND_API_KEY sea válido y que el remitente (FROM_EMAIL) esté verificado en Resend.';
+            }
+        } else if (res.status === 500) {
+            const low = String(mensaje).toLowerCase();
+            if (low.includes('resend_api_key')) {
+                pista = 'Falta el secreto RESEND_API_KEY. Ve a Supabase → Edge Functions → send-email → Secrets y añádelo.';
+            } else {
+                pista = 'La función falló internamente. Revisa los logs en Supabase → Edge Functions → send-email → Logs.';
+            }
+        } else if (res.status === 400) {
+            pista = 'La función recibió datos incompletos. Comprueba que el correo destino sea válido.';
+        }
+
+        return { ok: false, status: res.status, error: mensaje, pista, raw: data };
     } catch (e) {
         console.error('enviarEmailAutomatico error:', e);
-        return { ok: false, error: e.message || 'Error de red' };
+        return {
+            ok: false, status: 0,
+            error: 'No se pudo contactar la Edge Function',
+            pista: 'Comprueba tu conexión a internet. URL: ' + EDGE_FUNCTION_URL
+        };
     }
 }
 
@@ -980,6 +1008,60 @@ function enviarEmailFallback(to, subject, body) {
         return true;
     } catch { return false; }
 }
+
+/* Muestra un panel de error dentro de la fila (li) del sorteo */
+function mostrarErrorEnvio(li, res, to, subject, texto) {
+    const existing = li.querySelector('.error-envio-panel');
+    if (existing) existing.remove();
+
+    const panel = document.createElement('div');
+    panel.className = 'error-envio-panel';
+
+    let html = `<div class="error-titulo">⚠️ No se pudo enviar automáticamente</div>`;
+    html += `<div class="error-detalle">${escapeHtml(res.error || 'Error desconocido')}</div>`;
+    if (res.pista) html += `<div class="error-pista">💡 ${escapeHtml(res.pista)}</div>`;
+    html += `<div class="error-acciones">
+        <button type="button" class="btn-mailto-mini">📬 Abrir en mi correo (manual)</button>
+        <button type="button" class="btn-cerrar-error">✕ Cerrar</button>
+    </div>`;
+
+    panel.innerHTML = html;
+    panel.querySelector('.btn-mailto-mini').addEventListener('click', () => {
+        enviarEmailFallback(to, subject, texto);
+    });
+    panel.querySelector('.btn-cerrar-error').addEventListener('click', () => panel.remove());
+
+    li.appendChild(panel);
+}
+
+/* Diagnóstico de la Edge Function */
+async function diagnosticarEdge() {
+    toast('Comprobando Edge Function...', 'info');
+    try {
+        const res = await fetch(EDGE_FUNCTION_URL, {
+            method: 'OPTIONS',
+            headers: { 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        if (res.status === 404) {
+            alert('❌ Edge Function NO encontrada (404).\n\nLa función "send-email" no está desplegada.\n\n1. Ve a Supabase → Edge Functions\n2. Deploy a new function → Via Editor\n3. Nombre: send-email\n4. Pega el código\n5. Pulsa "Deploy function"');
+            return;
+        }
+        if (res.status === 401) {
+            alert('❌ La función rechaza la petición (401).\n\nEn Supabase → Edge Functions → send-email → Settings, DESACTIVA "Enforce JWT Verification" (Verify JWT = OFF) y vuelve a desplegar.');
+            return;
+        }
+        if (res.ok) {
+            alert('✅ La Edge Function responde correctamente.\n\nSi el envío sigue fallando, el problema está en Resend:\n\n1. Verifica el secreto RESEND_API_KEY en Supabase → Edge Functions → send-email → Secrets.\n2. En el plan gratuito, Resend SOLO envía al correo con el que te registraste.\n3. Para enviar a otros correos: verifica un dominio en resend.com/domains y añade el secreto FROM_EMAIL.\n4. Revisa los logs en Supabase → Edge Functions → send-email → Logs.');
+            return;
+        }
+        alert('Respuesta HTTP ' + res.status + '.\n\nRevisa los logs en Supabase → Edge Functions → send-email → Logs.');
+    } catch (e) {
+        alert('❌ No se pudo contactar la Edge Function.\n\n' + (e.message || e) + '\n\nURL: ' + EDGE_FUNCTION_URL);
+    }
+}
+
+document.getElementById('btnProbarConexion').addEventListener('click', diagnosticarEdge);
+document.getElementById('btnProbarConexionNinos').addEventListener('click', diagnosticarEdge);
 
 /* ============================================================
    MENSAJES ANÓNIMOS
@@ -1978,19 +2060,13 @@ function renderizarResultadoAdultos(resultado) {
                 btn.classList.add('exito');
                 btn.textContent = '✅ Enviado';
                 toast(`Correo enviado a ${de} 🎄`, 'success');
-            } else if (res.notFound) {
-                enviarEmailFallback(deEmail, subject, texto);
-                btn.classList.remove('enviando');
-                btn.classList.add('exito');
-                btn.textContent = '📬 Abierto';
-                toast('Edge Function no desplegada. Abriendo cliente de correo.', 'info');
             } else {
                 btn.classList.remove('enviando');
                 btn.classList.add('fallo');
                 btn.textContent = '❌ Reintentar';
                 btn.disabled = false;
-                toast(`Error: ${res.error}. Usando mailto como respaldo...`, 'error');
-                enviarEmailFallback(deEmail, subject, texto);
+                mostrarErrorEnvio(li, res, deEmail, subject, texto);
+                toast('No se pudo enviar. Revisa el error en la fila.', 'error');
             }
         });
         li.appendChild(btn);
@@ -2121,19 +2197,13 @@ function abrirModalSorteoNinos(resultado) {
                 btn.classList.add('exito');
                 btn.textContent = '✅ Enviado';
                 toast(`Correo enviado a ${item.adultoNombre} 🎄`, 'success');
-            } else if (res.notFound) {
-                enviarEmailFallback(item.adultoEmail, subject, texto);
-                btn.classList.remove('enviando');
-                btn.classList.add('exito');
-                btn.textContent = '📬 Abierto';
-                toast('Edge Function no desplegada. Abriendo cliente de correo.', 'info');
             } else {
                 btn.classList.remove('enviando');
                 btn.classList.add('fallo');
                 btn.textContent = '❌ Reintentar';
                 btn.disabled = false;
-                toast(`Error: ${res.error}. Usando mailto como respaldo...`, 'error');
-                enviarEmailFallback(item.adultoEmail, subject, texto);
+                mostrarErrorEnvio(li, res, item.adultoEmail, subject, texto);
+                toast('No se pudo enviar. Revisa el error en la fila.', 'error');
             }
         });
         li.appendChild(btn);
@@ -2315,19 +2385,6 @@ async function inicializar() {
     actualizarContadorCaracteres();
 
     if (!supabaseDisponible) mostrarAvisoSetup();
-
-    try {
-        const r = await fetch(EDGE_FUNCTION_URL, {
-            method: 'OPTIONS',
-            headers: { 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        if (r.status === 404) {
-            edgeFunctionDisponible = false;
-            console.warn('⚠️ Edge Function no desplegada. Se usará mailto como fallback.');
-        }
-    } catch (e) {
-        console.warn('No se pudo verificar Edge Function:', e);
-    }
 }
 
 if (document.readyState === 'loading') {
