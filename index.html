@@ -9,20 +9,34 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <!--
 SQL Supabase (ejecutar una vez en SQL Editor):
+
 CREATE TABLE IF NOT EXISTS listas (
   id TEXT PRIMARY KEY, tipo TEXT NOT NULL DEFAULT 'adulto',
   nombre TEXT NOT NULL, email TEXT, edad INTEGER,
   padre_id TEXT, padre_nombre TEXT, madre_id TEXT, madre_nombre TEXT,
   notas TEXT, imagenes JSONB DEFAULT '[]'::jsonb, enlaces JSONB DEFAULT '[]'::jsonb,
+  deseos JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
+
+ALTER TABLE listas ADD COLUMN IF NOT EXISTS deseos JSONB DEFAULT '[]'::jsonb;
+
 CREATE TABLE IF NOT EXISTS sorteos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tipo TEXT NOT NULL, fecha TIMESTAMPTZ DEFAULT NOW(),
   resultado JSONB DEFAULT '[]'::jsonb);
+
+CREATE TABLE IF NOT EXISTS mensajes_anonimos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mensaje TEXT NOT NULL,
+  fecha TIMESTAMPTZ DEFAULT NOW());
+
 ALTER TABLE listas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sorteos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mensajes_anonimos ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "public_listas" ON listas FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "public_sorteos" ON sorteos FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "public_mensajes" ON mensajes_anonimos FOR ALL USING (true) WITH CHECK (true);
 -->
 <style>
 :root{
@@ -46,7 +60,6 @@ body.modal-abierto{overflow:hidden}
 body.paused *{animation-play-state:paused!important}
 body>header,body>section,body>footer{position:relative;z-index:1}
 
-/* LUCES DE FONDO */
 #lucesFondo{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;display:none;contain:strict}
 [data-theme="dark"] #lucesFondo{display:block}
 .luz{
@@ -57,10 +70,11 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 @media(prefers-reduced-motion:reduce){
   .luz{animation:none!important;opacity:.22!important}
   .copo{display:none!important}
+  .cinta-track{animation:none!important;white-space:normal!important;flex-wrap:wrap!important}
+  .cinta-track > *{flex-wrap:wrap}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
 
-/* BARRA SUPERIOR */
 .barra-superior{position:fixed;top:15px;right:15px;display:flex;gap:8px;z-index:600}
 .btn-icono{
   width:46px;height:46px;border-radius:50%;border:2px solid var(--dorado);
@@ -72,7 +86,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .btn-icono:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
 .btn-icono.inactivo{opacity:.45}
 
-/* NIEVE */
 #nieve{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:500;overflow:hidden}
 #nieve.oculto{display:none}
 .copo{
@@ -81,7 +94,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 }
 @keyframes caer{to{transform:translateY(110vh)}}
 
-/* CABECERA DOBLE */
 .cabecera-doble{
   display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;align-items:stretch;
 }
@@ -103,37 +115,73 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 #creditoImagen{font-size:.7rem;color:var(--texto-suave);margin-top:6px}
 @media(max-width:800px){.cabecera-doble{grid-template-columns:1fr}}
 
-/* ══════════════════════════════════════════════════════════════
-   BARRA INFO EN LÍNEA: Cuenta + Días Importantes + Sorteos
-   ══════════════════════════════════════════════════════════════ */
 .barra-info-linea{
-  display:flex;
+  display:grid;
+  grid-template-columns:1fr 1fr;
   gap:12px;
-  margin:18px 0;
-  align-items:flex-start;
-  flex-wrap:wrap;
+  margin:18px 0 12px;
+  align-items:stretch;
 }
-
-/* CUENTA REGRESIVA COMPACTA */
 .cuenta-regresiva{
-  flex:1 1 340px;
-  min-width:280px;
   background-color:var(--verde);color:#fff;
   padding:12px 16px;border-radius:12px;text-align:center;
   box-shadow:0 4px 12px var(--sombra);
+  display:flex;flex-direction:column;justify-content:center;
 }
 .cuenta-regresiva h2{font-size:.95rem;margin-bottom:6px;color:var(--dorado-claro)}
 #contador{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;font-size:1.05rem;font-weight:bold}
 #contador span{background:rgba(0,0,0,.3);padding:5px 8px;border-radius:6px;min-width:48px}
 #contador small{display:block;font-size:.68rem;font-weight:normal;color:var(--dorado-claro)}
 
-/* DÍAS IMPORTANTES PLEGABLES (compacto) */
+.anonimo-box{
+  background:var(--tarjeta-bg);
+  border:2px solid var(--dorado);
+  border-radius:12px;
+  padding:12px 14px;
+  box-shadow:0 4px 12px var(--sombra);
+  display:flex;flex-direction:column;
+}
+.anonimo-box h2{
+  font-size:.88rem;
+  color:#fff;
+  background:var(--rojo);
+  padding:3px 10px;
+  border-radius:20px;
+  display:inline-block;
+  align-self:flex-start;
+  margin-bottom:8px;
+  font-weight:700;
+}
+.anonimo-box textarea{
+  width:100%;
+  min-height:52px;
+  resize:vertical;
+  padding:8px 10px;
+  border:1px solid var(--input-border);
+  background:var(--input-bg);
+  color:var(--texto);
+  border-radius:8px;
+  font-family:inherit;
+  font-size:.86rem;
+  line-height:1.4;
+}
+.anonimo-box textarea:focus{outline:2px solid var(--dorado);outline-offset:1px}
+.anonimo-footer{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:6px;gap:8px;flex-wrap:wrap;
+}
+.anonimo-contador{font-size:.75rem;color:var(--texto-suave);font-weight:600}
+.anonimo-contador.excede{color:var(--rojo)}
+.btn-enviar-anonimo{
+  background:var(--verde);color:#fff;border:none;padding:6px 14px;border-radius:20px;
+  cursor:pointer;font-weight:600;font-size:.82rem;transition:background .2s;
+}
+.btn-enviar-anonimo:hover:not(:disabled){background:#1e8449}
+.btn-enviar-anonimo:disabled{background:#95a5a6;cursor:not-allowed;opacity:.7}
+
 .dias-details{
-  flex:0 1 240px;
-  min-width:200px;
   background:var(--tarjeta-bg);border-radius:12px;
   box-shadow:0 4px 12px var(--sombra);border-left:6px solid var(--dorado);overflow:hidden;
-  align-self:stretch;
 }
 .dias-details summary{
   padding:10px 14px;cursor:pointer;font-weight:600;color:var(--rojo);font-size:.92rem;
@@ -148,13 +196,10 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .dias-details li:last-child{border-bottom:none}
 .dias-details .fecha{font-weight:bold;color:var(--verde)}
 
-/* SORTEOS EN LÍNEA (compacto) */
 .sorteos-linea{
-  flex:0 0 auto;
   background:var(--tarjeta-bg);padding:10px 12px;border-radius:12px;
   box-shadow:0 4px 12px var(--sombra);border:2px solid var(--dorado);
   display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;
-  align-self:stretch;
 }
 .sorteo-item{display:flex;align-items:center;gap:4px;padding:3px 6px;border-radius:8px;background:var(--fondo)}
 .btn-dado{
@@ -175,23 +220,58 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 }
 .btn-icono-mini:hover{background:var(--borde)}
 
-/* INFO FECHAS SORTEOS (fila propia debajo) */
 .sorteos-info{
-  flex:1 1 100%;
+  grid-column:1 / -1;
   text-align:center;font-size:.72rem;color:var(--texto-suave);
   min-height:1em;margin:2px 0 0;
 }
 
-@media(max-width:900px){
-  .cuenta-regresiva{flex:1 1 100%}
-  .dias-details{flex:1 1 auto}
-  .sorteos-linea{flex:1 1 auto}
-}
-@media(max-width:600px){
-  .cuenta-regresiva,.dias-details,.sorteos-linea{flex:1 1 100%}
+@media(max-width:800px){
+  .barra-info-linea{grid-template-columns:1fr}
 }
 
-/* LISTAS */
+.cinta-mensajes{
+  position:relative;
+  background:linear-gradient(90deg,#c0392b,#27ae60,#c0392b);
+  border-radius:10px;
+  overflow:hidden;
+  padding:10px 0;
+  margin:6px 0 22px;
+  box-shadow:0 4px 12px var(--sombra);
+}
+.cinta-mensajes::before,
+.cinta-mensajes::after{
+  content:'';position:absolute;top:0;bottom:0;width:40px;pointer-events:none;z-index:2;
+}
+.cinta-mensajes::before{left:0;background:linear-gradient(90deg,#c0392b,rgba(192,57,43,0))}
+.cinta-mensajes::after{right:0;background:linear-gradient(270deg,#c0392b,rgba(192,57,43,0))}
+.cinta-track{
+  display:inline-flex;
+  white-space:nowrap;
+  color:#fff;
+  font-weight:600;
+  font-size:.92rem;
+  will-change:transform;
+  animation:cintaScroll var(--cinta-duracion,60s) linear infinite;
+}
+.cinta-track:hover{animation-play-state:paused}
+@keyframes cintaScroll{
+  from{transform:translateX(0)}
+  to{transform:translateX(-50%)}
+}
+.cinta-msg{padding:0 4px;text-shadow:0 1px 2px rgba(0,0,0,.35);font-size:.95rem}
+.cinta-fecha{
+  background:rgba(0,0,0,.32);
+  padding:2px 9px;
+  border-radius:12px;
+  font-size:.72rem;
+  margin-right:8px;
+  color:var(--dorado-claro);
+  letter-spacing:.3px;
+}
+.cinta-sep{padding:0 14px;font-size:1rem;opacity:.85}
+.cinta-vacio{padding:0 30px;font-style:italic;opacity:.9}
+
 .seccion-listas{margin:26px 0}
 .seccion-listas h2{color:var(--rojo);margin-bottom:12px;text-align:center}
 #contadorListas{color:var(--verde);font-size:1rem}
@@ -207,66 +287,92 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 }
 .btn-crear{background:var(--rojo)}
 .btn-crear:hover{background:#a93226;transform:translateY(-1px)}
-.btn-accion{background:var(--verde)}
-.btn-accion:hover{background:#1e8449;transform:translateY(-1px)}
-.btn-accion.dorado{background:var(--dorado);color:#222}
-.btn-accion.dorado:hover{background:var(--dorado-claro)}
-.btn-crear:focus-visible,.btn-accion:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
-.btn-accion:disabled{background:#95a5a6;cursor:not-allowed;opacity:.7}
+.btn-crear:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
 
-.carrusel-contenedor{
-  display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:16px;
-  padding:8px 4px 16px 4px;-webkit-overflow-scrolling:touch;
+.subtitulo-grupo{
+  color:var(--verde);
+  font-size:1.05rem;
+  margin:20px 0 10px;
+  padding-bottom:6px;
+  border-bottom:2px dashed var(--dorado);
+  display:flex;align-items:center;gap:8px;
 }
-.carrusel-contenedor::-webkit-scrollbar{height:8px}
-.carrusel-contenedor::-webkit-scrollbar-thumb{background:var(--dorado);border-radius:4px}
+.subtitulo-grupo.ninos{color:var(--rojo)}
+.subtitulo-grupo span{font-size:.85rem;color:var(--texto-suave);font-weight:normal}
+
+.grid-listas{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+  margin-bottom:8px;
+}
+@media(max-width:1000px){.grid-listas{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.grid-listas{grid-template-columns:1fr}}
+
+.mensaje-vacio{
+  padding:20px;text-align:center;color:var(--texto-suave);font-size:.92rem;
+  background:var(--tarjeta-bg);border-radius:10px;border:2px dashed var(--borde);
+}
 
 .tarjeta-lista{
-  flex:0 0 320px;scroll-snap-align:start;background:var(--tarjeta-bg);
-  border-radius:12px;padding:14px;box-shadow:0 4px 12px var(--sombra);
-  border-top:5px solid var(--verde);display:flex;flex-direction:column;
+  background:var(--tarjeta-bg);
+  border-radius:12px;padding:14px;
+  box-shadow:0 4px 12px var(--sombra);
+  border-top:5px solid var(--verde);
+  display:flex;flex-direction:column;
+  cursor:pointer;
+  transition:transform .2s,box-shadow .2s;
+  min-width:0;
 }
-.card-header{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px}
-.tarjeta-lista h3{color:var(--rojo);font-size:1.15rem}
+.tarjeta-lista.nino{border-top-color:var(--dorado)}
+.tarjeta-lista:hover{transform:translateY(-3px);box-shadow:0 8px 20px var(--sombra)}
+
+.card-header{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.tarjeta-lista h3{color:var(--rojo);font-size:1.1rem;word-break:break-word}
+.header-badges{display:flex;gap:6px;align-items:center;flex-shrink:0}
 .badge-tipo{font-size:.68rem;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap}
 .badge-tipo.adulto{background:var(--verde);color:#fff}
 .badge-tipo.nino{background:var(--dorado);color:#222}
+.icono-enlace{
+  font-size:1rem;
+  background:var(--fondo);
+  padding:2px 6px;
+  border-radius:10px;
+  border:1px solid var(--borde);
+  cursor:help;
+}
 .meta-info{font-size:.78rem;color:var(--texto-suave);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tarjeta-lista .texto{font-size:.92rem;color:var(--texto-suave);margin-bottom:10px;flex-grow:1}
 
-.miniaturas{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.deseos-lista-card{display:flex;flex-direction:column;gap:6px;margin:6px 0 4px;flex-grow:1}
+.deseo-card{
+  background:var(--fondo);border:1px solid var(--borde);border-left:3px solid var(--dorado);
+  border-radius:6px;padding:6px 9px;
+}
+.deseo-card h4{font-size:.85rem;color:var(--verde);margin:0;word-break:break-word;line-height:1.3}
+.miniaturas{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .miniaturas img{
-  width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);
-  cursor:pointer;transition:transform .2s;background:var(--fondo);
+  width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);
+  cursor:zoom-in;transition:transform .2s;background:var(--fondo);
 }
 .miniaturas img:hover{transform:scale(1.08)}
 
-/* TARJETAS DE PRODUCTO */
-.productos-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:10px}
-.producto-mini{
-  display:flex;flex-direction:column;background:var(--fondo);border:1px solid var(--borde);
-  border-radius:8px;overflow:hidden;text-decoration:none;color:inherit;
-  transition:transform .2s,box-shadow .2s;
+.resumen-notas{
+  font-size:.78rem;color:var(--texto-suave);
+  background:var(--fondo);
+  border-radius:6px;
+  padding:6px 9px;
+  margin:8px 0 0;
+  font-style:italic;
+  border-left:3px solid var(--rojo);
+  word-break:break-word;
 }
-.producto-mini:hover{transform:translateY(-2px);box-shadow:0 4px 10px var(--sombra)}
-.producto-mini-img{
-  width:100%;aspect-ratio:1/1;background:#fff;display:flex;align-items:center;justify-content:center;
-  overflow:hidden;
-}
-.producto-mini-img img{width:100%;height:100%;object-fit:contain;padding:6px}
-.producto-mini-info{padding:5px 7px;border-top:1px solid var(--borde);background:var(--tarjeta-bg)}
-.producto-mini-titulo{
-  font-size:.75rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3;color:var(--texto);
-}
-.producto-mini-tienda{
-  font-size:.65rem;color:var(--texto-suave);margin-top:2px;
-  text-transform:uppercase;letter-spacing:.3px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.productos-mas{grid-column:1/-1;text-align:center;font-size:.75rem;color:var(--texto-suave);padding:4px}
 
-.acciones-tarjeta{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.card-hint{
+  font-size:.7rem;color:var(--texto-suave);text-align:center;margin-top:8px;
+  padding-top:6px;border-top:1px dashed var(--borde);
+}
+
+.acciones-tarjeta{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
 .btn-editar,.btn-borrar,.btn-pdf{
   border:none;padding:6px 10px;border-radius:20px;cursor:pointer;font-weight:bold;
   font-size:.78rem;transition:background .2s;
@@ -278,9 +384,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .btn-pdf{background:#3498db;color:#fff}
 .btn-pdf:hover{background:#2980b9}
 
-.mensaje-vacio{padding:24px;text-align:center;color:var(--texto-suave);font-size:1rem;width:100%}
-
-/* MODALES */
 .modal-overlay{
   display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
   justify-content:center;align-items:center;z-index:10000;padding:15px;overflow-y:auto;
@@ -288,7 +391,7 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 }
 .modal-overlay.activo{display:flex}
 .modal-contenido{
-  background:var(--modal-bg);padding:22px;border-radius:16px;width:100%;max-width:660px;
+  background:var(--modal-bg);padding:22px;border-radius:16px;width:100%;max-width:960px;
   max-height:calc(100vh - 40px);overflow-y:auto;
   box-shadow:0 8px 30px rgba(0,0,0,.5);border:3px solid var(--dorado);position:relative;margin:auto;
 }
@@ -302,7 +405,7 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .modal-contenido input:focus,.modal-contenido textarea:focus,.modal-contenido select:focus{
   outline:2px solid var(--dorado);outline-offset:1px;
 }
-.modal-contenido textarea{resize:vertical;min-height:70px}
+.modal-contenido textarea{resize:vertical;min-height:60px}
 .indicador-padre{font-size:.75rem;margin-top:4px;min-height:1.1em}
 .tipo-selector{
   display:flex;gap:15px;flex-wrap:wrap;margin-top:5px;background:var(--tarjeta-bg);
@@ -312,52 +415,62 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .tipo-selector input[type="radio"]{accent-color:var(--verde);width:18px;height:18px;cursor:pointer}
 .oculto{display:none!important}
 
-.seccion-imagenes,.seccion-enlaces{
-  margin-top:14px;padding:12px;background:var(--tarjeta-bg);border-radius:8px;border:1px dashed var(--dorado);
+.seccion-deseos{
+  margin-top:14px;padding:12px;background:var(--tarjeta-bg);border-radius:8px;border:2px dashed var(--dorado);
 }
-.seccion-imagenes h3,.seccion-enlaces h3{color:var(--rojo);font-size:1rem;margin-bottom:8px}
+.seccion-deseos h3{color:var(--rojo);font-size:1rem;margin-bottom:8px}
+.seccion-deseos .ayuda-deseos{font-size:.78rem;color:var(--texto-suave);margin-bottom:10px}
 
-/* EDITOR DE ENLACES */
-.enlace-editor{
-  display:flex;gap:10px;margin-bottom:10px;padding:10px;background:var(--fondo);
-  border-radius:8px;border:1px solid var(--borde);align-items:flex-start;flex-wrap:wrap;
+#contenedorDeseos{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  align-items:start;
 }
-.enlace-thumb{
-  width:80px;height:80px;flex-shrink:0;background:#fff;border:1px solid var(--borde);
-  border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;
+@media(max-width:1000px){#contenedorDeseos{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){#contenedorDeseos{grid-template-columns:1fr}}
+
+.deseo-editor{
+  background:var(--fondo);border:1px solid var(--borde);border-radius:8px;padding:9px 10px;
+  min-width:0;
 }
-.enlace-thumb img{width:100%;height:100%;object-fit:contain;padding:4px}
-.enlace-campos{flex:1;min-width:200px;display:flex;flex-direction:column;gap:5px}
-.enlace-campos input{
-  width:100%;padding:6px 9px;font-size:.88rem;margin:0;
-  border:1px solid var(--input-border);background:var(--input-bg);
-  color:var(--texto);border-radius:6px;font-family:inherit;
+.deseo-editor-header{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;
 }
-.enlace-campos input:focus{outline:2px solid var(--dorado);outline-offset:1px}
-.enlace-estado{font-size:.75rem;min-height:1em;color:var(--texto-suave)}
+.deseo-editor-num{font-weight:700;color:var(--verde);font-size:.85rem}
+.btn-eliminar-deseo{
+  background:#e74c3c;color:#fff;border:none;border-radius:50%;width:24px;height:24px;
+  cursor:pointer;font-weight:bold;flex-shrink:0;font-size:.95rem;line-height:1;
+}
+.btn-eliminar-deseo:hover{background:#c0392b}
+.deseo-editor label{display:block;margin-top:6px;font-size:.76rem;font-weight:600;color:var(--verde)}
+.deseo-editor input[type="text"],.deseo-editor textarea{
+  width:100%;padding:6px 8px;margin-top:2px;border:1px solid var(--input-border);
+  background:var(--input-bg);color:var(--texto);border-radius:6px;font-family:inherit;font-size:.85rem;
+}
+.deseo-editor input:focus,.deseo-editor textarea:focus{outline:2px solid var(--dorado);outline-offset:1px}
+.deseo-editor textarea{resize:vertical;min-height:44px}
+
+.deseo-img-botones{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.deseo-img-botones input[type="text"]{flex:1;min-width:110px;margin:0}
 .btn-file-mini{
-  background:var(--verde);color:#fff;border:none;padding:5px 10px;border-radius:16px;
-  cursor:pointer;font-size:.78rem;font-weight:600;align-self:flex-start;
+  background:var(--verde);color:#fff;border:none;padding:5px 9px;border-radius:16px;
+  cursor:pointer;font-size:.75rem;font-weight:600;white-space:nowrap;
 }
 .btn-file-mini:hover{background:#1e8449}
-.btn-eliminar-enlace{
-  background:#e74c3c;color:#fff;border:none;border-radius:50%;width:26px;height:26px;
-  cursor:pointer;font-weight:bold;flex-shrink:0;align-self:flex-start;
+
+.deseo-imagenes-preview{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.deseo-imagenes-preview img{
+  width:42px;height:42px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);
+  cursor:pointer;background:var(--fondo);transition:transform .15s;
 }
-.btn-eliminar-enlace:hover{background:#c0392b}
+.deseo-imagenes-preview img:hover{transform:scale(1.08)}
 
 .btn-agregar{
   background:var(--verde);color:#fff;border:none;padding:6px 14px;border-radius:20px;
-  cursor:pointer;font-size:.88rem;margin-top:5px;
+  cursor:pointer;font-size:.88rem;margin-top:10px;font-weight:600;
 }
 .btn-agregar:hover{background:#1e8449}
-
-.preview-imagenes{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.preview-imagenes img{
-  width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);
-  cursor:pointer;background:var(--fondo);
-}
-.preview-imagenes img:hover{opacity:.8}
 
 .botones-modal{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap}
 .btn-guardar,.btn-cancelar,.btn-eliminar-lista{
@@ -369,6 +482,29 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 .btn-cancelar:hover{background:#7f8c8d}
 .btn-eliminar-lista{background:#e74c3c;color:#fff;margin-right:auto}
 .btn-eliminar-lista:hover{background:#c0392b}
+
+#modalVisualizar .modal-contenido{max-width:760px}
+.vis-cabecera{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:6px}
+.vis-linea{font-size:.88rem;color:var(--texto-suave);text-align:center;margin-bottom:4px;word-break:break-word}
+.vis-subtitulo{
+  color:var(--rojo);font-size:1rem;margin:16px 0 10px;
+  border-bottom:2px solid var(--dorado);padding-bottom:4px;
+}
+.vis-deseo{
+  background:var(--fondo);border-radius:8px;padding:10px 12px;margin-bottom:10px;
+  border-left:4px solid var(--dorado);
+}
+.vis-deseo h4{color:var(--verde);font-size:.95rem;margin-bottom:4px;word-break:break-word}
+.vis-notas{font-size:.85rem;color:var(--texto-suave);white-space:pre-wrap;margin-bottom:6px;word-break:break-word}
+.vis-imagenes{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.vis-imagenes img{
+  width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--borde);
+  cursor:zoom-in;background:var(--fondo);transition:transform .15s;
+}
+.vis-imagenes img:hover{transform:scale(1.06)}
+.vis-vacio{color:var(--texto-suave);font-size:.9rem;text-align:center;padding:14px}
+.vis-enlace{color:#3498db;text-decoration:none;font-size:.85rem;word-break:break-all;display:inline-block;margin-top:2px}
+.vis-enlace:hover{text-decoration:underline}
 
 #resultadoSorteo{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:14px 0}
 .tarjeta-sorteo{
@@ -445,14 +581,13 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 @media(max-width:600px){
   body{padding:12px;padding-top:70px}
   .pie-pagina h1{font-size:1.6rem}
-  #contador{font-size:1.1rem;gap:6px}
-  #contador span{padding:5px 8px;min-width:50px}
-  .tarjeta-lista{flex:0 0 280px}
+  #contador{font-size:1rem;gap:6px}
+  #contador span{padding:5px 8px;min-width:48px}
   .barra-superior{top:10px;right:10px}
   .btn-icono{width:40px;height:40px;font-size:1.1rem}
   .modal-contenido{padding:16px;max-height:calc(100vh - 20px)}
-  .enlace-editor{flex-direction:column;align-items:stretch}
-  .enlace-thumb{width:70px;height:70px}
+  .cinta-track{font-size:.85rem}
+  .cinta-msg{font-size:.88rem}
 }
 </style>
 </head>
@@ -468,7 +603,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
 
 <div id="avisoSupabase" style="max-width:900px;margin:0 auto 15px;"></div>
 
-<!-- CABECERA DOBLE: LOGO + IMAGEN DEL DÍA -->
 <header class="cabecera-doble">
     <div class="cabecera-logo">
         <img src="https://lh3.googleusercontent.com/d/1s6hoUi64ln6RfmMkxEGEt-Q222QaCjoR"
@@ -482,10 +616,8 @@ body>header,body>section,body>footer{position:relative;z-index:1}
     </div>
 </header>
 
-<!-- BARRA INFO EN LÍNEA: Cuenta + Días Importantes + Sorteos -->
 <div class="barra-info-linea">
 
-    <!-- CUENTA REGRESIVA -->
     <section class="cuenta-regresiva">
         <h2>⏳ Faltan días para 25 de Diciembre</h2>
         <div id="contador">
@@ -496,7 +628,16 @@ body>header,body>section,body>footer{position:relative;z-index:1}
         </div>
     </section>
 
-    <!-- DÍAS IMPORTANTES PLEGABLES -->
+    <section class="anonimo-box">
+        <h2>✉️ Navideño anónimo</h2>
+        <textarea id="inputMensajeAnonimo" maxlength="100"
+                  placeholder="Escribe un mensaje corto de Navidad (máx. 100 caracteres)..."></textarea>
+        <div class="anonimo-footer">
+            <span class="anonimo-contador"><span id="contadorCaracteres">0</span>/100 caracteres</span>
+            <button class="btn-enviar-anonimo" id="btnEnviarAnonimo" type="button" disabled>Enviar 🎄</button>
+        </div>
+    </section>
+
     <details class="dias-details">
         <summary>📅 Días Importantes</summary>
         <ul>
@@ -509,7 +650,6 @@ body>header,body>section,body>footer{position:relative;z-index:1}
         </ul>
     </details>
 
-    <!-- SORTEOS EN UNA LÍNEA (solo dados) -->
     <section class="sorteos-linea">
         <div class="sorteo-item">
             <button class="btn-dado" id="btnSorteo" title="Realizar Sorteo de Adultos">🎲</button>
@@ -525,11 +665,13 @@ body>header,body>section,body>footer{position:relative;z-index:1}
         </div>
     </section>
 
-    <!-- FECHAS DE SORTEOS (fila completa debajo) -->
     <p class="sorteos-info" id="sorteosInfo"></p>
 </div>
 
-<!-- LISTAS DE DESEOS -->
+<div class="cinta-mensajes" aria-label="Mensajes navideños anónimos">
+    <div class="cinta-track" id="cintaTrack"></div>
+</div>
+
 <section class="seccion-listas">
     <h2>🎁 Listas de Deseos <span id="contadorListas">(0)</span></h2>
     <div class="barra-busqueda">
@@ -538,7 +680,20 @@ body>header,body>section,body>footer{position:relative;z-index:1}
     <div class="barra-acciones">
         <button class="btn-crear" id="btnCrearLista">➕ Crear lista</button>
     </div>
-    <div class="carrusel-contenedor" id="carruselListas"></div>
+
+    <div id="seccionAdultos">
+        <h3 class="subtitulo-grupo">🎅 Adultos <span id="contadorAdultos">(0)</span></h3>
+        <div class="grid-listas" id="gridListasAdultos"></div>
+    </div>
+
+    <div id="seccionNinos">
+        <h3 class="subtitulo-grupo ninos">🎈 Niños <span id="contadorNinos">(0)</span></h3>
+        <div class="grid-listas" id="gridListasNinos"></div>
+    </div>
+
+    <div id="mensajeVacioListas" class="mensaje-vacio" style="display:none;">
+        🎅 Aún no hay listas. ¡Crea la primera!
+    </div>
 </section>
 
 <!-- MODAL CREAR / EDITAR -->
@@ -581,25 +736,14 @@ body>header,body>section,body>footer{position:relative;z-index:1}
             </p>
         </div>
 
-        <label for="textoDeseo">Notas importantes</label>
-        <textarea id="textoDeseo" placeholder="Escribe aquí lo que deseas..."></textarea>
-
-        <div class="seccion-imagenes">
-            <h3>📷 Imágenes de la lista</h3>
-            <input type="text" id="urlImagen" placeholder="Pega la URL de una imagen...">
-            <button class="btn-agregar" id="btnAgregarImagenUrl" type="button">Agregar URL</button>
-            <input type="file" id="archivoImagen" accept="image/*" multiple style="margin-top:8px;">
-            <div class="preview-imagenes" id="previewImagenes"></div>
-        </div>
-
-        <div class="seccion-enlaces">
-            <h3>🔗 Enlaces a productos</h3>
-            <p style="font-size:.78rem;color:var(--texto-suave);margin-bottom:8px;">
-                Al pegar una URL se intentará obtener la foto del producto automáticamente.
-                Si no se consigue, podrás subir una foto desde tu dispositivo.
+        <div class="seccion-deseos">
+            <h3>🎁 Deseos (uno por línea)</h3>
+            <p class="ayuda-deseos">
+                Cada línea es un deseo: nombre, notas, imágenes y enlace.
+                Puedes añadir todas las líneas que quieras.
             </p>
-            <div id="contenedorEnlaces"></div>
-            <button class="btn-agregar" id="btnAgregarEnlace" type="button">➕ Añadir otro enlace</button>
+            <div id="contenedorDeseos"></div>
+            <button class="btn-agregar" id="btnAgregarDeseo" type="button">➕ Añadir deseo</button>
         </div>
 
         <div class="botones-modal">
@@ -610,11 +754,23 @@ body>header,body>section,body>footer{position:relative;z-index:1}
     </div>
 </div>
 
-<!-- MODAL SORTEO ADULTOS -->
+<!-- MODAL VISUALIZAR -->
+<div class="modal-overlay" id="modalVisualizar" role="dialog" aria-modal="true" aria-labelledby="visTitulo">
+    <div class="modal-contenido">
+        <h2 id="visTitulo">Lista</h2>
+        <div id="visContenido"></div>
+        <div class="botones-modal">
+            <button class="btn-cancelar" id="btnCerrarVisualizar" type="button">Cerrar</button>
+            <button class="btn-guardar" id="btnEditarDesdeVisualizar" type="button">✏️ Editar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL SORTEO ADULTOS (solo nombres + reenvío) -->
 <div class="modal-overlay" id="modalSorteo" role="dialog" aria-modal="true">
     <div class="modal-contenido">
         <h2>🎲 Sorteo de Adultos (Secreto)</h2>
-        <p class="aviso-sorteo">Toca cada tarjeta para revelar. Envía individualmente por correo.</p>
+        <p class="aviso-sorteo">Haz clic en 📧 para enviar el correo con la asignación (adulto + niños).</p>
         <div id="resultadoSorteo"></div>
         <div id="envioEmailsAdultos"></div>
         <div class="botones-modal">
@@ -665,52 +821,44 @@ const STORAGE_TEMA = 'amigoInvisible2026_tema';
 const STORAGE_NIEVE = 'amigoInvisible2026_nieve';
 const STORAGE_SORTEO_A = 'sorteo_adultos_ultimo';
 const STORAGE_SORTEO_N = 'sorteo_ninos_ultimo';
+const STORAGE_MENSAJES = 'amigoInvisible2026_mensajes_anonimos';
 
-const PLACEHOLDER_PRODUCTO = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+const PLACEHOLDER_IMG = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">' +
     '<rect width="200" height="200" fill="#f5f0e0"/>' +
-    '<path d="M70 85 L130 85 L140 155 L60 155 Z" fill="none" stroke="#d4af37" stroke-width="3"/>' +
-    '<path d="M85 85 Q85 60 100 60 Q115 60 115 85" fill="none" stroke="#d4af37" stroke-width="3"/>' +
-    '<circle cx="85" cy="130" r="3" fill="#d4af37"/>' +
-    '<circle cx="115" cy="130" r="3" fill="#d4af37"/>' +
-    '<text x="100" y="185" text-anchor="middle" font-size="11" fill="#a08626" font-family="sans-serif">sin foto</text>' +
+    '<text x="100" y="105" text-anchor="middle" font-size="42" fill="#d4af37">🎁</text>' +
+    '<text x="100" y="150" text-anchor="middle" font-size="11" fill="#a08626" font-family="sans-serif">sin imagen</text>' +
     '</svg>');
 
-const PLACEHOLDER_IMG = PLACEHOLDER_PRODUCTO;
-
-const TIENDAS = {
-    'amazon':'Amazon','mercadolibre':'MercadoLibre','mercadolivre':'MercadoLivre',
-    'ebay':'eBay','aliexpress':'AliExpress','walmart':'Walmart','target':'Target',
-    'elcorteingles':'El Corte Inglés','pccomponentes':'PcComponentes','mediamarkt':'MediaMarkt',
-    'ikea':'IKEA','etsy':'Etsy','shein':'Shein','zara':'Zara','fnac':'Fnac',
-    'carrefour':'Carrefour','liverpool':'Liverpool','falabella':'Falabella','ripley':'Ripley',
-    'alkosto':'Alkosto','exito':'Éxito','costco':'Costco','bestbuy':'Best Buy',
-    'homedepot':'Home Depot','temu':'Temu','trendyol':'Trendyol',
-    'leroymerlin':'Leroy Merlin','decathlon':'Decathlon'
-};
-
 let listas = [];
+let mensajesAnonimos = [];
 let listaEditandoId = null;
-let imagenesTemporales = [];
-let enlacesTemporales = [];
+let deseosTemporales = [];
 let ultimoSorteoAdultos = null;
 let ultimoSorteoNinos = null;
 let ultimaListaEnfocada = null;
 
-const imageCache = new Map();
-
 const listasEjemplo = [
     { id:'ejemplo1', tipo:'adulto', nombre:'Ana', email:'ana@ejemplo.com',
-      texto:'Un libro de aventuras y una taza navideña.',
-      imagenes:['https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=100&h=100&fit=crop&q=60'],
-      enlaces:[{ titulo:'Libro en Amazon', url:'https://www.amazon.com', imagen:'', tienda:'Amazon', nombreProducto:'' }] },
+      deseos: [
+        { nombre:'Libro de aventuras', notas:'Novela de misterio',
+          imagenes:['https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=100&h=100&fit=crop&q=60'],
+          enlace:'https://www.amazon.com' },
+        { nombre:'Taza navideña', notas:'Con diseño de renos', imagenes:[], enlace:'' }
+      ] },
     { id:'ejemplo2', tipo:'adulto', nombre:'Carlos', email:'carlos@ejemplo.com',
-      texto:'Auriculares inalámbricos.', imagenes:[], enlaces:[] },
+      deseos:[{ nombre:'Auriculares inalámbricos', notas:'', imagenes:[], enlace:'' }] },
     { id:'ejemplo3', tipo:'adulto', nombre:'Pedro', email:'pedro@ejemplo.com',
-      texto:'Sudadera verde y calcetines navideños.', imagenes:[], enlaces:[] },
+      deseos:[
+        { nombre:'Sudadera verde', notas:'Talla M', imagenes:[], enlace:'' },
+        { nombre:'Calcetines navideños', notas:'', imagenes:[], enlace:'' }
+      ] },
     { id:'ejemplo4', tipo:'nino', nombre:'Lucía', edad:7,
       padreId:'ejemplo1', padreNombre:'Ana', madreId:'ejemplo2', madreNombre:'Carlos',
-      texto:'Set de pinturas y peluche de unicornio.', imagenes:[], enlaces:[] }
+      deseos:[
+        { nombre:'Set de pinturas', notas:'', imagenes:[], enlace:'' },
+        { nombre:'Peluche de unicornio', notas:'', imagenes:[], enlace:'' }
+      ] }
 ];
 
 const imagenesNavidenas = [
@@ -719,8 +867,7 @@ const imagenesNavidenas = [
     { url:'https://images.unsplash.com/photo-1607344645866-009c320b63e0?w=600&auto=format&fit=crop&q=60', credito:'Unsplash - Kelly Sikkema' },
     { url:'https://images.unsplash.com/photo-1513297887119-d46091b24bfa?w=600&auto=format&fit=crop&q=60', credito:'Unsplash - Jakob Owens' },
     { url:'https://images.unsplash.com/photo-1545048702-79362596cdc9?w=600&auto=format&fit=crop&q=60', credito:'Unsplash - freestocks' },
-    { url:'https://images.unsplash.com/photo-1482517967863-00e15c9b44be?w=600&auto=format&fit=crop&q=60', credito:'Unsplash - Element5 Digital' },
-    { url:'https://images.unsplash.com/photo-1512395543261-0c1b1b0b2b5f?w=600&auto=format&fit=crop&q=60', credito:'Unsplash - Mike Arney' }
+    { url:'https://images.unsplash.com/photo-1482517967863-00e15c9b44be?w=600&auto=format&fit=crop&q=60', credito:'Unsplash - Element5 Digital' }
 ];
 
 /* ============================================================
@@ -762,6 +909,19 @@ function formatearFecha(iso) {
     } catch { return iso; }
 }
 
+function formatearFechaCorta(iso) {
+    if (!iso) return '';
+    try {
+        return new Date(iso).toLocaleDateString('es-ES', {
+            day:'2-digit', month:'2-digit', year:'numeric'
+        });
+    } catch { return iso; }
+}
+
+function contarCaracteres(txt) {
+    return String(txt || '').length;
+}
+
 function normalizarURL(url) {
     if (!url) return '';
     url = String(url).trim();
@@ -770,127 +930,63 @@ function normalizarURL(url) {
     try { return new URL(url).href; } catch { return ''; }
 }
 
-function detectarTienda(url) {
-    if (!url) return 'Tienda';
-    try {
-        const host = new URL(url).hostname.toLowerCase();
-        for (const key in TIENDAS) if (host.includes(key)) return TIENDAS[key];
-        return host.replace(/^www\./, '');
-    } catch { return 'Tienda'; }
-}
-
-function obtenerImagenEnlace(enlace) {
-    if (!enlace) return PLACEHOLDER_PRODUCTO;
-    const img = String(enlace.imagen || '').trim();
-    if (img && (img.startsWith('data:image/') || /^https?:\/\//i.test(img))) {
-        return img;
-    }
-    return PLACEHOLDER_PRODUCTO;
-}
-
 /* ============================================================
-   AUTO-FETCH DE IMAGEN DE PRODUCTO
+   MODELO DE DESEOS
    ============================================================ */
-async function obtenerImagenAutomatica(url) {
-    if (!url) return '';
-    let key = '';
-    try { key = new URL(url).href.toLowerCase(); } catch { return ''; }
-    if (imageCache.has(key)) return imageCache.get(key);
-
-    const proxies = [
-        'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-        'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)
-    ];
-
-    for (const proxy of proxies) {
-        try {
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 9000);
-            const res = await fetch(proxy, { signal: ctrl.signal });
-            clearTimeout(timer);
-            if (!res.ok) continue;
-            const html = await res.text();
-
-            let match = html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i)
-                     || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["']/i);
-            if (match && match[1]) { const r = decodificarURLImagen(match[1]); imageCache.set(key, r); return r; }
-
-            match = html.match(/<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i)
-                 || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i);
-            if (match && match[1]) { const r = decodificarURLImagen(match[1]); imageCache.set(key, r); return r; }
-
-            const jsonLdMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
-            if (jsonLdMatches) {
-                for (const m of jsonLdMatches) {
-                    try {
-                        const content = m.replace(/<script[^>]*>|<\/script>/gi, '');
-                        const data = JSON.parse(content);
-                        const items = Array.isArray(data) ? data : [data];
-                        for (const item of items) {
-                            if (item['@type'] === 'Product' && item.image) {
-                                const img = Array.isArray(item.image) ? item.image[0] : item.image;
-                                const imgUrl = typeof img === 'string' ? img : (img && img.url) || '';
-                                if (imgUrl) { const r = decodificarURLImagen(imgUrl); imageCache.set(key, r); return r; }
-                            }
-                            if (item['@graph']) {
-                                for (const sub of item['@graph']) {
-                                    if (sub['@type'] === 'Product' && sub.image) {
-                                        const img = Array.isArray(sub.image) ? sub.image[0] : sub.image;
-                                        const imgUrl = typeof img === 'string' ? img : (img && img.url) || '';
-                                        if (imgUrl) { const r = decodificarURLImagen(imgUrl); imageCache.set(key, r); return r; }
-                                    }
-                                }
-                            }
-                        }
-                    } catch {}
-                }
-            }
-
-            match = html.match(/(https?:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9\-_]+\.(?:jpg|jpeg|png|webp))/i);
-            if (match) { imageCache.set(key, match[1]); return match[1]; }
-        } catch (e) {
-            console.warn('Proxy error:', proxy, e);
-            continue;
-        }
-    }
-    imageCache.set(key, '');
-    return '';
+function crearDeseoVacio() {
+    return { nombre:'', notas:'', imagenes:[], enlace:'' };
 }
 
-function decodificarURLImagen(url) {
-    if (!url) return '';
-    try { url = url.trim().replace(/^['"]|['"]$/g, '').replace(/&amp;/g, '&'); } catch {}
-    if (url.startsWith('//')) url = 'https:' + url;
-    if (url.startsWith('/')) {
-        try { return new URL(url, 'https://placeholder.invalid').href; } catch {}
+function normalizarDeseo(d) {
+    return {
+        nombre: (d && d.nombre) || '',
+        notas: (d && d.notas) || '',
+        imagenes: Array.isArray(d && d.imagenes) ? d.imagenes.slice() : [],
+        enlace: (d && d.enlace) || ''
+    };
+}
+
+function normalizarLista(l) {
+    if (!l || typeof l !== 'object') return l;
+    if (!Array.isArray(l.deseos) || l.deseos.length === 0) {
+        const legacy = [];
+        if (l.texto || (Array.isArray(l.imagenes) && l.imagenes.length)) {
+            legacy.push({
+                nombre: '', notas: l.texto || '',
+                imagenes: Array.isArray(l.imagenes) ? l.imagenes.slice() : [],
+                enlace: ''
+            });
+        }
+        if (Array.isArray(l.enlaces)) {
+            l.enlaces.forEach(e => {
+                if (!e) return;
+                legacy.push({
+                    nombre: e.nombreProducto || e.titulo || '', notas: '',
+                    imagenes: e.imagen ? [e.imagen] : [], enlace: e.url || ''
+                });
+            });
+        }
+        l.deseos = legacy;
     }
-    return url;
+    l.deseos = l.deseos.map(normalizarDeseo);
+    delete l.texto; delete l.imagenes; delete l.enlaces;
+    return l;
 }
 
 /* ============================================================
    SUPABASE
    ============================================================ */
 function rowToLocal(r) {
-    return {
-        id: r.id, tipo: r.tipo || 'adulto', nombre: r.nombre, email: r.email || '',
-        edad: r.edad != null ? r.edad : null,
+    return normalizarLista({
+        id: r.id, tipo: r.tipo || 'adulto', nombre: r.nombre,
+        email: r.email || '', edad: r.edad != null ? r.edad : null,
         padreId: r.padre_id || null, padreNombre: r.padre_nombre || '',
         madreId: r.madre_id || null, madreNombre: r.madre_nombre || '',
         texto: r.notas || '',
         imagenes: Array.isArray(r.imagenes) ? r.imagenes : [],
-        enlaces: Array.isArray(r.enlaces) ? r.enlaces.map(normalizarEnlace) : []
-    };
-}
-
-function normalizarEnlace(e) {
-    if (!e) return { titulo:'', url:'', imagen:'', tienda:'', nombreProducto:'' };
-    return {
-        titulo: e.titulo || '',
-        url: e.url || '',
-        imagen: e.imagen || '',
-        tienda: e.tienda || detectarTienda(e.url || ''),
-        nombreProducto: e.nombreProducto || e.titulo || ''
-    };
+        enlaces: Array.isArray(r.enlaces) ? r.enlaces : [],
+        deseos: Array.isArray(r.deseos) ? r.deseos : null
+    });
 }
 
 function localToRow(l) {
@@ -899,11 +995,24 @@ function localToRow(l) {
         email: l.email || null, edad: l.edad,
         padre_id: l.padreId || null, padre_nombre: l.padreNombre || null,
         madre_id: l.madreId || null, madre_nombre: l.madreNombre || null,
-        notas: l.texto,
-        imagenes: l.imagenes || [],
-        enlaces: (l.enlaces || []).map(normalizarEnlace),
+        deseos: (l.deseos || []).map(d => ({
+            nombre: d.nombre || '', notas: d.notas || '',
+            imagenes: d.imagenes || [], enlace: d.enlace || ''
+        })),
         updated_at: new Date().toISOString()
     };
+}
+
+async function upsertLista(row) {
+    let { error } = await supabaseClient.from('listas').upsert(row);
+    if (error && /deseos/i.test(error.message || '')) {
+        const { deseos, ...rowSinDeseos } = row;
+        const retry = await supabaseClient.from('listas').upsert(rowSinDeseos);
+        if (retry.error) throw retry.error;
+        console.warn('⚠️ Columna "deseos" no existe en Supabase. Ejecuta: ALTER TABLE listas ADD COLUMN deseos JSONB DEFAULT \'[]\'::jsonb;');
+        return;
+    }
+    if (error) throw error;
 }
 
 async function cargarListas() {
@@ -926,13 +1035,13 @@ async function cargarListas() {
                     try {
                         const parsed = JSON.parse(cache);
                         if (Array.isArray(parsed) && parsed.length > 0) {
-                            listas = parsed;
+                            listas = parsed.map(normalizarLista);
                             await sincronizarTodas();
                             return;
                         }
                     } catch {}
                 }
-                listas = [...listasEjemplo];
+                listas = listasEjemplo.map(normalizarLista);
                 await sincronizarTodas();
                 return;
             }
@@ -942,18 +1051,25 @@ async function cargarListas() {
     if (cache) {
         try { listas = JSON.parse(cache); } catch {}
         if (!Array.isArray(listas)) listas = [];
+        listas = listas.map(normalizarLista);
     } else {
-        listas = [...listasEjemplo];
+        listas = listasEjemplo.map(normalizarLista);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch {}
     }
 }
 
 async function sincronizarTodas() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch {}
-    if (!supabaseDisponible) return;
+    if (!supabaseDisponible || listas.length === 0) return;
     try {
         const rows = listas.map(localToRow);
-        const { error } = await supabaseClient.from('listas').upsert(rows);
+        let { error } = await supabaseClient.from('listas').upsert(rows);
+        if (error && /deseos/i.test(error.message || '')) {
+            const rowsSinDeseos = rows.map(r => { const { deseos, ...rest } = r; return rest; });
+            const retry = await supabaseClient.from('listas').upsert(rowsSinDeseos);
+            if (retry.error) throw retry.error;
+            return;
+        }
         if (error) throw error;
     } catch (e) { console.error('Sync error:', e); }
 }
@@ -961,10 +1077,8 @@ async function sincronizarTodas() {
 async function guardarListaSupabase(lista) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch {}
     if (!supabaseDisponible) return;
-    try {
-        const { error } = await supabaseClient.from('listas').upsert(localToRow(lista));
-        if (error) throw error;
-    } catch (e) {
+    try { await upsertLista(localToRow(lista)); }
+    catch (e) {
         console.error('Guardar lista error:', e);
         toast('Guardado localmente. Supabase falló.', 'error');
     }
@@ -1054,6 +1168,93 @@ function mostrarAvisoSetup() {
     const aviso = document.getElementById('avisoSupabase');
     aviso.classList.add('activo');
     aviso.innerHTML = '⚠️ <strong>Supabase no está configurado.</strong> Ejecuta el SQL del comentario del <code>&lt;head&gt;</code> en el SQL Editor. Mientras tanto, la app usa almacenamiento local.';
+}
+
+/* ============================================================
+   MENSAJES ANÓNIMOS (100 caracteres)
+   ============================================================ */
+async function cargarMensajesAnonimos() {
+    let remote = [];
+    if (supabaseDisponible) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('mensajes_anonimos').select('id,mensaje,fecha')
+                .order('fecha', { ascending: false }).limit(60);
+            if (!error && Array.isArray(data)) remote = data;
+        } catch (e) { console.error('Load mensajes error:', e); }
+    }
+    let local = [];
+    try {
+        const cache = localStorage.getItem(STORAGE_MENSAJES);
+        if (cache) local = JSON.parse(cache);
+    } catch {}
+
+    const keys = new Set(remote.map(m => `${m.mensaje}|${m.fecha}`));
+    const merged = [...remote];
+    local.forEach(m => {
+        const k = `${m.mensaje}|${m.fecha}`;
+        if (!keys.has(k)) { merged.push(m); keys.add(k); }
+    });
+    merged.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    mensajesAnonimos = merged.slice(0, 60);
+    try { localStorage.setItem(STORAGE_MENSAJES, JSON.stringify(mensajesAnonimos)); } catch {}
+}
+
+async function guardarMensajeAnonimo(texto) {
+    const txt = String(texto).trim();
+    if (!txt) return null;
+    if (contarCaracteres(txt) > 100) return null;
+
+    let saved = {
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        mensaje: txt,
+        fecha: new Date().toISOString()
+    };
+
+    if (supabaseDisponible) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('mensajes_anonimos')
+                .insert({ mensaje: txt })
+                .select()
+                .single();
+            if (!error && data && data.id) saved = data;
+        } catch (e) { console.error('Guardar mensaje error:', e); }
+    }
+
+    mensajesAnonimos.unshift(saved);
+    if (mensajesAnonimos.length > 60) mensajesAnonimos = mensajesAnonimos.slice(0, 60);
+    try { localStorage.setItem(STORAGE_MENSAJES, JSON.stringify(mensajesAnonimos)); } catch {}
+    return saved;
+}
+
+function renderizarCinta() {
+    const track = document.getElementById('cintaTrack');
+    if (!track) return;
+
+    if (!Array.isArray(mensajesAnonimos) || mensajesAnonimos.length === 0) {
+        track.innerHTML = '<span class="cinta-msg cinta-vacio">🎄 Aún no hay mensajes navideños anónimos. ¡Sé el primero en dejar el tuyo!</span>';
+        track.style.setProperty('--cinta-duracion', '60s');
+        return;
+    }
+
+    const items = mensajesAnonimos.map(m => {
+        const fechaTxt = formatearFechaCorta(m.fecha);
+        return `<span class="cinta-msg"><span class="cinta-fecha">${escapeHtml(fechaTxt)}</span>${escapeHtml(m.mensaje)}</span>`;
+    });
+    const sep = '<span class="cinta-sep">🎄</span>';
+    const baseContent = items.map(i => i + sep).join('');
+
+    let fullContent = baseContent;
+    let safety = 0;
+    while (fullContent.length < 1400 && safety < 20) {
+        fullContent += baseContent;
+        safety++;
+    }
+
+    track.innerHTML = fullContent + fullContent;
+    const duracion = Math.max(35, Math.round(fullContent.length / 15));
+    track.style.setProperty('--cinta-duracion', `${duracion}s`);
 }
 
 /* ============================================================
@@ -1212,131 +1413,160 @@ function cargarImagenDelDia() {
 }
 
 /* ============================================================
-   RENDERIZAR CARRUSEL
+   RENDERIZAR LISTAS
    ============================================================ */
-function renderizarCarrusel() {
-    const cont = document.getElementById('carruselListas');
-    cont.innerHTML = '';
-    document.getElementById('contadorListas').textContent = `(${listas.length})`;
-    if (listas.length === 0) {
-        cont.innerHTML = '<p class="mensaje-vacio">🎅 Aún no hay listas. ¡Crea la primera!</p>';
-        return;
-    }
-    listas.forEach(lista => {
-        const tipo = lista.tipo || 'adulto';
-        const card = document.createElement('div');
-        card.className = 'tarjeta-lista';
-        card.dataset.nombre = lista.nombre.toLowerCase();
+function crearTarjetaLista(lista) {
+    const tipo = lista.tipo || 'adulto';
+    const card = document.createElement('div');
+    card.className = 'tarjeta-lista' + (tipo === 'nino' ? ' nino' : '');
+    card.dataset.nombre = (lista.nombre || '').toLowerCase();
+    card.title = 'Clic para ver la lista completa';
 
-        const header = document.createElement('div');
-        header.className = 'card-header';
-        const h3 = document.createElement('h3');
-        h3.textContent = lista.nombre;
-        const badge = document.createElement('span');
-        badge.className = `badge-tipo ${tipo}`;
-        badge.textContent = tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño';
-        header.appendChild(h3); header.appendChild(badge);
-        card.appendChild(header);
-
-        if (tipo === 'adulto' && lista.email) {
-            const p = document.createElement('p');
-            p.className = 'meta-info'; p.textContent = `✉️ ${lista.email}`;
-            card.appendChild(p);
-        }
-        if (tipo === 'nino') {
-            const p = document.createElement('p');
-            p.className = 'meta-info'; p.textContent = `🎂 ${lista.edad} años`;
-            card.appendChild(p);
-        }
-
-        const textoEl = document.createElement('p');
-        textoEl.className = 'texto';
-        textoEl.textContent = lista.texto || 'Sin notas.';
-        card.appendChild(textoEl);
-
-        if (lista.imagenes && lista.imagenes.length > 0) {
-            const minis = document.createElement('div');
-            minis.className = 'miniaturas';
-            lista.imagenes.slice(0, 4).forEach(url => {
-                const img = document.createElement('img');
-                img.src = url;
-                img.loading = 'lazy';
-                img.width = 56; img.height = 56;
-                img.alt = 'Imagen de la lista';
-                img.onerror = function () { this.src = PLACEHOLDER_IMG; };
-                img.addEventListener('click', e => { e.stopPropagation(); abrirLightbox(url); });
-                minis.appendChild(img);
-            });
-            card.appendChild(minis);
-        }
-
-        if (lista.enlaces && lista.enlaces.length > 0) {
-            const productos = document.createElement('div');
-            productos.className = 'productos-lista';
-            lista.enlaces.slice(0, 3).forEach(enlace => {
-                const a = document.createElement('a');
-                a.className = 'producto-mini';
-                a.href = enlace.url;
-                a.target = '_blank';
-                a.rel = 'noopener noreferrer';
-
-                const imgWrap = document.createElement('div');
-                imgWrap.className = 'producto-mini-img';
-                const img = document.createElement('img');
-                img.src = obtenerImagenEnlace(enlace);
-                img.loading = 'lazy';
-                img.width = 100; img.height = 100;
-                img.alt = enlace.titulo || 'Producto';
-                img.onerror = function () {
-                    this.onerror = null;
-                    this.src = PLACEHOLDER_PRODUCTO;
-                };
-                imgWrap.appendChild(img);
-
-                const info = document.createElement('div');
-                info.className = 'producto-mini-info';
-                const tit = document.createElement('div');
-                tit.className = 'producto-mini-titulo';
-                tit.textContent = enlace.nombreProducto || enlace.titulo || 'Producto';
-                const tienda = document.createElement('div');
-                tienda.className = 'producto-mini-tienda';
-                tienda.textContent = enlace.tienda || detectarTienda(enlace.url);
-                info.appendChild(tit); info.appendChild(tienda);
-
-                a.appendChild(imgWrap); a.appendChild(info);
-                productos.appendChild(a);
-            });
-            if (lista.enlaces.length > 3) {
-                const mas = document.createElement('div');
-                mas.className = 'productos-mas';
-                mas.textContent = `+${lista.enlaces.length - 3} enlace(s) más`;
-                productos.appendChild(mas);
-            }
-            card.appendChild(productos);
-        }
-
-        const acciones = document.createElement('div');
-        acciones.className = 'acciones-tarjeta';
-
-        const btnPDF = document.createElement('button');
-        btnPDF.className = 'btn-pdf'; btnPDF.textContent = '📄 PDF'; btnPDF.type = 'button';
-        btnPDF.addEventListener('click', () => descargarPDF(lista));
-        acciones.appendChild(btnPDF);
-
-        const btnBorrar = document.createElement('button');
-        btnBorrar.className = 'btn-borrar'; btnBorrar.textContent = '🗑️'; btnBorrar.type = 'button';
-        btnBorrar.title = 'Eliminar lista';
-        btnBorrar.addEventListener('click', () => eliminarLista(lista.id));
-        acciones.appendChild(btnBorrar);
-
-        const btnEditar = document.createElement('button');
-        btnEditar.className = 'btn-editar'; btnEditar.textContent = '✏️ Editar'; btnEditar.type = 'button';
-        btnEditar.addEventListener('click', () => abrirModalEditar(lista.id));
-        acciones.appendChild(btnEditar);
-
-        card.appendChild(acciones);
-        cont.appendChild(card);
+    card.addEventListener('click', (e) => {
+        if (e.target.closest('.acciones-tarjeta')) return;
+        if (e.target.closest('.miniaturas img')) return;
+        abrirVisualizacion(lista.id);
     });
+
+    const deseos = Array.isArray(lista.deseos) ? lista.deseos : [];
+    const tieneEnlace = deseos.some(d => d.enlace && String(d.enlace).trim());
+
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    const h3 = document.createElement('h3');
+    h3.textContent = lista.nombre;
+    const badges = document.createElement('div');
+    badges.className = 'header-badges';
+    if (tieneEnlace) {
+        const ic = document.createElement('span');
+        ic.className = 'icono-enlace';
+        ic.textContent = '🔗';
+        ic.title = 'Contiene enlaces';
+        badges.appendChild(ic);
+    }
+    const badge = document.createElement('span');
+    badge.className = `badge-tipo ${tipo}`;
+    badge.textContent = tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño';
+    badges.appendChild(badge);
+    header.appendChild(h3);
+    header.appendChild(badges);
+    card.appendChild(header);
+
+    if (tipo === 'adulto' && lista.email) {
+        const p = document.createElement('p');
+        p.className = 'meta-info'; p.textContent = `✉️ ${lista.email}`;
+        card.appendChild(p);
+    }
+    if (tipo === 'nino') {
+        const p = document.createElement('p');
+        p.className = 'meta-info'; p.textContent = `🎂 ${lista.edad ?? '?'} años`;
+        card.appendChild(p);
+    }
+
+    if (deseos.length > 0) {
+        const deseosDiv = document.createElement('div');
+        deseosDiv.className = 'deseos-lista-card';
+        deseos.forEach(d => {
+            const tieneNombre = !!(d.nombre && d.nombre.trim());
+            const tieneImgs = Array.isArray(d.imagenes) && d.imagenes.length > 0;
+            if (!tieneNombre && !tieneImgs) return;
+
+            const dCard = document.createElement('div');
+            dCard.className = 'deseo-card';
+            if (tieneNombre) {
+                const h4 = document.createElement('h4');
+                h4.textContent = '🎁 ' + d.nombre;
+                dCard.appendChild(h4);
+            }
+            if (tieneImgs) {
+                const minis = document.createElement('div');
+                minis.className = 'miniaturas';
+                d.imagenes.forEach(url => {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.loading = 'lazy';
+                    img.width = 46; img.height = 46;
+                    img.alt = 'Imagen del deseo';
+                    img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER_IMG; };
+                    img.addEventListener('click', e => {
+                        e.stopPropagation();
+                        abrirLightbox(url);
+                    });
+                    minis.appendChild(img);
+                });
+                dCard.appendChild(minis);
+            }
+            deseosDiv.appendChild(dCard);
+        });
+        if (deseosDiv.children.length) card.appendChild(deseosDiv);
+    }
+
+    const notasCompletas = deseos
+        .map(d => (d.notas || '').trim())
+        .filter(Boolean)
+        .join(' · ');
+    if (notasCompletas) {
+        const resumen = notasCompletas.length > 130
+            ? notasCompletas.slice(0, 130) + '…'
+            : notasCompletas;
+        const p = document.createElement('p');
+        p.className = 'resumen-notas';
+        p.textContent = '📝 ' + resumen;
+        p.title = notasCompletas;
+        card.appendChild(p);
+    }
+
+    const hint = document.createElement('div');
+    hint.className = 'card-hint';
+    hint.textContent = '👁️ Toca para ver la lista completa';
+    card.appendChild(hint);
+
+    const acciones = document.createElement('div');
+    acciones.className = 'acciones-tarjeta';
+
+    const btnPDF = document.createElement('button');
+    btnPDF.className = 'btn-pdf'; btnPDF.textContent = '📄 PDF'; btnPDF.type = 'button';
+    btnPDF.addEventListener('click', (e) => { e.stopPropagation(); descargarPDF(lista); });
+    acciones.appendChild(btnPDF);
+
+    const btnBorrar = document.createElement('button');
+    btnBorrar.className = 'btn-borrar'; btnBorrar.textContent = '🗑️'; btnBorrar.type = 'button';
+    btnBorrar.title = 'Eliminar lista';
+    btnBorrar.addEventListener('click', (e) => { e.stopPropagation(); eliminarLista(lista.id); });
+    acciones.appendChild(btnBorrar);
+
+    const btnEditar = document.createElement('button');
+    btnEditar.className = 'btn-editar'; btnEditar.textContent = '✏️ Editar'; btnEditar.type = 'button';
+    btnEditar.addEventListener('click', (e) => { e.stopPropagation(); abrirModalEditar(lista.id); });
+    acciones.appendChild(btnEditar);
+
+    card.appendChild(acciones);
+    return card;
+}
+
+function renderizarListas() {
+    const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
+    const ninos = listas.filter(l => l.tipo === 'nino');
+
+    document.getElementById('contadorListas').textContent = `(${listas.length})`;
+    document.getElementById('contadorAdultos').textContent = `(${adultos.length})`;
+    document.getElementById('contadorNinos').textContent = `(${ninos.length})`;
+
+    const gridA = document.getElementById('gridListasAdultos');
+    const gridN = document.getElementById('gridListasNinos');
+    const secA = document.getElementById('seccionAdultos');
+    const secN = document.getElementById('seccionNinos');
+    const vacio = document.getElementById('mensajeVacioListas');
+
+    gridA.innerHTML = '';
+    gridN.innerHTML = '';
+
+    adultos.forEach(l => gridA.appendChild(crearTarjetaLista(l)));
+    ninos.forEach(l => gridN.appendChild(crearTarjetaLista(l)));
+
+    secA.style.display = adultos.length ? '' : 'none';
+    secN.style.display = ninos.length ? '' : 'none';
+    vacio.style.display = listas.length === 0 ? '' : 'none';
 
     const buscador = document.getElementById('buscador');
     if (buscador && buscador.value.trim()) filtrarListas(buscador.value);
@@ -1345,9 +1575,26 @@ function renderizarCarrusel() {
 document.getElementById('buscador').addEventListener('input', e => filtrarListas(e.target.value));
 function filtrarListas(term) {
     const t = term.toLowerCase().trim();
-    document.querySelectorAll('.tarjeta-lista').forEach(card => {
-        card.style.display = (card.dataset.nombre || '').includes(t) ? '' : 'none';
+    let visiblesA = 0, visiblesN = 0;
+
+    document.querySelectorAll('#gridListasAdultos .tarjeta-lista').forEach(card => {
+        const visible = (card.dataset.nombre || '').includes(t);
+        card.style.display = visible ? '' : 'none';
+        if (visible) visiblesA++;
     });
+    document.querySelectorAll('#gridListasNinos .tarjeta-lista').forEach(card => {
+        const visible = (card.dataset.nombre || '').includes(t);
+        card.style.display = visible ? '' : 'none';
+        if (visible) visiblesN++;
+    });
+
+    const secA = document.getElementById('seccionAdultos');
+    const secN = document.getElementById('seccionNinos');
+    const hayAdultos = document.querySelectorAll('#gridListasAdultos .tarjeta-lista').length > 0;
+    const hayNinos = document.querySelectorAll('#gridListasNinos .tarjeta-lista').length > 0;
+
+    secA.style.display = (hayAdultos && visiblesA > 0) ? '' : 'none';
+    secN.style.display = (hayNinos && visiblesN > 0) ? '' : 'none';
 }
 
 const lightbox = document.getElementById('lightbox');
@@ -1364,10 +1611,79 @@ async function eliminarLista(id) {
     if (!lista) return;
     if (!confirm(`¿Eliminar la lista de "${lista.nombre}"?`)) return;
     listas = listas.filter(l => l.id !== id);
-    renderizarCarrusel();
+    renderizarListas();
     await eliminarListaSupabase(id);
     toast('Lista eliminada', 'success');
 }
+
+/* ============================================================
+   MODAL VISUALIZAR
+   ============================================================ */
+const modalVisualizar = document.getElementById('modalVisualizar');
+
+function abrirVisualizacion(id) {
+    const lista = listas.find(l => l.id === id);
+    if (!lista) return;
+    const tipo = lista.tipo || 'adulto';
+
+    document.getElementById('visTitulo').textContent = lista.nombre;
+    const cont = document.getElementById('visContenido');
+
+    let html = '';
+    html += `<div class="vis-cabecera">
+        <span class="badge-tipo ${tipo}">${tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño'}</span>
+    </div>`;
+    if (tipo === 'adulto' && lista.email) {
+        html += `<p class="vis-linea">✉️ ${escapeHtml(lista.email)}</p>`;
+    }
+    if (tipo === 'nino' && lista.edad != null) {
+        html += `<p class="vis-linea">🎂 ${escapeHtml(String(lista.edad))} años</p>`;
+    }
+    if (tipo === 'nino' && (lista.padreNombre || lista.madreNombre)) {
+        html += `<p class="vis-linea">👨‍👩‍👧 Padre: ${escapeHtml(lista.padreNombre || '—')} · Madre: ${escapeHtml(lista.madreNombre || '—')}</p>`;
+    }
+
+    const deseos = Array.isArray(lista.deseos) ? lista.deseos : [];
+    if (deseos.length === 0) {
+        html += '<p class="vis-vacio">Sin deseos registrados.</p>';
+    } else {
+        html += '<h3 class="vis-subtitulo">🎁 Deseos</h3>';
+        deseos.forEach((d, i) => {
+            const tieneAlgo = (d.nombre || '').trim() || (d.notas || '').trim()
+                || (d.enlace || '').trim() || (Array.isArray(d.imagenes) && d.imagenes.length);
+            if (!tieneAlgo) return;
+            html += '<div class="vis-deseo">';
+            html += `<h4>${i + 1}. ${escapeHtml(d.nombre || 'Deseo')}</h4>`;
+            if (d.notas) html += `<p class="vis-notas">${escapeHtml(d.notas)}</p>`;
+            if (d.enlace) {
+                const url = normalizarURL(d.enlace) || d.enlace;
+                html += `<p><a class="vis-enlace" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">🔗 ${escapeHtml(d.enlace)}</a></p>`;
+            }
+            if (Array.isArray(d.imagenes) && d.imagenes.length) {
+                html += '<div class="vis-imagenes">';
+                d.imagenes.forEach(u => {
+                    html += `<img src="${escapeHtml(u)}" alt="Imagen del deseo" loading="lazy" data-full="${escapeHtml(u)}">`;
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+        });
+    }
+
+    cont.innerHTML = html;
+    cont.querySelectorAll('.vis-imagenes img').forEach(img => {
+        img.addEventListener('click', () => abrirLightbox(img.dataset.full || img.src));
+    });
+
+    document.getElementById('btnEditarDesdeVisualizar').onclick = () => {
+        cerrarModal(modalVisualizar);
+        setTimeout(() => abrirModalEditar(id), 120);
+    };
+
+    abrirModal(modalVisualizar, '#btnCerrarVisualizar');
+}
+
+document.getElementById('btnCerrarVisualizar').addEventListener('click', () => cerrarModal(modalVisualizar));
 
 /* ============================================================
    MODAL CREAR / EDITAR
@@ -1380,12 +1696,9 @@ const emailInput = document.getElementById('emailPersona');
 const edadInput = document.getElementById('edadNino');
 const padreInput = document.getElementById('padreInput');
 const madreInput = document.getElementById('madreInput');
-const textoInput = document.getElementById('textoDeseo');
-const urlImagenInput = document.getElementById('urlImagen');
-const previewDiv = document.getElementById('previewImagenes');
-const contEnlaces = document.getElementById('contenedorEnlaces');
 const btnEliminarLista = document.getElementById('btnEliminarLista');
 const datalistAdultos = document.getElementById('listaAdultos');
+const contDeseos = document.getElementById('contenedorDeseos');
 
 function popularDatalistAdultos() {
     const adultos = listas.filter(l => (l.tipo || 'adulto') === 'adulto');
@@ -1427,6 +1740,156 @@ function actualizarCamposTipo() {
 }
 document.querySelectorAll('input[name="tipoLista"]').forEach(r => r.addEventListener('change', actualizarCamposTipo));
 
+/* ============================================================
+   EDITOR DE DESEOS
+   ============================================================ */
+function actualizarPreviewImagenesDeseo(index, previewDiv) {
+    previewDiv.innerHTML = '';
+    const imgs = deseosTemporales[index].imagenes || [];
+    imgs.forEach((url, j) => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.loading = 'lazy';
+        img.title = 'Clic para eliminar';
+        img.alt = 'Imagen del deseo';
+        img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER_IMG; };
+        img.addEventListener('click', () => {
+            deseosTemporales[index].imagenes.splice(j, 1);
+            actualizarPreviewImagenesDeseo(index, previewDiv);
+        });
+        previewDiv.appendChild(img);
+    });
+}
+
+function renderizarDeseos() {
+    contDeseos.innerHTML = '';
+    if (!Array.isArray(deseosTemporales) || deseosTemporales.length === 0) {
+        deseosTemporales = [crearDeseoVacio()];
+    }
+
+    deseosTemporales.forEach((deseo, i) => {
+        const card = document.createElement('div');
+        card.className = 'deseo-editor';
+
+        const header = document.createElement('div');
+        header.className = 'deseo-editor-header';
+        const num = document.createElement('span');
+        num.className = 'deseo-editor-num';
+        num.textContent = `Deseo #${i + 1}`;
+        header.appendChild(num);
+        if (deseosTemporales.length > 1) {
+            const btnX = document.createElement('button');
+            btnX.type = 'button';
+            btnX.className = 'btn-eliminar-deseo';
+            btnX.textContent = '×';
+            btnX.title = 'Eliminar este deseo';
+            btnX.addEventListener('click', () => {
+                deseosTemporales.splice(i, 1);
+                if (deseosTemporales.length === 0) deseosTemporales.push(crearDeseoVacio());
+                renderizarDeseos();
+            });
+            header.appendChild(btnX);
+        }
+        card.appendChild(header);
+
+        const lblNombre = document.createElement('label');
+        lblNombre.textContent = 'Nombre del deseo';
+        card.appendChild(lblNombre);
+        const inNombre = document.createElement('input');
+        inNombre.type = 'text';
+        inNombre.placeholder = 'Ej: Libro de aventuras';
+        inNombre.value = deseo.nombre || '';
+        inNombre.addEventListener('input', e => { deseosTemporales[i].nombre = e.target.value; });
+        card.appendChild(inNombre);
+
+        const lblNotas = document.createElement('label');
+        lblNotas.textContent = 'Notas importantes';
+        card.appendChild(lblNotas);
+        const inNotas = document.createElement('textarea');
+        inNotas.placeholder = 'Color, talla, detalles...';
+        inNotas.value = deseo.notas || '';
+        inNotas.addEventListener('input', e => { deseosTemporales[i].notas = e.target.value; });
+        card.appendChild(inNotas);
+
+        const lblEnlace = document.createElement('label');
+        lblEnlace.textContent = 'Enlace (opcional)';
+        card.appendChild(lblEnlace);
+        const inEnlace = document.createElement('input');
+        inEnlace.type = 'text';
+        inEnlace.placeholder = 'https://...';
+        inEnlace.value = deseo.enlace || '';
+        inEnlace.addEventListener('input', e => { deseosTemporales[i].enlace = e.target.value; });
+        card.appendChild(inEnlace);
+
+        const lblImg = document.createElement('label');
+        lblImg.textContent = 'Imágenes';
+        card.appendChild(lblImg);
+
+        const botones = document.createElement('div');
+        botones.className = 'deseo-img-botones';
+
+        const inUrl = document.createElement('input');
+        inUrl.type = 'text';
+        inUrl.placeholder = 'URL de imagen...';
+        botones.appendChild(inUrl);
+
+        const btnAddUrl = document.createElement('button');
+        btnAddUrl.type = 'button';
+        btnAddUrl.className = 'btn-agregar';
+        btnAddUrl.textContent = '+ URL';
+        btnAddUrl.addEventListener('click', () => {
+            const u = inUrl.value.trim();
+            if (!u) return;
+            deseosTemporales[i].imagenes.push(u);
+            inUrl.value = '';
+            actualizarPreviewImagenesDeseo(i, previewDiv);
+        });
+        botones.appendChild(btnAddUrl);
+
+        const fileLabel = document.createElement('label');
+        fileLabel.className = 'btn-file-mini';
+        fileLabel.textContent = '📷 Subir archivo';
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.multiple = true;
+        fileInput.style.display = 'none';
+        fileInput.addEventListener('change', e => {
+            const files = e.target.files;
+            if (!files || !files.length) return;
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    deseosTemporales[i].imagenes.push(ev.target.result);
+                    actualizarPreviewImagenesDeseo(i, previewDiv);
+                };
+                reader.readAsDataURL(file);
+            });
+            e.target.value = '';
+        });
+        fileLabel.appendChild(fileInput);
+        botones.appendChild(fileLabel);
+
+        card.appendChild(botones);
+
+        const previewDiv = document.createElement('div');
+        previewDiv.className = 'deseo-imagenes-preview';
+        card.appendChild(previewDiv);
+        actualizarPreviewImagenesDeseo(i, previewDiv);
+
+        contDeseos.appendChild(card);
+    });
+}
+
+document.getElementById('btnAgregarDeseo').addEventListener('click', () => {
+    deseosTemporales.push(crearDeseoVacio());
+    renderizarDeseos();
+});
+
+/* ============================================================
+   ABRIR CREAR / EDITAR
+   ============================================================ */
 function abrirModalCrear(tipoDefault = 'adulto') {
     listaEditandoId = null;
     modalTitulo.textContent = 'Crear lista de deseo';
@@ -1438,14 +1901,11 @@ function abrirModalCrear(tipoDefault = 'adulto') {
     madreInput.value = '';
     document.getElementById('padreIndicator').textContent = '';
     document.getElementById('madreIndicator').textContent = '';
-    textoInput.value = '';
     document.querySelector(`input[name="tipoLista"][value="${tipoDefault}"]`).checked = true;
     actualizarCamposTipo();
-    imagenesTemporales = [];
-    enlacesTemporales = [{ titulo:'', url:'', imagen:'', tienda:'', nombreProducto:'', _imgManual:false }];
+    deseosTemporales = [crearDeseoVacio()];
     btnEliminarLista.style.display = 'none';
-    renderizarPreview();
-    renderizarEnlaces();
+    renderizarDeseos();
     abrirModal(modal, '#nombrePersona');
 }
 
@@ -1460,7 +1920,6 @@ function abrirModalEditar(id) {
     nombreInput.value = lista.nombre;
     emailInput.value = lista.email || '';
     edadInput.value = lista.edad != null ? lista.edad : '';
-    textoInput.value = lista.texto || '';
     const tipo = lista.tipo || 'adulto';
     document.querySelector(`input[name="tipoLista"][value="${tipo}"]`).checked = true;
     actualizarCamposTipo();
@@ -1481,13 +1940,11 @@ function abrirModalEditar(id) {
         actualizarIndicador(padreInput, document.getElementById('padreIndicator'));
         actualizarIndicador(madreInput, document.getElementById('madreIndicator'));
     }
-    imagenesTemporales = lista.imagenes ? [...lista.imagenes] : [];
-    enlacesTemporales = lista.enlaces && lista.enlaces.length
-        ? lista.enlaces.map(e => ({ ...normalizarEnlace(e), _imgManual: !!e.imagen }))
-        : [{ titulo:'', url:'', imagen:'', tienda:'', nombreProducto:'', _imgManual:false }];
+    deseosTemporales = (Array.isArray(lista.deseos) && lista.deseos.length > 0)
+        ? lista.deseos.map(normalizarDeseo)
+        : [crearDeseoVacio()];
     btnEliminarLista.style.display = 'inline-block';
-    renderizarPreview();
-    renderizarEnlaces();
+    renderizarDeseos();
     abrirModal(modal, '#nombrePersona');
 }
 
@@ -1498,179 +1955,6 @@ btnEliminarLista.addEventListener('click', () => {
         cerrarModal(modal);
         setTimeout(() => eliminarLista(id), 100);
     }
-});
-
-/* ============================================================
-   IMÁGENES EN MODAL
-   ============================================================ */
-function renderizarPreview() {
-    previewDiv.innerHTML = '';
-    imagenesTemporales.forEach((url, i) => {
-        const img = document.createElement('img');
-        img.src = url;
-        img.loading = 'lazy';
-        img.width = 48; img.height = 48;
-        img.onerror = function () { this.src = PLACEHOLDER_IMG; };
-        img.title = 'Clic para eliminar';
-        img.addEventListener('click', () => { imagenesTemporales.splice(i, 1); renderizarPreview(); });
-        previewDiv.appendChild(img);
-    });
-}
-
-document.getElementById('btnAgregarImagenUrl').addEventListener('click', () => {
-    const url = urlImagenInput.value.trim();
-    if (!url) return;
-    imagenesTemporales.push(url);
-    urlImagenInput.value = '';
-    renderizarPreview();
-});
-
-document.getElementById('archivoImagen').addEventListener('change', e => {
-    const files = e.target.files;
-    if (!files || !files.length) return;
-    Array.from(files).forEach(file => {
-        if (!file.type.startsWith('image/')) return;
-        const reader = new FileReader();
-        reader.onload = ev => { imagenesTemporales.push(ev.target.result); renderizarPreview(); };
-        reader.readAsDataURL(file);
-    });
-    e.target.value = '';
-});
-
-/* ============================================================
-   EDITOR DE ENLACES CON PREVIEW Y AUTO-FETCH
-   ============================================================ */
-function renderizarEnlaces() {
-    contEnlaces.innerHTML = '';
-    enlacesTemporales.forEach((enlace, i) => {
-        const row = document.createElement('div');
-        row.className = 'enlace-editor';
-
-        const thumb = document.createElement('div');
-        thumb.className = 'enlace-thumb';
-        const thumbImg = document.createElement('img');
-        thumbImg.src = obtenerImagenEnlace(enlace);
-        thumbImg.loading = 'lazy';
-        thumbImg.width = 80; thumbImg.height = 80;
-        thumbImg.alt = 'Vista previa del producto';
-        thumbImg.onerror = function () { this.onerror = null; this.src = PLACEHOLDER_PRODUCTO; };
-        thumb.appendChild(thumbImg);
-
-        const campos = document.createElement('div');
-        campos.className = 'enlace-campos';
-
-        const urlInput = document.createElement('input');
-        urlInput.type = 'text';
-        urlInput.placeholder = 'URL del producto (https://...)';
-        urlInput.value = enlace.url || '';
-        let fetchTimer = null;
-        urlInput.addEventListener('input', e => {
-            enlacesTemporales[i].url = e.target.value;
-            enlacesTemporales[i].tienda = detectarTienda(e.target.value);
-            clearTimeout(fetchTimer);
-            if (e.target.value.trim().length > 10) {
-                fetchTimer = setTimeout(async () => {
-                    const actual = enlacesTemporales[i];
-                    if (actual._imgManual && actual.imagen) return;
-                    estado.textContent = '🔍 Buscando foto del producto...';
-                    estado.style.color = 'var(--texto-suave)';
-                    const img = await obtenerImagenAutomatica(actual.url);
-                    if (img) {
-                        enlacesTemporales[i].imagen = img;
-                        enlacesTemporales[i]._imgManual = false;
-                        thumbImg.src = img;
-                        imgInput.value = img;
-                        estado.textContent = '✅ Foto obtenida automáticamente';
-                        estado.style.color = 'var(--verde)';
-                    } else {
-                        estado.textContent = '⚠️ No se pudo obtener. Añádela manualmente o desde tu dispositivo.';
-                        estado.style.color = '#e67e22';
-                    }
-                }, 900);
-            } else {
-                estado.textContent = '';
-            }
-        });
-
-        const tituloInput = document.createElement('input');
-        tituloInput.type = 'text';
-        tituloInput.placeholder = 'Nombre del producto';
-        tituloInput.value = enlace.nombreProducto || enlace.titulo || '';
-        tituloInput.addEventListener('input', e => {
-            enlacesTemporales[i].titulo = e.target.value;
-            enlacesTemporales[i].nombreProducto = e.target.value;
-        });
-
-        const imgInput = document.createElement('input');
-        imgInput.type = 'text';
-        imgInput.placeholder = 'URL de imagen (se auto-completa)';
-        imgInput.value = enlace.imagen || '';
-        imgInput.addEventListener('input', e => {
-            const v = e.target.value.trim();
-            enlacesTemporales[i].imagen = v;
-            enlacesTemporales[i]._imgManual = true;
-            thumbImg.src = v || PLACEHOLDER_PRODUCTO;
-            estado.textContent = v ? '📷 Imagen establecida manualmente' : '';
-            estado.style.color = 'var(--texto-suave)';
-        });
-
-        const fileBtn = document.createElement('label');
-        fileBtn.className = 'btn-file-mini';
-        fileBtn.textContent = '📷 Subir foto';
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.accept = 'image/*';
-        fileInput.style.display = 'none';
-        fileInput.addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = ev => {
-                enlacesTemporales[i].imagen = ev.target.result;
-                enlacesTemporales[i]._imgManual = true;
-                imgInput.value = ev.target.result;
-                thumbImg.src = ev.target.result;
-                estado.textContent = '✅ Foto subida desde tu dispositivo';
-                estado.style.color = 'var(--verde)';
-            };
-            reader.readAsDataURL(file);
-        });
-        fileBtn.appendChild(fileInput);
-
-        const estado = document.createElement('div');
-        estado.className = 'enlace-estado';
-        if (enlace.imagen && enlace._imgManual) {
-            estado.textContent = '📷 Imagen establecida manualmente';
-            estado.style.color = 'var(--texto-suave)';
-        }
-
-        campos.appendChild(urlInput);
-        campos.appendChild(tituloInput);
-        campos.appendChild(imgInput);
-        campos.appendChild(fileBtn);
-        campos.appendChild(estado);
-
-        const btnX = document.createElement('button');
-        btnX.className = 'btn-eliminar-enlace';
-        btnX.textContent = '×';
-        btnX.type = 'button';
-        btnX.title = 'Eliminar enlace';
-        btnX.addEventListener('click', () => {
-            if (enlacesTemporales.length > 1) enlacesTemporales.splice(i, 1);
-            else enlacesTemporales[0] = { titulo:'', url:'', imagen:'', tienda:'', nombreProducto:'', _imgManual:false };
-            renderizarEnlaces();
-        });
-
-        row.appendChild(thumb);
-        row.appendChild(campos);
-        row.appendChild(btnX);
-        contEnlaces.appendChild(row);
-    });
-}
-
-document.getElementById('btnAgregarEnlace').addEventListener('click', () => {
-    enlacesTemporales.push({ titulo:'', url:'', imagen:'', tienda:'', nombreProducto:'', _imgManual:false });
-    renderizarEnlaces();
 });
 
 /* ============================================================
@@ -1695,19 +1979,14 @@ document.getElementById('btnGuardarLista').addEventListener('click', async () =>
         l.id !== listaEditandoId);
     if (existe) { toast('Ya existe una lista con ese nombre en este sorteo', 'error'); return; }
 
-    const enlacesValidos = enlacesTemporales
-        .filter(e => (e.url || '').trim() !== '' || (e.titulo || '').trim() !== '')
-        .map(e => {
-            const url = normalizarURL(e.url || '');
-            return {
-                titulo: (e.titulo || '').trim() || 'Producto',
-                url,
-                imagen: (e.imagen || '').trim(),
-                tienda: (e.tienda || detectarTienda(url)).trim(),
-                nombreProducto: (e.nombreProducto || e.titulo || '').trim()
-            };
-        })
-        .filter(e => e.url);
+    const deseosLimpios = deseosTemporales
+        .map(d => ({
+            nombre: (d.nombre || '').trim(),
+            notas: (d.notas || '').trim(),
+            imagenes: (d.imagenes || []).filter(u => String(u).trim() !== ''),
+            enlace: normalizarURL(d.enlace || '')
+        }))
+        .filter(d => d.nombre || d.notas || d.imagenes.length || d.enlace);
 
     const nueva = {
         id: listaEditandoId || 'lista_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
@@ -1718,9 +1997,7 @@ document.getElementById('btnGuardarLista').addEventListener('click', async () =>
         madreNombre: tipo === 'nino' ? madreNombre : '',
         padreId: tipo === 'nino' ? resolverAdultoId(padreNombre) : null,
         madreId: tipo === 'nino' ? resolverAdultoId(madreNombre) : null,
-        texto: textoInput.value.trim(),
-        imagenes: [...imagenesTemporales],
-        enlaces: enlacesValidos
+        deseos: deseosLimpios
     };
 
     if (listaEditandoId) {
@@ -1731,40 +2008,87 @@ document.getElementById('btnGuardarLista').addEventListener('click', async () =>
         listas.push(nueva);
         toast('Lista creada', 'success');
     }
-    renderizarCarrusel();
+    renderizarListas();
     await guardarListaSupabase(nueva);
     cerrarModal(modal);
 });
 
 /* ============================================================
-   EMAILS
+   MENSAJES ANÓNIMOS (100 caracteres)
    ============================================================ */
-function enviarEmailAdulto(de, para, deEmail, paraEmail) {
-    if (!deEmail || !validarEmail(deEmail)) { toast('Email inválido para ' + de, 'error'); return; }
-    const subject = encodeURIComponent('🎄 Amigo Invisible 2026 - Tu amigo secreto');
-    const body = encodeURIComponent(
-        `¡Hola ${de}!\n\nYa se realizó el sorteo del Amigo Invisible 2026.\n\n` +
-        `🎁 Te toca regalar a: ${para}\n` +
-        (paraEmail ? `✉️ Su correo: ${paraEmail}\n` : '') +
-        `\n⚠️ RECUERDA: esto es SECRETO.\n\nLa entrega de regalos será el 25 de diciembre.\n\n` +
-        `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`);
-    window.location.href = `mailto:${deEmail}?subject=${subject}&body=${body}`;
+const inputMensajeAnonimo = document.getElementById('inputMensajeAnonimo');
+const contadorCaracteresEl = document.getElementById('contadorCaracteres');
+const btnEnviarAnonimo = document.getElementById('btnEnviarAnonimo');
+
+function actualizarContadorCaracteres() {
+    const txt = inputMensajeAnonimo.value;
+    const n = contarCaracteres(txt);
+    contadorCaracteresEl.textContent = n;
+    const excede = n > 100;
+    contadorCaracteresEl.parentElement.classList.toggle('excede', excede);
+    btnEnviarAnonimo.disabled = excede || n === 0;
+}
+inputMensajeAnonimo.addEventListener('input', actualizarContadorCaracteres);
+
+btnEnviarAnonimo.addEventListener('click', async () => {
+    const txt = inputMensajeAnonimo.value.trim();
+    const n = contarCaracteres(txt);
+    if (!txt || n === 0) { toast('Escribe un mensaje', 'error'); return; }
+    if (n > 100) { toast('Máximo 100 caracteres', 'error'); return; }
+
+    btnEnviarAnonimo.disabled = true;
+    const guardado = await guardarMensajeAnonimo(txt);
+    if (guardado) {
+        inputMensajeAnonimo.value = '';
+        actualizarContadorCaracteres();
+        renderizarCinta();
+        toast('¡Mensaje navideño enviado! 🎄', 'success');
+    } else {
+        toast('No se pudo enviar el mensaje', 'error');
+        btnEnviarAnonimo.disabled = false;
+    }
+});
+
+/* ============================================================
+   EMAIL UNIFICADO (adulto + niños)
+   ============================================================ */
+function obtenerNinosDeAdulto(adultoId) {
+    if (!ultimoSorteoNinos || !Array.isArray(ultimoSorteoNinos.resultado)) return [];
+    const item = ultimoSorteoNinos.resultado.find(r => r.adultoId === adultoId);
+    return item ? item.ninos : [];
 }
 
-function enviarEmailNino(adulto, ninos) {
-    if (!adulto.email || !validarEmail(adulto.email)) { toast('Email inválido para ' + adulto.nombre, 'error'); return; }
-    const listado = ninos.map(n => `- ${n.nombre} (${n.edad} años)`).join('\n');
-    const subject = encodeURIComponent('🎄 Amigo Invisible 2026 - Niños a tu cargo');
-    const body = encodeURIComponent(
-        `¡Hola ${adulto.nombre}!\n\nYa se realizó el sorteo de niños del Amigo Invisible 2026.\n\n` +
-        `🎁 Te toca comprar regalos para:\n${listado}\n\n` +
-        `⚠️ RECUERDA: esto es SECRETO.\n\nLa entrega de regalos será el 25 de diciembre.\n\n` +
-        `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`);
-    window.location.href = `mailto:${adulto.email}?subject=${subject}&body=${body}`;
+function enviarEmailAdultoConNinos(nombreParticipante, deEmail, para, paraEmail, ninos) {
+    if (!deEmail || !validarEmail(deEmail)) {
+        toast('Email inválido para ' + nombreParticipante, 'error');
+        return;
+    }
+
+    let cuerpo = `¡Hola ${nombreParticipante}!\n\n`;
+    cuerpo += `Ya se realizó el sorteo del Amigo Invisible 2026.\n\n`;
+
+    if (para) {
+        cuerpo += `🎁 Tu amigo invisible (adulto) es: ${para}\n`;
+        if (paraEmail) cuerpo += `✉️ Su correo: ${paraEmail}\n`;
+    }
+
+    if (Array.isArray(ninos) && ninos.length > 0) {
+        cuerpo += `\n👶 Niños que te tocan:\n`;
+        ninos.forEach(n => {
+            cuerpo += `- ${n.nombre}${n.edad != null ? ` (${n.edad} años)` : ''}\n`;
+        });
+    }
+
+    cuerpo += `\n⚠️ RECUERDA: esto es SECRETO.\n`;
+    cuerpo += `La entrega de regalos será el 25 de diciembre.\n\n`;
+    cuerpo += `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`;
+
+    const subject = encodeURIComponent('🎄 Amigo Invisible 2026 - Tu asignación secreta');
+    window.location.href = `mailto:${deEmail}?subject=${subject}&body=${encodeURIComponent(cuerpo)}`;
 }
 
 /* ============================================================
-   SORTEO ADULTOS
+   SORTEO ADULTOS (solo nombres + reenvío)
    ============================================================ */
 const modalSorteo = document.getElementById('modalSorteo');
 
@@ -1816,55 +2140,49 @@ async function ejecutarSorteoAdultos() {
 function renderizarResultadoAdultos(resultado) {
     const cont = document.getElementById('resultadoSorteo');
     cont.innerHTML = '';
-    resultado.forEach(({ de, para, paraEmail }) => {
-        const card = document.createElement('div');
-        card.className = 'tarjeta-sorteo';
-        card.addEventListener('click', e => {
-            if (e.target.closest('.btn-enviar-email')) return;
-            card.classList.toggle('revelada');
-        });
-        card.innerHTML = `
-            <div class="frente">
-                <div class="icono">🎁</div>
-                <div class="nombre-de">${escapeHtml(de)}</div>
-                <div class="ayuda">Toca para revelar</div>
-            </div>
-            <div class="reverso">
-                <div class="icono">✨</div>
-                <div>le regala a</div>
-                <div class="nombre-para">${escapeHtml(para)}</div>
-                ${paraEmail ? `<div class="ayuda">✉️ ${escapeHtml(paraEmail)}</div>` : ''}
-            </div>`;
-        cont.appendChild(card);
-    });
 
-    const envioCont = document.getElementById('envioEmailsAdultos');
-    envioCont.innerHTML = '';
-    if (resultado.length === 0) return;
-
-    const envioDiv = document.createElement('div');
-    envioDiv.className = 'envio-emails';
-    envioDiv.innerHTML = `
-        <h3>📧 Enviar resultados por correo (secreto)</h3>
-        <p>Envía individualmente. Se abrirá tu cliente de correo con el mensaje pre-rellenado.</p>
-        <ul class="lista-envios"></ul>`;
-    const ul = envioDiv.querySelector('.lista-envios');
+    // Lista simple de participantes (solo nombres) con botón de reenvío
+    const lista = document.createElement('ul');
+    lista.className = 'lista-envios';
 
     resultado.forEach(({ de, para, deEmail, paraEmail }) => {
         const li = document.createElement('li');
+
         const info = document.createElement('div');
-        info.innerHTML = `<div class="nombre-envio">🎁 ${escapeHtml(de)} → ${escapeHtml(para)}</div><div class="email-envio">✉️ ${escapeHtml(deEmail)}</div>`;
+        // Solo mostramos el nombre del participante; NO la asignación
+        info.innerHTML = `<div class="nombre-envio">👤 ${escapeHtml(de)}</div><div class="email-envio">✉️ ${escapeHtml(deEmail)}</div>`;
         li.appendChild(info);
+
         const btn = document.createElement('button');
-        btn.className = 'btn-enviar-email'; btn.textContent = '📧 Enviar'; btn.type = 'button';
+        btn.className = 'btn-enviar-email';
+        btn.textContent = '📧 Reenviar correo';
+        btn.type = 'button';
+
+        // Obtener los niños asignados a este adulto (si hay sorteo de niños)
+        const adultoObj = listas.find(l => l.nombre === de);
+        const ninos = adultoObj ? obtenerNinosDeAdulto(adultoObj.id) : [];
+
         btn.addEventListener('click', () => {
-            enviarEmailAdulto(de, para, deEmail, paraEmail);
-            btn.textContent = '✅ Abierto'; btn.disabled = true;
+            enviarEmailAdultoConNinos(de, deEmail, para, paraEmail, ninos);
+            btn.textContent = '✅ Abierto';
+            btn.disabled = true;
         });
         li.appendChild(btn);
-        ul.appendChild(li);
+
+        lista.appendChild(li);
     });
-    envioCont.appendChild(envioDiv);
+
+    cont.appendChild(lista);
+
+    // Mensaje si no hay sorteo de niños
+    if (!ultimoSorteoNinos) {
+        const aviso = document.createElement('p');
+        aviso.style.fontSize = '.8rem';
+        aviso.style.color = 'var(--texto-suave)';
+        aviso.style.marginTop = '10px';
+        aviso.textContent = 'ℹ️ Aún no hay sorteo de niños. Si lo haces, los correos incluirán también los niños asignados.';
+        cont.appendChild(aviso);
+    }
 }
 
 document.getElementById('btnCerrarSorteo').addEventListener('click', () => cerrarModal(modalSorteo));
@@ -1872,6 +2190,7 @@ document.getElementById('btnRepetirSorteo').addEventListener('click', async () =
 
 document.getElementById('btnReenviarAdultos').addEventListener('click', () => {
     if (!ultimoSorteoAdultos || !ultimoSorteoAdultos.resultado) { toast('No hay sorteo guardado', 'error'); return; }
+    // Recalcular emails por si cambiaron
     const info = {};
     listas.filter(l => (l.tipo || 'adulto') === 'adulto').forEach(a => info[a.nombre] = a);
     const resultado = ultimoSorteoAdultos.resultado.map(r => ({
@@ -1884,7 +2203,7 @@ document.getElementById('btnReenviarAdultos').addEventListener('click', () => {
 });
 
 /* ============================================================
-   SORTEO NIÑOS
+   SORTEO NIÑOS (sin cambios)
    ============================================================ */
 const modalSorteoNinos = document.getElementById('modalSorteoNinos');
 
@@ -1986,7 +2305,22 @@ document.getElementById('btnReenviarNinos').addEventListener('click', () => {
 });
 
 /* ============================================================
-   PDF
+   EMAIL NIÑOS (auxiliar)
+   ============================================================ */
+function enviarEmailNino(adulto, ninos) {
+    if (!adulto.email || !validarEmail(adulto.email)) { toast('Email inválido para ' + adulto.nombre, 'error'); return; }
+    const listado = ninos.map(n => `- ${n.nombre}${n.edad != null ? ` (${n.edad} años)` : ''}`).join('\n');
+    const subject = encodeURIComponent('🎄 Amigo Invisible 2026 - Niños a tu cargo');
+    const body = encodeURIComponent(
+        `¡Hola ${adulto.nombre}!\n\nYa se realizó el sorteo de niños del Amigo Invisible 2026.\n\n` +
+        `🎁 Te toca comprar regalos para:\n${listado}\n\n` +
+        `⚠️ RECUERDA: esto es SECRETO.\n\nLa entrega de regalos será el 25 de diciembre.\n\n` +
+        `¡Feliz Navidad! 🎅🎄\n\n— Amigo Invisible 2026`);
+    window.location.href = `mailto:${adulto.email}?subject=${subject}&body=${body}`;
+}
+
+/* ============================================================
+   PDF (sin cambios relevantes)
    ============================================================ */
 function cargarImagenDataURL(url) {
     return new Promise(resolve => {
@@ -2015,9 +2349,14 @@ async function descargarPDF(lista) {
     if (!window.jspdf || !window.jspdf.jsPDF) {
         const w = window.open('', '_blank');
         if (w) {
+            const deseosHtml = (lista.deseos || []).map((d, i) => `
+                <div style="margin-bottom:16px;border-left:3px solid #d4af37;padding:4px 12px;">
+                    <h3 style="margin:0 0 4px;color:#27ae60;">${i + 1}. ${escapeHtml(d.nombre || 'Deseo')}</h3>
+                    ${d.notas ? `<p>${escapeHtml(d.notas)}</p>` : ''}
+                    ${d.enlace ? `<p><a href="${escapeHtml(d.enlace)}">${escapeHtml(d.enlace)}</a></p>` : ''}
+                </div>`).join('');
             w.document.write(`<html><head><title>Lista - ${escapeHtml(lista.nombre)}</title></head><body style="font-family:Arial; padding:30px;">
-                <h1>Amigo Invisible 2026</h1><h2>${escapeHtml(lista.nombre)}</h2>
-                <p>${escapeHtml(lista.texto || '')}</p>
+                <h1>Amigo Invisible 2026</h1><h2>${escapeHtml(lista.nombre)}</h2>${deseosHtml}
             </body></html>`);
             w.document.close();
             setTimeout(() => w.print(), 300);
@@ -2042,56 +2381,54 @@ async function descargarPDF(lista) {
         if ((lista.tipo || 'adulto') === 'nino' && lista.edad != null) { doc.text(`Edad: ${lista.edad} años`, m, y); y += 8; }
         doc.text(`Tipo: ${(lista.tipo || 'adulto') === 'adulto' ? 'Adultos' : 'Niños'}`, m, y); y += 10;
 
-        if (lista.texto) {
-            doc.setFontSize(12); doc.setTextColor(39,174,96);
-            doc.text('Notas importantes:', m, y); y += 6;
-            doc.setTextColor(0); doc.setFontSize(11);
-            const lineas = doc.splitTextToSize(lista.texto, pageW - m * 2);
-            lineas.forEach(l => {
-                if (y > pageH - 20) { doc.addPage(); y = 20; }
-                doc.text(l, m, y); y += 6;
-            });
-            y += 3;
-        }
+        const deseos = Array.isArray(lista.deseos) ? lista.deseos : [];
+        if (deseos.length > 0) {
+            doc.setFontSize(13); doc.setTextColor(39,174,96);
+            if (y > pageH - 20) { doc.addPage(); y = 20; }
+            doc.text('Deseos:', m, y); y += 8;
 
-        if (lista.enlaces && lista.enlaces.length) {
-            if (y > pageH - 40) { doc.addPage(); y = 20; }
-            doc.setFontSize(12); doc.setTextColor(39,174,96);
-            doc.text('Enlaces:', m, y); y += 6;
-            doc.setFontSize(10);
-            for (const e of lista.enlaces) {
-                if (y > pageH - 20) { doc.addPage(); y = 20; }
-                doc.setTextColor(0);
-                doc.text(`• ${e.nombreProducto || e.titulo || 'Producto'}`, m, y); y += 5;
-                doc.setTextColor(52,152,219);
-                const lineas = doc.splitTextToSize(e.url, pageW - m * 2 - 4);
-                lineas.forEach(l => {
-                    if (y > pageH - 20) { doc.addPage(); y = 20; }
-                    doc.textWithLink(l, m + 4, y, { url: e.url }); y += 5;
-                });
-                y += 1;
-            }
-            y += 3;
-        }
+            for (let i = 0; i < deseos.length; i++) {
+                const d = deseos[i];
+                if (y > pageH - 25) { doc.addPage(); y = 20; }
+                doc.setFontSize(12); doc.setTextColor(192,57,43);
+                doc.text(`${i + 1}. ${d.nombre || 'Deseo'}`, m, y); y += 6;
 
-        if (lista.imagenes && lista.imagenes.length) {
-            if (y > pageH - 60) { doc.addPage(); y = 20; }
-            doc.setFontSize(12); doc.setTextColor(39,174,96);
-            doc.text('Imágenes:', m, y); y += 6;
-            let x = m;
-            const w = 42, h = 42, g = 5;
-            for (const url of lista.imagenes) {
-                const data = await cargarImagenDataURL(url);
-                if (!data) continue;
-                if (x + w > pageW - m) { x = m; y += h + g; }
-                if (y + h > pageH - 15) { doc.addPage(); y = 20; x = m; }
-                try {
-                    const fmt = data.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-                    doc.addImage(data, fmt, x, y, w, h);
-                } catch {}
-                x += w + g;
+                if (d.notas) {
+                    doc.setFontSize(10); doc.setTextColor(60);
+                    const lineas = doc.splitTextToSize(d.notas, pageW - m * 2 - 4);
+                    lineas.forEach(l => {
+                        if (y > pageH - 20) { doc.addPage(); y = 20; }
+                        doc.text(l, m + 4, y); y += 5;
+                    });
+                }
+                if (d.enlace) {
+                    doc.setFontSize(10); doc.setTextColor(52,152,219);
+                    const lineas = doc.splitTextToSize(d.enlace, pageW - m * 2 - 4);
+                    lineas.forEach(l => {
+                        if (y > pageH - 20) { doc.addPage(); y = 20; }
+                        try { doc.textWithLink(l, m + 4, y, { url: d.enlace }); }
+                        catch { doc.text(l, m + 4, y); }
+                        y += 5;
+                    });
+                }
+                if (d.imagenes && d.imagenes.length) {
+                    let x = m + 4;
+                    const w = 32, h = 32, g = 4;
+                    for (const url of d.imagenes) {
+                        const data = await cargarImagenDataURL(url);
+                        if (!data) continue;
+                        if (x + w > pageW - m) { x = m + 4; y += h + g; }
+                        if (y + h > pageH - 15) { doc.addPage(); y = 20; x = m + 4; }
+                        try {
+                            const fmt = data.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+                            doc.addImage(data, fmt, x, y, w, h);
+                        } catch {}
+                        x += w + g;
+                    }
+                    y += h + g;
+                }
+                y += 3;
             }
-            y += h + g;
         }
 
         if (y > pageH - 15) { doc.addPage(); y = 20; }
@@ -2131,8 +2468,12 @@ async function inicializar() {
     }
 
     await cargarListas();
-    renderizarCarrusel();
+    renderizarListas();
     await cargarEstadosSorteos();
+
+    await cargarMensajesAnonimos();
+    renderizarCinta();
+    actualizarContadorCaracteres();
 
     if (!supabaseDisponible) mostrarAvisoSetup();
 }
