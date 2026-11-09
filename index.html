@@ -9,8 +9,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <!--
-SQL Supabase (solo listas y mensajes_anonimos).
+SQL Supabase (ejecutar TODO en el SQL Editor).
 
+-- LISTAS Y MENSAJES ---------------------------------------------------
 CREATE TABLE IF NOT EXISTS listas (
   id TEXT PRIMARY KEY, tipo TEXT NOT NULL DEFAULT 'adulto',
   nombre TEXT NOT NULL, edad INTEGER,
@@ -25,8 +26,30 @@ CREATE TABLE IF NOT EXISTS mensajes_anonimos (
 ALTER TABLE listas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mensajes_anonimos ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "public_listas" ON listas FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "public_listas"   ON listas            FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "public_mensajes" ON mensajes_anonimos FOR ALL USING (true) WITH CHECK (true);
+
+-- TIENDAS (storage + metadatos) ---------------------------------------
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('tiendas','tiendas', true, 5242880, ARRAY['image/jpeg','image/jpg'])
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "tiendas_public_read"   ON storage.objects;
+DROP POLICY IF EXISTS "tiendas_public_insert" ON storage.objects;
+DROP POLICY IF EXISTS "tiendas_public_delete" ON storage.objects;
+CREATE POLICY "tiendas_public_read"   ON storage.objects FOR SELECT USING (bucket_id = 'tiendas');
+CREATE POLICY "tiendas_public_insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'tiendas');
+CREATE POLICY "tiendas_public_delete" ON storage.objects FOR DELETE USING (bucket_id = 'tiendas');
+
+CREATE TABLE IF NOT EXISTS tiendas_guardadas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre TEXT NOT NULL, tema TEXT,
+  imagen_url TEXT NOT NULL, imagen_path TEXT NOT NULL,
+  fecha TIMESTAMPTZ DEFAULT NOW());
+
+CREATE INDEX IF NOT EXISTS idx_tiendas_fecha ON tiendas_guardadas (fecha DESC);
+ALTER TABLE tiendas_guardadas ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "public_tiendas" ON tiendas_guardadas FOR ALL USING (true) WITH CHECK (true);
 -->
 <style>
 :root{
@@ -126,63 +149,18 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .cinta-sep{padding:0 16px;font-size:1rem;opacity:.9}
 .cinta-vacio{padding:0 30px;font-style:italic;opacity:.95}
 
-/* ============================================================
-   LAYOUT: calendario (col izq) + col-derecha (anónimo + galería)
-   Misma altura total gracias a aspect-ratio idéntico (16/11)
-   ============================================================ */
-.barra-info-linea{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:14px;
-  margin:0 0 14px;
-  align-items:start;
-}
-.calendario-box{
-  grid-column:1;grid-row:1;
-  align-self:start;
-}
-.col-derecha{
-  grid-column:2;grid-row:1;
-  aspect-ratio:16/11;      /* misma proporción que el calendario */
-  display:flex;
-  flex-direction:column;
-  gap:16px;
-  min-width:0;
-  min-height:0;
-  overflow:hidden;
-}
-.col-derecha .anonimo-box,
-.col-derecha .galeria-tiendas{
-  flex:1 1 0;              /* reparten la altura por igual */
-  min-height:0;
-  min-width:0;
-  overflow:auto;
-}
-.col-derecha .anonimo-box{
-  overflow-y:auto;
-  overflow-x:hidden;       /* recorta el 🎄 decorativo que sobresale por la derecha */
-  align-self:stretch;      /* anula el align-self:start original */
-}
-
+.barra-info-linea{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 14px;align-items:start;}
+.calendario-box{grid-column:1;grid-row:1;align-self:start;}
+.col-derecha{grid-column:2;grid-row:1;aspect-ratio:16/11;display:flex;flex-direction:column;gap:16px;min-width:0;min-height:0;overflow:hidden;}
+.col-derecha .anonimo-box,.col-derecha .galeria-tiendas{flex:1 1 0;min-height:0;min-width:0;overflow:auto;}
+.col-derecha .anonimo-box{overflow-y:auto;overflow-x:hidden;align-self:stretch;}
 @media(max-width:900px){
   .barra-info-linea{grid-template-columns:1fr;align-items:start}
   .calendario-box{grid-column:1;grid-row:auto;align-self:start}
-  .col-derecha{
-    grid-column:1;grid-row:auto;
-    aspect-ratio:auto;
-    overflow:visible;
-    height:auto;
-  }
-  .col-derecha .anonimo-box,
-  .col-derecha .galeria-tiendas{
-    flex:0 0 auto;
-    min-height:auto;
-    overflow:visible;
-    align-self:auto;
-  }
+  .col-derecha{grid-column:1;grid-row:auto;aspect-ratio:auto;overflow:visible;height:auto}
+  .col-derecha .anonimo-box,.col-derecha .galeria-tiendas{flex:0 0 auto;min-height:auto;overflow:visible;align-self:auto}
 }
 
-/* CALENDARIO */
 .calendario-box{position:relative;border-radius:18px;overflow:hidden;box-shadow:0 10px 28px var(--sombra-fuerte);border:2px solid var(--dorado);background:#0e3a1c;display:flex;aspect-ratio:16/11;align-self:start}
 .calendario-bg{position:absolute;inset:0;background-size:cover;background-position:center;z-index:0;transition:background-image .5s}
 .calendario-contenido{position:relative;z-index:2;padding:10px;width:100%;display:flex;flex-direction:column}
@@ -207,7 +185,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .leyenda-nochebuena{background:rgba(231,76,60,.55);border:1px solid rgba(255,107,107,.8)}
 .leyenda-navidad{background:rgba(192,57,43,.65);border:1px solid rgba(241,196,15,.85)}
 
-/* TIENDA */
+/* TIENDA ISOMÉTRICA */
 .tienda-box{
   position:relative;
   background:linear-gradient(160deg,var(--tarjeta-bg) 0%,var(--acento-suave) 100%);
@@ -244,298 +222,66 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   overflow:hidden;
 }
 
+/* ESCENARIO 1:1 (cuadrado) en todos los breakpoints */
 .tienda-escenario{
   position:relative;
-  width:96%;
-  max-width:100%;
-  aspect-ratio: 4 / 5;
-  background:#fdf6e3;
+  width:94%;
+  max-width:1000px;
+  aspect-ratio: 1 / 1;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 40%, #2a5c3f 0%, #143324 45%, #051008 100%);
   overflow:hidden;
   display:block;
-  border-radius:8px;
-  box-shadow:0 6px 18px var(--sombra-fuerte);
-  touch-action: pan-y;
+  border-radius:10px;
+  box-shadow:0 8px 24px var(--sombra-fuerte), inset 0 0 60px rgba(0,0,0,.4);
+  touch-action: none;
+  user-select: none;
 }
-
-@media(min-width:600px){
-  .tienda-escenario{
-    width:94%;
-    aspect-ratio: 1 / 1;
-  }
-}
-
-@media(min-width:1024px){
-  .tienda-escenario{
-    width:90%;
-    max-width:1000px;
-    aspect-ratio: 5 / 4;
-  }
-}
-
-.tienda-pared{
-  position:absolute;top:0;left:0;right:0;height:55%;
-  background-color:#f5e6c8;
-  background-image:
-    repeating-linear-gradient(0deg,transparent 0,transparent 20px,rgba(139,111,71,.18) 20px,rgba(139,111,71,.18) 22px),
-    repeating-linear-gradient(90deg,transparent 0,transparent 20px,rgba(139,111,71,.18) 20px,rgba(139,111,71,.18) 22px),
-    radial-gradient(ellipse at center 30%, rgba(255,245,220,.55), transparent 70%),
-    linear-gradient(180deg, rgba(180,140,90,.08) 0%, rgba(90,58,26,.22) 100%);
-  border-bottom:3px solid #5a3a1a;
-  box-shadow: inset 0 -6px 12px rgba(0,0,0,.3);
-}
-
-.tienda-suelo{
-  position:absolute;top:55%;left:0;right:0;bottom:0;
-  background:
-    radial-gradient(ellipse 100% 100% at 50% 0%, rgba(0,0,0,.32) 0%, transparent 45%),
-    linear-gradient(180deg, #c99868 0%, #d4a574 50%, #b8935f 100%);
-  overflow:hidden;
-}
-
-.tienda-suelo-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
-.tienda-suelo-svg .piso-long line{stroke:rgba(90,58,26,.42);stroke-width:.35;fill:none}
-.tienda-suelo-svg .piso-trans line{stroke:rgba(90,58,26,.28);stroke-width:.28}
-
-.tienda-alfombra{
-  position:absolute;
-  left:18%;
-  right:18%;
-  bottom:5%;
-  height:18%;
-  z-index:2;
-  pointer-events:none;
-  filter: drop-shadow(0 3px 4px rgba(0,0,0,.4)) drop-shadow(0 8px 14px rgba(0,0,0,.35));
-}
-.tienda-alfombra svg{display:block;width:100%;height:100%}
-.alfombra-cuerpo{fill:#c0392b;stroke:#8b1a0f;stroke-width:1.5}
-.alfombra-borde-punteado{fill:none;stroke:#f1c40f;stroke-width:0.8;stroke-dasharray:1.5 1.5}
-.alfombra-borde-exterior{fill:none;stroke:#d4af37;stroke-width:1.2}
-.alfombra-rombo{fill:#f1c40f}
-
-.tienda-copos{
-  position:absolute;top:0;left:0;right:0;height:55%;
-  pointer-events:none;z-index:1;
-  background-image:
-    radial-gradient(circle at 6% 30%, rgba(255,255,255,.7) 1px, transparent 2px),
-    radial-gradient(circle at 15% 55%, rgba(255,255,255,.6) 1.5px, transparent 2.5px),
-    radial-gradient(circle at 24% 25%, rgba(255,255,255,.75) 1px, transparent 2px),
-    radial-gradient(circle at 78% 40%, rgba(255,255,255,.7) 1px, transparent 2px),
-    radial-gradient(circle at 88% 60%, rgba(255,255,255,.6) 1.5px, transparent 2.5px),
-    radial-gradient(circle at 95% 30%, rgba(255,255,255,.7) 1px, transparent 2px),
-    radial-gradient(circle at 12% 8%, rgba(255,255,255,.55) 1.5px, transparent 2.5px),
-    radial-gradient(circle at 84% 12%, rgba(255,255,255,.55) 1.5px, transparent 2.5px);
-}
-
-.tienda-luces-techo{position:absolute;top:0;left:0;right:0;height:34%;pointer-events:none;z-index:3;overflow:visible}
-.tienda-guirnalda{position:absolute;top:6%;left:0;right:0;height:8%;pointer-events:none;z-index:3;overflow:visible}
-.tienda-guirnalda.dos{top:16%;height:7%;opacity:.92}
-
-.tienda-ambiente{
-  position:absolute;inset:0;pointer-events:none;z-index:4;
-  background:
-    radial-gradient(ellipse 90% 45% at 50% 0%, rgba(255,210,120,.16) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 35% at 50% 100%, rgba(255,150,60,.1) 0%, transparent 70%);
-}
-
-.tienda-rotulo{
-  position:absolute;top:1.5%;left:50%;transform:translateX(-50%);
-  width:88%;height:6.5%;min-height:22px;
-  background:linear-gradient(180deg, #d4b58a 0%, #b8956a 35%, #8b6f47 70%, #5a3a1a 100%);
-  border:2.5px solid #8b1a0f;border-radius:6px;
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:
-    0 4px 0 #3a2410,
-    0 8px 16px rgba(0,0,0,.42),
-    inset 0 3px 0 rgba(255,255,255,.42),
-    inset 0 -2px 4px rgba(0,0,0,.35),
-    0 0 0 1.5px #f1c40f,
-    0 0 24px rgba(241,196,15,.38);
-  z-index:10;padding:0 22px;cursor:pointer;user-select:none;
-  transition:transform .15s, box-shadow .15s;
-}
-.tienda-rotulo:hover{
-  transform:translateX(-50%) translateY(-1px);
-  box-shadow:
-    0 6px 0 #3a2410,0 10px 20px rgba(0,0,0,.48),
-    inset 0 3px 0 rgba(255,255,255,.42),
-    inset 0 -2px 4px rgba(0,0,0,.35),
-    0 0 0 1.5px #f1c40f,0 0 30px rgba(241,196,15,.55);
-}
-.tienda-rotulo::before,.tienda-rotulo::after{
-  content:'';position:absolute;width:8px;height:8px;
-  background:linear-gradient(135deg, #f1c40f, #a07a00);
-  border:1px solid #7a5f00;border-radius:1px;
-  top:50%;transform:translateY(-50%);
-  box-shadow:0 0 4px rgba(241,196,15,.7);
-}
-.tienda-rotulo::before{left:4px}
-.tienda-rotulo::after{right:4px}
-.tienda-rotulo-texto{
-  color:#fdf6e3;font-family:Georgia,'Times New Roman',serif;font-weight:900;
-  font-size:clamp(10px, 1.8vw, 14px);text-align:center;letter-spacing:1.5px;
-  text-transform:uppercase;
-  text-shadow:1px 1px 0 #3a2410,2px 2px 0 #3a2410,0 0 8px rgba(241,196,15,.35);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:100%;line-height:1;
-}
-.tienda-rotulo-edit{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:clamp(7px,.9vw,9px);opacity:0;transition:opacity .15s;pointer-events:none}
-.tienda-rotulo:hover .tienda-rotulo-edit{opacity:.95}
-
-.tienda-ventana{
-  position:absolute;
-  left:32%;
-  right:32%;
-  top:10%;
-  bottom:45%;
-  padding:4px;
-  background:linear-gradient(180deg,#8b6f47 0%,#6b4a1f 50%,#4a3018 100%);
-  border:3px solid #3a2410;
-  border-radius:4px;
-  box-shadow:
-    inset 0 0 10px rgba(0,0,0,.55),
-    inset 0 2px 0 rgba(255,255,255,.15),
-    0 3px 8px rgba(0,0,0,.35),
-    0 0 0 1px rgba(241,196,15,.15);
-  z-index:2;
-  overflow:hidden;
-}
-.ventana-panel{
-  position:relative;
+.tienda-escenario svg{
   width:100%;
   height:100%;
-  overflow:hidden;
-  border:1px solid #3a2410;
-  box-shadow:inset 0 0 6px rgba(0,0,0,.4), inset 2px 0 4px rgba(0,0,0,.2);
-  background:#87CEEB;
+  display:block;
+  touch-action: none;
+  cursor: grab;
+  background: transparent;
 }
-.ventana-panel svg{width:100%;height:100%;display:block}
-.ventana-cortina{position:absolute;top:4px;bottom:4px;width:14%;z-index:4;pointer-events:none}
-.ventana-cortina-izq{left:4px;background:linear-gradient(90deg, rgba(192,57,43,.85) 0%, rgba(153,45,34,.6) 60%, rgba(192,57,43,.15) 100%);border-radius:0 6px 6px 0;border-right:1px solid rgba(90,21,16,.5);box-shadow: inset -4px 0 8px rgba(0,0,0,.35)}
-.ventana-cortina-der{right:4px;background:linear-gradient(270deg, rgba(192,57,43,.85) 0%, rgba(153,45,34,.6) 60%, rgba(192,57,43,.15) 100%);border-radius:6px 0 0 6px;border-left:1px solid rgba(90,21,16,.5);box-shadow: inset 4px 0 8px rgba(0,0,0,.35)}
-.ventana-cortina::after{content:'';position:absolute;left:0;right:0;top:0;height:8px;background:linear-gradient(180deg, rgba(241,196,15,.75), rgba(212,175,55,.4));border-radius:2px;box-shadow:0 2px 4px rgba(0,0,0,.4)}
-.ventana-panel::after{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:22px;pointer-events:none;z-index:5;
-  background:
-    radial-gradient(circle at 6% 70%, #fff 0%, #fff 3px, transparent 4px),
-    radial-gradient(circle at 16% 55%, #fff 0%, #fff 4px, transparent 5px),
-    radial-gradient(circle at 26% 78%, #fff 0%, #fff 3px, transparent 4px),
-    radial-gradient(circle at 36% 58%, #fff 0%, #fff 4px, transparent 5px),
-    radial-gradient(circle at 46% 75%, #fff 0%, #fff 3px, transparent 4px),
-    radial-gradient(circle at 56% 56%, #fff 0%, #fff 5px, transparent 6px),
-    radial-gradient(circle at 66% 76%, #fff 0%, #fff 3px, transparent 4px),
-    radial-gradient(circle at 76% 55%, #fff 0%, #fff 4px, transparent 5px),
-    radial-gradient(circle at 86% 78%, #fff 0%, #fff 3px, transparent 4px),
-    radial-gradient(circle at 94% 60%, #fff 0%, #fff 4px, transparent 5px),
-    linear-gradient(to top, #fff 0%, #f5faff 60%, rgba(240,248,255,.4) 85%, transparent 100%);
-  border-radius: 45% 45% 0 0 / 100% 100% 0 0;
-  filter: drop-shadow(0 -2px 3px rgba(255,255,255,.8)) drop-shadow(0 1px 2px rgba(120,150,180,.4));
-}
+.tienda-escenario svg.panning{cursor:grabbing}
+.tienda-escenario svg .iso-item{cursor:grab}
+.tienda-escenario svg .iso-item:active{cursor:grabbing}
 
-.estante-torre{
+.tienda-zoom-btns{
   position:absolute;
-  top:10%;
-  bottom:40%;
-  width:28%;
-  background-image:
-    repeating-linear-gradient(90deg, transparent 0, transparent 7px, rgba(60,40,20,.15) 7px, rgba(60,40,20,.15) 8px),
-    repeating-linear-gradient(0deg, transparent 0, transparent 18px, rgba(60,40,20,.08) 18px, rgba(60,40,20,.08) 19px),
-    linear-gradient(180deg, #a0825a 0%, #8b6f47 45%, #7a5f3c 100%);
-  border:2px solid #4a3218;
-  border-radius:3px;
-  padding:3px;
-  display:grid;
-  grid-template-rows:repeat(5, 1fr);
-  gap:2px;
-  box-shadow:
-    5px 5px 0 #5a3a1a,
-    10px 10px 0 #3a2410,
-    0 14px 24px rgba(0,0,0,.42),
-    inset 0 3px 0 rgba(255,255,255,.15),
-    inset 0 -6px 12px rgba(0,0,0,.28),
-    inset 3px 0 8px rgba(0,0,0,.18),
-    inset -3px 0 8px rgba(0,0,0,.18);
-  z-index:2;
-}
-.torre-izq{left:2%}
-.torre-der{right:2%}
-.estante-fila{
-  display:grid;
-  grid-template-columns:repeat(3, 1fr);
-  gap:1px;
-  padding:2px;
-  background:linear-gradient(180deg, #7a5a32 0%, #6b4a1f 100%);
-  border-radius:2px;
-  border-bottom:2px solid #3a2410;
-  box-shadow:
-    inset 0 3px 6px rgba(0,0,0,.4),
-    inset 0 -1px 0 rgba(255,255,255,.08),
-    0 1px 0 rgba(255,255,255,.05);
-}
-.estante-fila:last-child{border-bottom:none;padding-bottom:2px}
-.slot-zone{
-  position:relative;
-  background:linear-gradient(180deg, #f5e6c8 0%, #e8d5a8 100%);
-  border-radius:1px;
+  top:8px;
+  left:8px;
+  right:52px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  z-index:6;
   pointer-events:none;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,.15);
 }
-
-.items-layer{position:absolute;inset:0;z-index:5;pointer-events:none}
-.tienda-item{
-  position:absolute;
-  width:min(11%, 52px);
-  aspect-ratio:1;
-  transform-origin:center center;
-  cursor:grab;
+.tienda-zoom-btns button{
   pointer-events:auto;
-  transition:transform .12s ease-out;
-  will-change:transform, left, top;
-  touch-action:none;
+  background:rgba(8,30,16,.85);
+  color:#f1c40f;
+  border:1.5px solid rgba(241,196,15,.5);
+  padding:4px 9px;
+  border-radius:12px;
+  font-size:.66rem;
+  font-weight:700;
+  cursor:pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: transform .15s, background .2s, border-color .2s;
+  font-family: inherit;
+  letter-spacing: .2px;
 }
-.tienda-item:active{cursor:grabbing}
-.tienda-item.dragging{cursor:grabbing;transition:none;z-index:9999 !important;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
-.tienda-item-content{width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center}
-.tienda-item-content svg{width:100%;height:100%;display:block;filter:drop-shadow(2px 3px 2px rgba(0,0,0,.42)) drop-shadow(5px 11px 6px rgba(0,0,0,.28));pointer-events:none}
-.tienda-item .rotulo{font-size:clamp(5px, 0.85vw, 9px);padding:1px 3px}
-.tienda-item-precio{position:absolute;bottom:-12%;left:50%;transform:translateX(-50%);background:#e8d060;color:#222;font-size:clamp(5px, 0.7vw, 7px);font-weight:900;padding:0.5px 3px;border-radius:2px;border:1px solid #a07a00;white-space:nowrap;line-height:1;pointer-events:none;box-shadow:0 1px 2px rgba(0,0,0,.3);display:none}
-.tienda-item.en-slot .tienda-item-precio{display:block;background:#2e9e3f;color:#fff;border-color:#1a5c2a}
-.tienda-item.en-slot .tienda-item-precio::before{content:'✓ ';font-size:.9em}
-
-.item-delete, .item-rotate{position:absolute;width:18px;height:18px;border-radius:50%;color:#fff;border:1.5px solid #fff;font-size:11px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;line-height:1;box-shadow:0 2px 4px rgba(0,0,0,.4);pointer-events:auto;z-index:2}
-.item-delete{top:-8px;right:-8px;background:#e74c3c}
-.item-rotate{top:-8px;left:-8px;background:#3498db}
-.tienda-item:hover .item-delete,
-.tienda-item.dragging .item-delete,
-.tienda-item:hover .item-rotate,
-.tienda-item.dragging .item-rotate{display:flex}
-.item-delete:hover{background:#c0392b;transform:scale(1.15)}
-.item-rotate:hover{background:#2980b9;transform:scale(1.15)}
-
-.tienda-mostrador{position:absolute;right:2%;bottom:2%;width:52%;height:22%;z-index:3}
-.mostrador-base{
-  position:absolute;inset:0;
-  background-image:
-    repeating-linear-gradient(90deg, transparent 0, transparent 12px, rgba(60,40,20,.18) 12px, rgba(60,40,20,.18) 13px),
-    linear-gradient(180deg, #a0825a 0%, #8b6f47 40%, #6b4a1f 100%);
-  border:2px solid #4a3218;border-radius:4px;
-  box-shadow:0 5px 0 #3a2410, 0 12px 22px rgba(0,0,0,.5), inset 0 3px 0 rgba(255,255,255,.18), inset 0 -4px 10px rgba(0,0,0,.32);
+.tienda-zoom-btns button:hover{transform:scale(1.06);background:rgba(20,70,35,.95);border-color:rgba(241,196,15,.8)}
+.tienda-zoom-btns button.activo{
+  background: linear-gradient(135deg, #f1c40f, #d4af37);
+  color:#222;border-color: #f1c40f;
+  box-shadow: 0 0 10px rgba(241,196,15,.6);
 }
-.mostrador-base::before{content:'';position:absolute;left:0;right:0;top:42%;height:2px;background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.15));box-shadow:0 -1px 0 rgba(255,255,255,.15), 0 2px 3px rgba(0,0,0,.4)}
-.mostrador-base::after{content:'';position:absolute;left:6%;right:6%;bottom:-8px;height:14px;background:radial-gradient(ellipse at center, rgba(0,0,0,.5) 0%, transparent 70%);filter:blur(3px);pointer-events:none}
-.mostrador-slots{position:absolute;left:3%;top:6%;width:54%;height:38%;display:grid;grid-template-columns:repeat(2, 1fr);grid-template-rows:repeat(2, 1fr);gap:3px;z-index:2}
-.mostrador-slots .slot-zone{background:linear-gradient(180deg, #f5e6c8 0%, #e8d5a8 100%);border-radius:2px;border:1px solid rgba(90,58,26,.4);box-shadow: inset 0 1px 3px rgba(0,0,0,.2)}
-.tienda-caja{
-  position:absolute;right:4%;top:2%;width:38%;height:64%;
-  background:linear-gradient(180deg, #6b4a1f 0%, #3a2410 100%);
-  border:2px solid #1a0d05;border-radius:4px 4px 2px 2px;
-  box-shadow:0 3px 0 #1a0d05, 0 6px 12px rgba(0,0,0,.5), inset 0 3px 0 rgba(255,255,255,.15), inset 0 -3px 6px rgba(0,0,0,.4);
-  display:flex;align-items:center;justify-content:center;padding:3px;z-index:3;
-}
-.caja-pantalla{background:#050505;border:1.5px solid #222;border-radius:3px;padding:3px 5px;text-align:center;box-shadow:inset 0 0 8px rgba(100,255,100,.35);width:92%;max-width:94%;z-index:1}
-.caja-label{font-size:clamp(5px, .9vw, 7px);color:#90ee90;font-weight:700;letter-spacing:1px;opacity:.9;line-height:1}
-.caja-total{font-family:'Courier New',monospace;font-size:clamp(8px, 1.5vw, 13px);color:#fff;font-weight:900;text-shadow:0 0 8px rgba(180,255,180,0.8);letter-spacing:.3px;line-height:1.15;margin-top:1px;white-space:nowrap}
-.mostrador-personajes-hint{position:absolute;left:6%;top:50%;width:44%;height:22%;border:1px dashed rgba(241,196,15,.35);border-radius:4px;pointer-events:none;z-index:1}
-.mostrador-personajes-hint::after{content:'👤';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:9px;opacity:.35}
 
 .btn-expand-store{
   position:absolute;top:14px;right:14px;z-index:20;width:34px;height:34px;
@@ -547,7 +293,6 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   padding:0;line-height:1;
 }
 .btn-expand-store:hover{transform:scale(1.1);background:#fff;box-shadow:0 5px 14px rgba(0,0,0,.45), 0 0 12px rgba(241,196,15,.6)}
-.btn-expand-store:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
 
 .tienda-catalogo{margin-top:10px;display:flex;flex-direction:column;gap:6px;width:100%}
 .tienda-tabs{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
@@ -574,11 +319,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .btn-tienda-limpiar:hover{background:#7f8c8d}
 
 @media(min-width:1024px){
-  .tienda-temas,
-  .tienda-catalogo,
-  .tienda-acciones{max-width:1000px}
-  .estante-torre{width:22%}
-  .tienda-mostrador{width:42%}
+  .tienda-temas,.tienda-catalogo,.tienda-acciones{max-width:1000px}
 }
 
 .tienda-box:fullscreen,
@@ -595,15 +336,13 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .tienda-box:fullscreen .tienda-captura,
 .tienda-box.is-fullscreen .tienda-captura{flex:1;min-height:0;width:100%;padding:0;display:flex;align-items:center;justify-content:center;background:transparent;box-shadow:none;border-radius:0;overflow:hidden}
 .tienda-box:fullscreen .tienda-escenario,
-.tienda-box.is-fullscreen .tienda-escenario{border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.6);max-width:none;max-height:none}
+.tienda-box.is-fullscreen .tienda-escenario{border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.6);max-width:none;max-height:none;width:100%;height:100%;aspect-ratio:1/1}
 .tienda-box:fullscreen .tienda-catalogo,
 .tienda-box.is-fullscreen .tienda-catalogo,
 .tienda-box:fullscreen .tienda-acciones,
 .tienda-box.is-fullscreen .tienda-acciones{flex:0 0 auto;max-width:100%}
 .tienda-box:fullscreen .tienda-items,
 .tienda-box.is-fullscreen .tienda-items{max-height:110px}
-.tienda-box:fullscreen .btn-expand-store,
-.tienda-box.is-fullscreen .btn-expand-store{top:12px;right:12px}
 
 .galeria-tiendas{background:var(--tarjeta-bg);border:2px solid var(--dorado);border-radius:18px;padding:14px;box-shadow:0 10px 24px var(--sombra)}
 .galeria-tiendas h3{color:var(--rojo);font-size:1rem;margin-bottom:12px;text-align:center;text-transform:uppercase;letter-spacing:.5px}
@@ -611,7 +350,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .galeria-vacia{grid-column:1 / -1;text-align:center;color:var(--texto-suave);font-size:.88rem;padding:20px 10px;font-style:italic}
 .tienda-thumb{position:relative;background:var(--fondo);border:1px solid var(--borde);border-radius:10px;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s}
 .tienda-thumb:hover{transform:translateY(-2px);box-shadow:0 6px 14px var(--sombra)}
-.tienda-thumb img{width:100%;display:block;aspect-ratio:4/5;object-fit:cover}
+.tienda-thumb img{width:100%;display:block;aspect-ratio:1/1;object-fit:cover}
 .tienda-thumb-info{padding:6px 8px;background:var(--tarjeta-bg)}
 .tienda-thumb-nombre{font-size:.78rem;font-weight:800;color:var(--texto);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tienda-thumb-fecha{font-size:.65rem;color:var(--texto-suave)}
@@ -706,270 +445,6 @@ body.luces-navidad .tienda-box::after,
 body.luces-navidad .galeria-tiendas::after{inset:0;border-radius:inherit}
 body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 @keyframes lucesBrillar{0%,100%{filter:drop-shadow(0 0 2px rgba(255,255,255,.85))}50%{filter:drop-shadow(0 0 4px rgba(255,255,255,1)) drop-shadow(0 0 10px rgba(255,230,150,.65))}}
-@media (prefers-reduced-motion: reduce){
-  body.luces-navidad .cabecera-principal::after,
-  body.luces-navidad .calendario-box::after,
-  body.luces-navidad .anonimo-box::after,
-  body.luces-navidad .tienda-box::after,
-  body.luces-navidad .galeria-tiendas::after,
-  body.luces-navidad .tarjeta-lista::before{animation:none;filter:drop-shadow(0 0 3px rgba(255,255,255,.9))}
-}
-
-/* TEMAS TIENDA */
-[data-tema="clasica"] .tienda-suelo-svg .piso-long line{stroke:rgba(90,58,26,.42)}
-[data-tema="clasica"] .tienda-suelo-svg .piso-trans line{stroke:rgba(90,58,26,.28)}
-
-[data-tema="pasteleria"] .tienda-pared{
-  background-color:#fdf0f5;
-  background-image:
-    radial-gradient(circle at 20% 30%, rgba(255,192,203,.35) 2px, transparent 3px),
-    radial-gradient(circle at 60% 60%, rgba(255,192,203,.35) 2px, transparent 3px),
-    radial-gradient(circle at 80% 25%, rgba(255,192,203,.35) 2px, transparent 3px),
-    radial-gradient(circle at 40% 80%, rgba(255,192,203,.35) 2px, transparent 3px),
-    radial-gradient(ellipse at center 30%, rgba(255,255,255,.7), transparent 70%),
-    linear-gradient(180deg, rgba(255,230,240,.4) 0%, rgba(200,150,180,.18) 100%);
-  background-size:40px 40px, 40px 40px, 40px 40px, 40px 40px, 100% 100%, 100% 100%;
-  border-bottom:3px solid #c090a8;
-  box-shadow: inset 0 -6px 12px rgba(150,80,110,.2);
-}
-[data-tema="pasteleria"] .tienda-suelo{
-  background:
-    radial-gradient(ellipse 100% 100% at 50% 0%, rgba(150,80,110,.18) 0%, transparent 50%),
-    repeating-conic-gradient(from 0deg, #ffffff 0 90deg, #f5e0e8 90deg 180deg) 0 0 / 60px 60px,
-    linear-gradient(180deg, #fbf5f7 0%, #f5e8ec 50%, #ecd8de 100%);
-}
-[data-tema="pasteleria"] .tienda-suelo-svg .piso-long line{stroke:rgba(180,120,150,.55)}
-[data-tema="pasteleria"] .tienda-suelo-svg .piso-trans line{stroke:rgba(180,120,150,.35)}
-[data-tema="pasteleria"] .estante-torre{
-  background-image:linear-gradient(180deg, #ffffff 0%, #faf0f5 55%, #f5e0e8 100%);
-  border:2px solid #d4af37;
-  box-shadow:5px 5px 0 #c090a8,10px 10px 0 #a0708a,0 14px 24px rgba(150,80,110,.3),inset 0 3px 0 rgba(255,255,255,.9),inset 0 -6px 12px rgba(200,150,180,.2);
-}
-[data-tema="pasteleria"] .estante-fila{
-  background:linear-gradient(180deg, #ffe0ee 0%, #ffd0e0 100%);
-  border-bottom:2px solid #d4af37;
-  box-shadow: inset 0 3px 6px rgba(150,80,110,.15), inset 0 -1px 0 rgba(255,255,255,.6);
-}
-[data-tema="pasteleria"] .slot-zone{background:linear-gradient(180deg, #ffffff 0%, #fef5f9 100%)}
-[data-tema="pasteleria"] .mostrador-base{
-  background-image:linear-gradient(180deg, #ffffff 0%, #fef5f9 45%, #f5e0e8 100%);
-  border-color:#d4af37;
-  box-shadow:0 5px 0 #c090a8, 0 12px 22px rgba(150,80,110,.3), inset 0 3px 0 rgba(255,255,255,.9), inset 0 -4px 10px rgba(200,150,180,.2);
-}
-[data-tema="pasteleria"] .mostrador-slots .slot-zone{background:linear-gradient(180deg, #ffffff 0%, #fef5f9 100%);border-color:rgba(212,175,55,.4)}
-[data-tema="pasteleria"] .tienda-caja{
-  background:linear-gradient(180deg, #ffffff 0%, #f0d8e5 100%);
-  border-color:#d4af37;
-  box-shadow:0 3px 0 #c090a8, 0 6px 12px rgba(150,80,110,.35), inset 0 3px 0 rgba(255,255,255,.8);
-}
-[data-tema="pasteleria"] .caja-pantalla{background:#2a1a2a;border-color:#d4af37;box-shadow:inset 0 0 8px rgba(255,180,220,.5)}
-[data-tema="pasteleria"] .caja-label{color:#ffd6e6}
-[data-tema="pasteleria"] .tienda-ambiente{
-  background:radial-gradient(ellipse 90% 45% at 50% 0%, rgba(255,220,240,.28) 0%, transparent 70%),radial-gradient(ellipse 60% 35% at 50% 100%, rgba(255,180,210,.15) 0%, transparent 70%);
-}
-[data-tema="pasteleria"] .tienda-guirnalda,
-[data-tema="pasteleria"] .tienda-luces-techo{display:none}
-[data-tema="pasteleria"] .tienda-ventana{
-  background:linear-gradient(180deg, #ffd6e6 0%, #e0b0c8 50%, #c090a8 100%);
-  border-color:#d4af37;
-  box-shadow:inset 0 0 10px rgba(150,80,110,.4), inset 0 2px 0 rgba(255,255,255,.4), 0 3px 8px rgba(150,80,110,.35);
-}
-[data-tema="pasteleria"] .ventana-cortina-izq{background:linear-gradient(90deg, rgba(255,182,193,.9) 0%, rgba(255,150,180,.6) 60%, rgba(255,182,193,.15) 100%);border-right-color:rgba(200,120,150,.5)}
-[data-tema="pasteleria"] .ventana-cortina-der{background:linear-gradient(270deg, rgba(255,182,193,.9) 0%, rgba(255,150,180,.6) 60%, rgba(255,182,193,.15) 100%);border-left-color:rgba(200,120,150,.5)}
-[data-tema="pasteleria"] .tienda-rotulo{
-  background:linear-gradient(180deg, #ffe6f0 0%, #ffd0e0 35%, #ffb8d0 70%, #e595b5 100%);
-  border-color:#d4af37;
-  box-shadow:0 4px 0 #a0708a, 0 8px 16px rgba(150,80,110,.35), inset 0 3px 0 rgba(255,255,255,.7), inset 0 -2px 4px rgba(150,80,110,.25), 0 0 0 1.5px #f1c40f, 0 0 24px rgba(255,192,203,.5);
-}
-[data-tema="pasteleria"] .tienda-rotulo-texto{color:#8b1a4f;text-shadow:1px 1px 0 #fff, 2px 2px 0 #ffc0d0, 0 0 8px rgba(241,196,15,.35)}
-[data-tema="pasteleria"] .alfombra-cuerpo{fill:#ffd6e6;stroke:#d4af37}
-[data-tema="pasteleria"] .alfombra-borde-punteado{stroke:#d4af37}
-[data-tema="pasteleria"] .alfombra-borde-exterior{stroke:#c090a8}
-[data-tema="pasteleria"] .alfombra-rombo{fill:#ffb8d0}
-[data-tema="pasteleria"] .tienda-copos{opacity:.5}
-
-[data-tema="jugueteria"] .tienda-pared{
-  background-color:#1e4a47;
-  background-image:
-    linear-gradient(180deg, transparent 0%, transparent 60%, rgba(107,74,47,.85) 60%, rgba(74,48,24,.95) 100%),
-    repeating-linear-gradient(90deg, transparent 0, transparent 18px, rgba(60,40,20,.35) 18px, rgba(60,40,20,.35) 20px),
-    repeating-linear-gradient(0deg, transparent 0, transparent 22px, rgba(120,90,50,.12) 22px, rgba(120,90,50,.12) 23px),
-    radial-gradient(ellipse at center 30%, rgba(150,190,180,.18), transparent 70%),
-    linear-gradient(180deg, #2a5c58 0%, #1e4a47 55%, #0f3d3a 100%);
-  border-bottom:3px solid #0a2825;
-  box-shadow: inset 0 -8px 14px rgba(0,0,0,.5);
-}
-[data-tema="jugueteria"] .tienda-suelo{
-  background:
-    radial-gradient(ellipse 100% 100% at 50% 0%, rgba(0,0,0,.35) 0%, transparent 50%),
-    linear-gradient(180deg, #a0825a 0%, #8b6f47 45%, #6b4a2f 100%);
-}
-[data-tema="jugueteria"] .tienda-suelo-svg{display:none}
-[data-tema="jugueteria"] .estante-torre{
-  background-image:
-    repeating-linear-gradient(90deg, transparent 0, transparent 8px, rgba(60,40,20,.22) 8px, rgba(60,40,20,.22) 9px),
-    linear-gradient(180deg, #a0825a 0%, #8b6f47 45%, #6b4a2f 100%);
-  border:2px solid #3a2410;
-  box-shadow:5px 5px 0 #4a3018,10px 10px 0 #2a1a08,0 14px 24px rgba(0,0,0,.55),inset 0 3px 0 rgba(255,255,255,.12),inset 0 -6px 12px rgba(0,0,0,.4);
-}
-[data-tema="jugueteria"] .estante-fila{
-  background:linear-gradient(180deg, #6b4a2f 0%, #4a3018 100%);
-  border-bottom:2px solid #1a0d05;
-  box-shadow: inset 0 3px 6px rgba(0,0,0,.5), inset 0 -1px 0 rgba(120,90,50,.2);
-}
-[data-tema="jugueteria"] .slot-zone{background:linear-gradient(180deg, #e8d5b0 0%, #d4be8a 100%)}
-[data-tema="jugueteria"] .tienda-ambiente{
-  background:radial-gradient(ellipse 90% 45% at 50% 0%, rgba(255,200,100,.22) 0%, transparent 70%),radial-gradient(ellipse 60% 35% at 50% 100%, rgba(50,80,70,.2) 0%, transparent 70%);
-}
-[data-tema="jugueteria"] .tienda-rotulo{
-  background:linear-gradient(180deg, #8b6f47 0%, #6b4a2c 50%, #4a3018 100%);
-  border-color:#d4af37;
-  box-shadow:0 4px 0 #2a1808, 0 8px 16px rgba(0,0,0,.55), inset 0 3px 0 rgba(255,255,255,.15), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 0 1.5px #d4af37, 0 0 24px rgba(255,180,80,.4);
-}
-[data-tema="jugueteria"] .tienda-rotulo-texto{color:#fff9c4;text-shadow:1px 1px 0 #2a1808, 2px 2px 0 #2a1808, 0 0 8px rgba(255,200,80,.5)}
-[data-tema="jugueteria"] .alfombra-cuerpo{fill:#0f3d1a;stroke:#f1c40f}
-[data-tema="jugueteria"] .alfombra-borde-punteado{stroke:#f1c40f}
-[data-tema="jugueteria"] .alfombra-borde-exterior{stroke:#1a5c2a}
-[data-tema="jugueteria"] .alfombra-rombo{fill:#f1c40f}
-[data-tema="jugueteria"] .mostrador-base{
-  background-image:repeating-linear-gradient(90deg, transparent 0, transparent 14px, rgba(0,0,0,.28) 14px, rgba(0,0,0,.28) 15px),linear-gradient(180deg, #4a2f1c 0%, #3a2410 50%, #2a1808 100%);
-  border-color:#1a0d05;
-  box-shadow:0 5px 0 #1a0d05, 0 12px 22px rgba(0,0,0,.6), inset 0 3px 0 rgba(120,90,50,.2);
-}
-[data-tema="jugueteria"] .mostrador-slots .slot-zone{background:linear-gradient(180deg,#e8d5b0 0%,#d4be8a 100%);border-color:rgba(0,0,0,.4)}
-[data-tema="jugueteria"] .tienda-caja{
-  background:linear-gradient(180deg, #3a5550 0%, #1e3e3a 100%);
-  border-color:#0f2624;
-  box-shadow:0 3px 0 #0f2624, 0 6px 12px rgba(0,0,0,.6), inset 0 3px 0 rgba(120,150,140,.2);
-}
-[data-tema="jugueteria"] .caja-pantalla{background:#051820;border-color:#3a5550;box-shadow:inset 0 0 8px rgba(120,200,180,.5)}
-[data-tema="jugueteria"] .caja-label{color:#90e0d0}
-[data-tema="jugueteria"] .tienda-ventana{
-  background:linear-gradient(180deg, #2a5c58 0%, #1e4a47 100%);
-  border-color:#8b6f47;
-  box-shadow:inset 0 0 10px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.1), 0 3px 8px rgba(0,0,0,.5), 0 0 0 2px #d4af37;
-}
-[data-tema="jugueteria"] .ventana-cortina-izq{background:linear-gradient(90deg, rgba(107,74,47,.9) 0%, rgba(60,40,20,.6) 60%, rgba(107,74,47,.15) 100%);border-right-color:rgba(30,15,5,.5)}
-[data-tema="jugueteria"] .ventana-cortina-der{background:linear-gradient(270deg, rgba(107,74,47,.9) 0%, rgba(60,40,20,.6) 60%, rgba(107,74,47,.15) 100%);border-left-color:rgba(30,15,5,.5)}
-
-[data-tema="supermercado"] .tienda-pared{
-  background-color:#f0f4f8;
-  background-image:
-    repeating-linear-gradient(90deg, transparent 0 80px, rgba(52,152,219,.15) 80px 82px),
-    linear-gradient(180deg, #f8fafc 0%, #e0e8f0 100%);
-  border-bottom:3px solid #3498db;
-  box-shadow: inset 0 -4px 8px rgba(0,0,0,.08);
-}
-[data-tema="supermercado"] .tienda-suelo{
-  background:
-    radial-gradient(ellipse 100% 100% at 50% 0%, rgba(52,152,219,.08) 0%, transparent 50%),
-    linear-gradient(180deg, #eef2f6 0%, #e0e8f0 50%, #d0dae4 100%);
-}
-[data-tema="supermercado"] .tienda-suelo-svg .piso-long line{stroke:rgba(52,152,219,.45)}
-[data-tema="supermercado"] .tienda-suelo-svg .piso-trans line{stroke:rgba(52,152,219,.28)}
-[data-tema="supermercado"] .tienda-copos{display:none}
-[data-tema="supermercado"] .estante-torre{
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0 22px, rgba(52,152,219,.2) 22px 23px),
-    linear-gradient(180deg, #ffffff 0%, #e8eef4 55%, #d8e2e8 100%);
-  border:2px solid #3498db;border-radius:0;
-  box-shadow:5px 5px 0 #a0b0c0,10px 10px 0 #708090,0 14px 24px rgba(0,0,0,.3),inset 0 3px 0 rgba(255,255,255,.9),inset 0 -4px 8px rgba(0,0,0,.1);
-}
-[data-tema="supermercado"] .estante-fila{
-  background:linear-gradient(180deg, #ffffff 0%, #e0e8f0 100%);
-  border-bottom:2px solid #3498db;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,.08);
-}
-[data-tema="supermercado"] .slot-zone{background:linear-gradient(180deg, #ffffff 0%, #f0f4f8 100%)}
-[data-tema="supermercado"] .tienda-ambiente{
-  background:radial-gradient(ellipse 100% 40% at 50% 0%, rgba(230,240,255,.25) 0%, transparent 60%),linear-gradient(180deg, rgba(200,220,240,.08) 0%, transparent 100%);
-}
-[data-tema="supermercado"] .tienda-guirnalda,
-[data-tema="supermercado"] .tienda-luces-techo{display:none}
-[data-tema="supermercado"] .tienda-ventana{display:none}
-[data-tema="supermercado"] .tienda-rotulo{
-  background:linear-gradient(180deg, #ffffff 0%, #e0e8f0 50%, #c0d0e0 100%);
-  border-color:#3498db;
-  box-shadow:0 4px 0 #708090, 0 8px 16px rgba(0,0,0,.3), inset 0 2px 0 rgba(255,255,255,.9), 0 0 0 1.5px #3498db;
-}
-[data-tema="supermercado"] .tienda-rotulo-texto{color:#1a3d5c;text-shadow:1px 1px 0 #fff, 2px 2px 0 #c0d0e0}
-[data-tema="supermercado"] .tienda-rotulo::before,
-[data-tema="supermercado"] .tienda-rotulo::after{background:linear-gradient(135deg, #3498db, #1a5580)}
-[data-tema="supermercado"] .alfombra-cuerpo{fill:#3498db;stroke:#1a5580}
-[data-tema="supermercado"] .alfombra-borde-punteado{stroke:#ffffff}
-[data-tema="supermercado"] .alfombra-borde-exterior{stroke:#1a5580}
-[data-tema="supermercado"] .alfombra-rombo{fill:#ffffff}
-[data-tema="supermercado"] .mostrador-base{
-  background-image:repeating-linear-gradient(90deg, transparent 0 20px, rgba(0,0,0,.08) 20px 21px),linear-gradient(180deg, #ffffff 0%, #e0e8f0 45%, #c0d0e0 100%);
-  border-color:#3498db;
-  box-shadow:0 5px 0 #708090, 0 12px 22px rgba(0,0,0,.35);
-}
-[data-tema="supermercado"] .mostrador-slots .slot-zone{background:linear-gradient(180deg, #ffffff 0%, #f0f4f8 100%);border-color:rgba(52,152,219,.4)}
-[data-tema="supermercado"] .tienda-caja{
-  background:linear-gradient(180deg, #2c3e50 0%, #1a2530 100%);
-  border-color:#0a1520;
-  box-shadow:0 3px 0 #0a1520, 0 6px 12px rgba(0,0,0,.5);
-}
-[data-tema="supermercado"] .caja-pantalla{background:#001a2a;border-color:#3498db;box-shadow:inset 0 0 10px rgba(100,200,255,.6)}
-[data-tema="supermercado"] .caja-label{color:#5ad0ff;letter-spacing:1.5px}
-[data-tema="supermercado"] .caja-total{color:#fff;text-shadow:0 0 8px rgba(90,208,255,0.8)}
-
-[data-tema="mercado"] .tienda-pared{
-  background-color:#6b4a2c;
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0, transparent 30px, rgba(0,0,0,.15) 30px, rgba(0,0,0,.15) 32px),
-    repeating-linear-gradient(90deg, transparent 0, transparent 15px, rgba(0,0,0,.08) 15px, rgba(0,0,0,.08) 17px),
-    radial-gradient(ellipse at center 30%, rgba(120,80,50,.4), transparent 70%),
-    linear-gradient(180deg, #7a5a3c 0%, #5a3a1c 50%, #3a2410 100%);
-  border-bottom:3px solid #2a1508;
-  box-shadow: inset 0 -6px 12px rgba(0,0,0,.5);
-}
-[data-tema="mercado"] .tienda-suelo{
-  background:
-    radial-gradient(ellipse 100% 100% at 50% 0%, rgba(0,0,0,.35) 0%, transparent 55%),
-    linear-gradient(180deg, #8b6f47 0%, #6b4a2c 50%, #4a3018 100%);
-}
-[data-tema="mercado"] .tienda-suelo-svg .piso-long line{stroke:rgba(60,40,20,.5)}
-[data-tema="mercado"] .tienda-suelo-svg .piso-trans line{stroke:rgba(60,40,20,.32)}
-[data-tema="mercado"] .estante-torre{
-  background-image:repeating-linear-gradient(90deg, transparent 0, transparent 5px, rgba(0,0,0,.2) 5px, rgba(0,0,0,.2) 7px),repeating-linear-gradient(0deg, transparent 0, transparent 22px, rgba(0,0,0,.1) 22px, rgba(0,0,0,.1) 24px),linear-gradient(180deg, #6b4a2c 0%, #5a3a1a 45%, #4a2a10 100%);
-  border:2px solid #2a1508;
-  box-shadow:5px 5px 0 #3a2410,10px 10px 0 #2a1508,0 14px 24px rgba(0,0,0,.55),inset 0 3px 0 rgba(120,80,50,.3),inset 0 -6px 12px rgba(0,0,0,.5);
-}
-[data-tema="mercado"] .estante-fila{
-  background:linear-gradient(180deg, #4a3018 0%, #3a2410 100%);
-  border-bottom:2px solid #1a0d05;
-  box-shadow: inset 0 3px 6px rgba(0,0,0,.5), inset 0 -1px 0 rgba(120,80,50,.15);
-}
-[data-tema="mercado"] .slot-zone{background:linear-gradient(180deg, #d4b896 0%, #b89860 100%)}
-[data-tema="mercado"] .tienda-ambiente{
-  background:radial-gradient(ellipse 100% 45% at 50% 0%, rgba(255,180,80,.22) 0%, transparent 60%),radial-gradient(circle at 15% 30%, rgba(255,100,50,.15) 0%, transparent 25%),radial-gradient(circle at 85% 40%, rgba(255,150,60,.15) 0%, transparent 25%);
-}
-[data-tema="mercado"] .tienda-ventana{display:none}
-[data-tema="mercado"] .tienda-rotulo{
-  background:linear-gradient(180deg, #8b6f47 0%, #6b4a2c 50%, #4a3018 100%);
-  border-color:#c0392b;
-  box-shadow:0 4px 0 #2a1508, 0 8px 16px rgba(0,0,0,.5), inset 0 3px 0 rgba(255,255,255,.2), inset 0 -2px 4px rgba(0,0,0,.5), 0 0 0 1.5px #d4af37;
-}
-[data-tema="mercado"] .tienda-rotulo-texto{color:#fdf6e3;text-shadow:1px 1px 0 #1a0d05, 2px 2px 0 #1a0d05, 0 0 6px rgba(255,180,80,.4)}
-[data-tema="mercado"] .alfombra-cuerpo{fill:#8b1a0f;stroke:#d4af37}
-[data-tema="mercado"] .alfombra-borde-punteado{stroke:#f1c40f}
-[data-tema="mercado"] .alfombra-borde-exterior{stroke:#8b6f47}
-[data-tema="mercado"] .alfombra-rombo{fill:#d4af37}
-[data-tema="mercado"] .mostrador-base{
-  background-image:repeating-linear-gradient(90deg, transparent 0 14px, rgba(0,0,0,.22) 14px 15px),linear-gradient(180deg, #6b4a2c 0%, #5a3a1a 45%, #4a2a10 100%);
-  border-color:#2a1508;
-  box-shadow:0 5px 0 #2a1508, 0 12px 22px rgba(0,0,0,.5), inset 0 3px 0 rgba(120,80,50,.3);
-}
-[data-tema="mercado"] .mostrador-base::before{background:linear-gradient(180deg, rgba(192,57,43,.6) 0%, rgba(139,26,15,.8) 100%);box-shadow:0 0 4px rgba(192,57,43,.5)}
-[data-tema="mercado"] .mostrador-slots .slot-zone{background:linear-gradient(180deg, #d4b896 0%, #b89860 100%);border-color:rgba(0,0,0,.4)}
-[data-tema="mercado"] .tienda-caja{
-  background:linear-gradient(180deg, #4a3018 0%, #2a1508 100%);
-  border-color:#1a0d05;
-  box-shadow:0 3px 0 #1a0d05, 0 6px 12px rgba(0,0,0,.6);
-}
-[data-tema="mercado"] .caja-pantalla{background:#0a0502;border-color:#8b6f47;box-shadow:inset 0 0 8px rgba(255,200,100,.4)}
-[data-tema="mercado"] .caja-label{color:#ffc870}
 
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);justify-content:center;align-items:center;z-index:10000;padding:15px;overflow-y:auto;-webkit-overflow-scrolling:touch;backdrop-filter:blur(4px)}
 .modal-overlay.activo{display:flex}
@@ -1053,9 +528,7 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 .mensajes-footer-detalles summary:hover{background:var(--dorado);color:#222;transform:scale(1.1)}
 .mensajes-footer-detalles summary::before{content:'▾';transition:transform .25s;line-height:1;font-size:.7rem}
 .mensajes-footer-detalles[open] summary::before{transform:rotate(180deg)}
-.mensajes-footer-detalles summary:focus-visible{outline:2px solid var(--dorado);outline-offset:2px}
-.mensajes-footer-lista{margin-top:14px;max-height:320px;overflow-y:auto;background:var(--tarjeta-bg);border-radius:14px;padding:8px;box-shadow:0 6px 18px var(--sombra);border:1px solid var(--borde);animation:footerPanelIn .25s ease-out}
-@keyframes footerPanelIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.mensajes-footer-lista{margin-top:14px;max-height:320px;overflow-y:auto;background:var(--tarjeta-bg);border-radius:14px;padding:8px;box-shadow:0 6px 18px var(--sombra);border:1px solid var(--borde)}
 .mensaje-footer-item{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:9px 12px;border-bottom:1px dashed var(--borde);font-size:.85rem;color:var(--texto);border-radius:8px;transition:background .15s}
 .mensaje-footer-item:last-child{border-bottom:none}
 .mensaje-footer-item:hover{background:var(--acento-suave)}
@@ -1063,7 +536,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 .mensaje-footer-fecha{font-size:.68rem;color:var(--texto-suave);display:block;margin-bottom:2px;letter-spacing:.2px}
 .btn-borrar-mensaje{background:transparent;border:1px solid transparent;color:var(--rojo-claro);cursor:pointer;font-size:.95rem;padding:3px 7px;border-radius:8px;flex-shrink:0;line-height:1;transition:background .15s, border-color .15s, transform .15s}
 .btn-borrar-mensaje:hover{background:rgba(231,76,60,.14);border-color:rgba(231,76,60,.35);transform:scale(1.05)}
-.btn-borrar-mensaje:focus-visible{outline:2px solid var(--rojo);outline-offset:2px}
 .mensajes-footer-vacio{text-align:center;font-size:.82rem;color:var(--texto-suave);padding:18px 10px;font-style:italic}
 
 #avisoSupabase{display:none;background:#e67e22;color:#fff;padding:14px 18px;border-radius:12px;margin-bottom:16px;font-size:.9rem;border-left:5px solid #d35400}
@@ -1080,8 +552,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
   .cuenta-regresiva-overlay h2{font-size:.62rem;margin-bottom:4px}
   .cuenta-regresiva-overlay #contador span{font-size:.85rem;padding:4px 5px}
   .cuenta-regresiva-overlay #contador small{font-size:.42rem;margin-top:1px}
-  body.luces-navidad .tarjeta-lista::before{inset:-3px;border-radius:19px}
-  .btn-crear-header{right:10px;bottom:10px}
 }
 @media(max-width:600px){
   body{padding:12px;padding-top:72px}
@@ -1104,19 +574,14 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
   .cal-dia-semana{font-size:.55rem}
   .cal-santa{font-size:.75rem;top:-5px;right:-5px}
   .cinta-info{font-size:.66rem;padding:1px 6px}
-  body.luces-navidad .tarjeta-lista::before{inset:-2px;border-radius:18px}
   .btn-crear-header{padding:9px 16px;font-size:.8rem;right:8px;bottom:8px;border-radius:24px;width:auto;height:auto}
   .btn-crear-header .btn-crear-texto{display:inline !important}
   .tienda-items{grid-template-columns:repeat(auto-fill,minmax(60px,1fr));max-height:120px}
   .item-catalogo svg{width:34px;height:34px}
   .galeria-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
-  .tienda-rotulo-texto{font-size:8px;letter-spacing:.5px}
-  .tienda-item{width:13%}
-  .tienda-item-precio{font-size:5px;bottom:-10%}
   .btn-expand-store{top:10px;right:10px;width:30px;height:30px;font-size:.95rem}
-  .tienda-ventana{left:30%;right:30%}
-  .tienda-mostrador{width:58%;height:22%}
   .tema-btn{font-size:.68rem;padding:4px 8px}
+  .tienda-zoom-btns button{font-size:.58rem;padding:3px 7px}
 }
 </style>
 </head>
@@ -1157,7 +622,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 </div>
 
 <div class="barra-info-linea">
-
     <section class="calendario-box" aria-label="Calendario de diciembre">
         <div class="calendario-bg" id="calendarioBg"></div>
         <div class="calendario-contenido">
@@ -1191,12 +655,10 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
             <div class="galeria-grid" id="galeriaTiendas"></div>
         </section>
     </div>
-
 </div>
 
 <section class="seccion-listas">
     <h2>🎁 Listas de Deseos <span id="contadorListas">(0)</span></h2>
-
     <div class="barra-controles">
         <div class="barra-busqueda">
             <input type="text" id="buscador" placeholder="🔍 Buscar por nombre o deseo..." aria-label="Buscar">
@@ -1212,7 +674,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
             <option value="deseos">🎁 Nº de deseos</option>
         </select>
     </div>
-
     <div class="grid-listas" id="gridListas"></div>
     <div id="mensajeVacioListas" class="mensaje-vacio" style="display:none;">
         🎅 Aún no hay listas. ¡Creá la primera!
@@ -1221,266 +682,18 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 
 <section class="tienda-box" id="tiendaBox" aria-label="Tienda navideña interactiva 2.5D">
     <h2 class="tienda-titulo">🏪 Mi Tienda Navideña</h2>
-
     <div class="tienda-temas" id="tiendaTemas" role="tablist" aria-label="Tema de la tienda"></div>
 
     <div class="tienda-captura" id="tiendaCaptura">
         <div class="tienda-escenario" id="tiendaEscenario" data-tema="clasica">
-            <div class="tienda-pared"></div>
-            <div class="tienda-suelo">
-                <svg class="tienda-suelo-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                    <g class="piso-long">
-                        <line x1="5" y1="100" x2="22" y2="0"/>
-                        <line x1="15" y1="100" x2="28" y2="0"/>
-                        <line x1="25" y1="100" x2="34" y2="0"/>
-                        <line x1="35" y1="100" x2="40" y2="0"/>
-                        <line x1="45" y1="100" x2="47" y2="0"/>
-                        <line x1="55" y1="100" x2="53" y2="0"/>
-                        <line x1="65" y1="100" x2="60" y2="0"/>
-                        <line x1="75" y1="100" x2="66" y2="0"/>
-                        <line x1="85" y1="100" x2="72" y2="0"/>
-                        <line x1="95" y1="100" x2="78" y2="0"/>
-                    </g>
-                    <g class="piso-trans">
-                        <line x1="0" y1="8" x2="100" y2="8"/>
-                        <line x1="0" y1="16" x2="100" y2="16"/>
-                        <line x1="0" y1="25" x2="100" y2="25"/>
-                        <line x1="0" y1="36" x2="100" y2="36"/>
-                        <line x1="0" y1="50" x2="100" y2="50"/>
-                        <line x1="0" y1="66" x2="100" y2="66"/>
-                        <line x1="0" y1="85" x2="100" y2="85"/>
-                    </g>
-                </svg>
+            <svg id="tiendaSvg" viewBox="-450 -400 900 900" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="tienda-zoom-btns" id="tiendaZoomBtns">
+                <button type="button" data-area="todo" class="activo">Todo</button>
+                <button type="button" data-area="refrigerados">Refrigerados</button>
+                <button type="button" data-area="frutas">Frutas</button>
+                <button type="button" data-area="estantes">Estantes</button>
+                <button type="button" data-area="cajas">Cajas</button>
             </div>
-
-            <div class="tienda-alfombra" aria-hidden="true">
-                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <polygon class="alfombra-cuerpo" points="6,0 94,0 100,100 0,100"/>
-                    <polygon class="alfombra-borde-exterior" points="6,0 94,0 100,100 0,100" vector-effect="non-scaling-stroke"/>
-                    <polygon class="alfombra-borde-punteado" points="9,5 91,5 96,95 4,95" vector-effect="non-scaling-stroke"/>
-                    <polygon class="alfombra-rombo" points="50,44 53,50 50,56 47,50"/>
-                </svg>
-            </div>
-
-            <div class="tienda-copos"></div>
-
-            <svg class="tienda-guirnalda" viewBox="0 0 1400 80" preserveAspectRatio="none" aria-hidden="true">
-                <path d="M0 20 Q175 55 350 20 Q525 55 700 20 Q875 55 1050 20 Q1225 55 1400 20"
-                      stroke="#1a5c2a" stroke-width="3.5" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round"/>
-                <g>
-                    <ellipse cx="40" cy="32" rx="6" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="120" cy="40" rx="6" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="200" cy="32" rx="6" ry="5" fill="#2e9e3f"/>
-                    <ellipse cx="280" cy="40" rx="6" ry="5" fill="#3498db"/>
-                    <ellipse cx="360" cy="32" rx="6" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="440" cy="40" rx="6" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="520" cy="32" rx="6" ry="5" fill="#2e9e3f"/>
-                    <ellipse cx="600" cy="40" rx="6" ry="5" fill="#3498db"/>
-                    <ellipse cx="680" cy="32" rx="6" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="760" cy="40" rx="6" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="840" cy="32" rx="6" ry="5" fill="#2e9e3f"/>
-                    <ellipse cx="920" cy="40" rx="6" ry="5" fill="#3498db"/>
-                    <ellipse cx="1000" cy="32" rx="6" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="1080" cy="40" rx="6" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="1160" cy="32" rx="6" ry="5" fill="#2e9e3f"/>
-                    <ellipse cx="1240" cy="40" rx="6" ry="5" fill="#3498db"/>
-                    <ellipse cx="1320" cy="32" rx="6" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="1390" cy="40" rx="6" ry="5" fill="#f1c40f"/>
-                </g>
-            </svg>
-
-            <svg class="tienda-guirnalda dos" viewBox="0 0 1400 80" preserveAspectRatio="none" aria-hidden="true">
-                <path d="M0 40 Q175 10 350 40 Q525 70 700 40 Q875 10 1050 40 Q1225 70 1400 40"
-                      stroke="#2e9e3f" stroke-width="3" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round"/>
-                <g>
-                    <ellipse cx="60" cy="30" rx="5.5" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="140" cy="26" rx="5.5" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="220" cy="34" rx="5.5" ry="5" fill="#3498db"/>
-                    <ellipse cx="300" cy="38" rx="5.5" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="380" cy="30" rx="5.5" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="460" cy="22" rx="5.5" ry="5" fill="#3498db"/>
-                    <ellipse cx="540" cy="34" rx="5.5" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="620" cy="44" rx="5.5" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="700" cy="46" rx="5.5" ry="5" fill="#3498db"/>
-                    <ellipse cx="780" cy="36" rx="5.5" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="860" cy="26" rx="5.5" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="940" cy="32" rx="5.5" ry="5" fill="#3498db"/>
-                    <ellipse cx="1020" cy="40" rx="5.5" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="1100" cy="34" rx="5.5" ry="5" fill="#e74c3c"/>
-                    <ellipse cx="1180" cy="28" rx="5.5" ry="5" fill="#3498db"/>
-                    <ellipse cx="1260" cy="36" rx="5.5" ry="5" fill="#f1c40f"/>
-                    <ellipse cx="1340" cy="42" rx="5.5" ry="5" fill="#e74c3c"/>
-                </g>
-            </svg>
-
-            <svg class="tienda-luces-techo" viewBox="0 0 1400 400" preserveAspectRatio="none" aria-hidden="true">
-                <defs>
-                    <linearGradient id="lcWarm" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#fff9c4" stop-opacity="0.32"/>
-                        <stop offset="60%" stop-color="#ffe0a0" stop-opacity="0.12"/>
-                        <stop offset="100%" stop-color="#ffe0a0" stop-opacity="0"/>
-                    </linearGradient>
-                </defs>
-                <path d="M0 30 Q175 80 350 30 Q525 80 700 30 Q875 80 1050 30 Q1225 80 1400 30"
-                      stroke="#2a2a2a" stroke-width="2.5" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round"/>
-                <g>
-                    <path d="M30 40 L0 340 L60 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M150 60 L120 340 L180 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M270 40 L240 340 L300 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M390 60 L360 340 L420 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M510 40 L480 340 L540 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M630 60 L600 340 L660 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M750 40 L720 340 L780 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M870 60 L840 340 L900 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M990 40 L960 340 L1020 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M1110 60 L1080 340 L1140 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M1230 40 L1200 340 L1260 340 Z" fill="url(#lcWarm)"/>
-                    <path d="M1350 60 L1320 340 L1380 340 Z" fill="url(#lcWarm)"/>
-                </g>
-                <g>
-                    <ellipse cx="30" cy="40" rx="6" ry="8" fill="#e74c3c"/>
-                    <ellipse cx="150" cy="60" rx="6" ry="8" fill="#f1c40f"/>
-                    <ellipse cx="270" cy="40" rx="6" ry="8" fill="#33AB44"/>
-                    <ellipse cx="390" cy="60" rx="6" ry="8" fill="#3498db"/>
-                    <ellipse cx="510" cy="40" rx="6" ry="8" fill="#e74c3c"/>
-                    <ellipse cx="630" cy="60" rx="6" ry="8" fill="#f1c40f"/>
-                    <ellipse cx="750" cy="40" rx="6" ry="8" fill="#33AB44"/>
-                    <ellipse cx="870" cy="60" rx="6" ry="8" fill="#3498db"/>
-                    <ellipse cx="990" cy="40" rx="6" ry="8" fill="#e74c3c"/>
-                    <ellipse cx="1110" cy="60" rx="6" ry="8" fill="#f1c40f"/>
-                    <ellipse cx="1230" cy="40" rx="6" ry="8" fill="#33AB44"/>
-                    <ellipse cx="1350" cy="60" rx="6" ry="8" fill="#3498db"/>
-                </g>
-            </svg>
-
-            <div class="tienda-ventana">
-                <div class="ventana-panel">
-                    <svg viewBox="0 0 200 400" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <defs>
-                            <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stop-color="#4a9fd8"/>
-                                <stop offset="60%" stop-color="#87CEEB"/>
-                                <stop offset="100%" stop-color="#d0e4f0"/>
-                            </linearGradient>
-                            <linearGradient id="asphaltGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stop-color="#4a4a4a"/>
-                                <stop offset="100%" stop-color="#252525"/>
-                            </linearGradient>
-                        </defs>
-                        <rect width="200" height="160" fill="url(#skyGrad)"/>
-                        <circle cx="160" cy="40" r="10" fill="#fff9c4" opacity="0.95"/>
-                        <circle cx="160" cy="40" r="15" fill="#fff9c4" opacity="0.25"/>
-                        <circle cx="160" cy="40" r="20" fill="#fff9c4" opacity="0.12"/>
-                        <g fill="rgba(255,255,255,0.85)">
-                            <ellipse cx="35" cy="35" rx="20" ry="6"/>
-                            <ellipse cx="48" cy="30" rx="14" ry="7"/>
-                            <ellipse cx="25" cy="32" rx="10" ry="5"/>
-                            <ellipse cx="130" cy="65" rx="18" ry="5"/>
-                            <ellipse cx="142" cy="60" rx="12" ry="6"/>
-                        </g>
-                        <rect x="0" y="145" width="22" height="110" fill="#4a5664"/>
-                        <rect x="20" y="125" width="26" height="130" fill="#5a6876"/>
-                        <rect x="44" y="100" width="28" height="155" fill="#3a4654"/>
-                        <rect x="70" y="135" width="24" height="120" fill="#4a5664"/>
-                        <rect x="92" y="118" width="34" height="137" fill="#5a6876"/>
-                        <rect x="124" y="140" width="22" height="115" fill="#4a5664"/>
-                        <rect x="144" y="128" width="30" height="127" fill="#3a4654"/>
-                        <rect x="172" y="150" width="28" height="105" fill="#5a6876"/>
-                        <g fill="#ffd700" opacity="0.85">
-                            <rect x="24" y="135" width="3" height="3"/><rect x="30" y="135" width="3" height="3"/>
-                            <rect x="36" y="135" width="3" height="3"/><rect x="42" y="135" width="3" height="3"/>
-                            <rect x="50" y="110" width="3" height="3"/><rect x="56" y="110" width="3" height="3"/>
-                            <rect x="62" y="110" width="3" height="3"/><rect x="68" y="110" width="3" height="3"/>
-                            <rect x="96" y="128" width="3" height="3"/><rect x="108" y="128" width="3" height="3"/>
-                            <rect x="120" y="128" width="3" height="3"/><rect x="148" y="138" width="3" height="3"/>
-                            <rect x="160" y="138" width="3" height="3"/>
-                        </g>
-                        <g>
-                            <rect x="10" y="240" width="3" height="30" fill="#5a3a1a"/>
-                            <ellipse cx="11.5" cy="235" rx="14" ry="18" fill="#2d6e30"/>
-                            <rect x="55" y="245" width="3" height="25" fill="#5a3a1a"/>
-                            <ellipse cx="56.5" cy="240" rx="12" ry="16" fill="#2d6e30"/>
-                            <rect x="100" y="242" width="3" height="28" fill="#5a3a1a"/>
-                            <ellipse cx="101.5" cy="236" rx="13" ry="17" fill="#2d6e30"/>
-                            <rect x="145" y="245" width="3" height="25" fill="#5a3a1a"/>
-                            <ellipse cx="146.5" cy="240" rx="12" ry="16" fill="#2d6e30"/>
-                            <rect x="185" y="242" width="3" height="28" fill="#5a3a1a"/>
-                            <ellipse cx="186.5" cy="236" rx="13" ry="17" fill="#2d6e30"/>
-                        </g>
-                        <rect x="0" y="270" width="200" height="10" fill="#a0a0a0"/>
-                        <rect x="0" y="280" width="200" height="3" fill="#606060"/>
-                        <rect x="0" y="283" width="200" height="117" fill="url(#asphaltGrad)"/>
-                        <g stroke="#f1c40f" stroke-width="1.2" opacity="0.8">
-                            <line x1="20" y1="330" x2="20" y2="390"/>
-                            <line x1="60" y1="330" x2="60" y2="390"/>
-                            <line x1="100" y1="330" x2="100" y2="390"/>
-                            <line x1="140" y1="330" x2="140" y2="390"/>
-                            <line x1="180" y1="330" x2="180" y2="390"/>
-                            <line x1="15" y1="330" x2="185" y2="330"/>
-                        </g>
-                        <g>
-                            <rect x="24" y="360" width="32" height="14" rx="3" fill="#c0392b"/>
-                            <rect x="29" y="354" width="22" height="10" rx="3" fill="#a0291d"/>
-                            <rect x="32" y="356" width="7" height="5" fill="#87CEEB" opacity="0.85" rx="1"/>
-                            <rect x="42" y="356" width="7" height="5" fill="#87CEEB" opacity="0.85" rx="1"/>
-                            <circle cx="31" cy="375" r="3" fill="#1a1a1a"/>
-                            <circle cx="49" cy="375" r="3" fill="#1a1a1a"/>
-                        </g>
-                        <g>
-                            <rect x="105" y="360" width="32" height="14" rx="3" fill="#3498db"/>
-                            <rect x="110" y="354" width="22" height="10" rx="3" fill="#2980b9"/>
-                            <rect x="113" y="356" width="7" height="5" fill="#87CEEB" opacity="0.85" rx="1"/>
-                            <rect x="123" y="356" width="7" height="5" fill="#87CEEB" opacity="0.85" rx="1"/>
-                            <circle cx="112" cy="375" r="3" fill="#1a1a1a"/>
-                            <circle cx="130" cy="375" r="3" fill="#1a1a1a"/>
-                        </g>
-                    </svg>
-                </div>
-                <div class="ventana-cortina ventana-cortina-izq" aria-hidden="true"></div>
-                <div class="ventana-cortina ventana-cortina-der" aria-hidden="true"></div>
-            </div>
-
-            <div class="tienda-rotulo" id="tiendaRotulo" title="Clic para editar el nombre de tu tienda" role="button" tabindex="0">
-                <span class="tienda-rotulo-texto" id="tiendaRotuloTexto">Mi Tienda Navideña</span>
-                <span class="tienda-rotulo-edit" aria-hidden="true">✏️</span>
-            </div>
-
-            <div class="estante-torre torre-izq" id="torreIzq">
-                <div class="estante-fila"><div class="slot-zone" data-slot="t1r1s1"></div><div class="slot-zone" data-slot="t1r1s2"></div><div class="slot-zone" data-slot="t1r1s3"></div></div>
-                <div class="estante-fila"><div class="slot-zone" data-slot="t1r2s1"></div><div class="slot-zone" data-slot="t1r2s2"></div><div class="slot-zone" data-slot="t1r2s3"></div></div>
-                <div class="estante-fila"><div class="slot-zone" data-slot="t1r3s1"></div><div class="slot-zone" data-slot="t1r3s2"></div><div class="slot-zone" data-slot="t1r3s3"></div></div>
-                <div class="estante-fila"><div class="slot-zone" data-slot="t1r4s1"></div><div class="slot-zone" data-slot="t1r4s2"></div><div class="slot-zone" data-slot="t1r4s3"></div></div>
-                <div class="estante-fila"><div class="slot-zone" data-slot="t1r5s1"></div><div class="slot-zone" data-slot="t1r5s2"></div><div class="slot-zone" data-slot="t1r5s3"></div></div>
-            </div>
-
-            <div class="estante-torre torre-der" id="torreDer">
-                <div class="estante-fila"><div class="slot-zone" data-slot="t2r1s1"></div><div class="slot-zone" data-slot="t2r1s2"></div><div class="slot-zone" data-slot="t2r1s3"></div></div>
-                <div class="estante-fila"><div class="slot-zone" data-slot="t2r2s1"></div><div class="slot-zone" data-slot="t2r2s2"></div><div class="slot-zone" data-slot="t2r2s3"></div></div>
-                <div class="estante-fila"><div class="slot-zone" data-slot="t2r3s1"></div><div class="slot-zone" data-slot="t2r3s2"></div><div class="slot-zone" data-slot="t2r3s3"></div></div>
-                <div class="estante-fila"><div class="slot-zone" data-slot="t2r4s1"></div><div class="slot-zone" data-slot="t2r4s2"></div><div class="slot-zone" data-slot="t2r4s3"></div></div>
-                <div class="estante-fila"><div class="slot-zone" data-slot="t2r5s1"></div><div class="slot-zone" data-slot="t2r5s2"></div><div class="slot-zone" data-slot="t2r5s3"></div></div>
-            </div>
-
-            <div class="tienda-mostrador" aria-label="Mostrador con caja registradora">
-                <div class="mostrador-base"></div>
-                <div class="mostrador-slots">
-                    <div class="slot-zone" data-slot="mesa1"></div>
-                    <div class="slot-zone" data-slot="mesa2"></div>
-                    <div class="slot-zone" data-slot="mesa3"></div>
-                    <div class="slot-zone" data-slot="mesa4"></div>
-                </div>
-                <div class="mostrador-personajes-hint" aria-hidden="true"></div>
-                <div class="tienda-caja">
-                    <div class="caja-pantalla">
-                        <div class="caja-label">TOTAL</div>
-                        <div class="caja-total" id="cajaTotal">₡0</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="tienda-ambiente" aria-hidden="true"></div>
-
-            <div class="items-layer" id="itemsLayer"></div>
         </div>
     </div>
 
@@ -1492,7 +705,7 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
     </div>
 
     <div class="tienda-acciones">
-        <button class="btn-tienda-guardar" id="btnGuardarTienda" type="button">💾 Guardar JPG</button>
+        <button class="btn-tienda-guardar" id="btnGuardarTienda" type="button">💾 Guardar PNG</button>
         <button class="btn-tienda-limpiar" id="btnLimpiarTienda" type="button">🧹 Limpiar</button>
     </div>
 </section>
@@ -1543,7 +756,7 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
         <label for="nombreCreadorTienda">¿Quién creó esta tienda?</label>
         <input type="text" id="nombreCreadorTienda" placeholder="Ej: Familia Pérez" maxlength="40" autocomplete="off">
         <p style="font-size:.8rem;color:var(--texto-suave);margin-top:10px;line-height:1.4;">
-            Se descargará el JPG y quedará guardado en la galería de Tiendas Creadas.
+            Se descargará un <strong>PNG en alta calidad</strong> (1:1) y se subirá un <strong>JPG</strong> a la nube para que se vea en otros dispositivos.
         </p>
         <div class="botones-modal">
             <button class="btn-cancelar" id="btnCancelarGuardarTienda" type="button">Cancelar</button>
@@ -1573,6 +786,7 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 
 const SUPABASE_URL = 'https://fumpktmixrnifdythkvr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9mhjOYFNhCywiX92TtMQVQ_PfcG9UpX';
+const SUPABASE_BUCKET_TIENDAS = 'tiendas';
 let supabaseClient = null;
 let supabaseDisponible = false;
 
@@ -1595,6 +809,7 @@ let deseosTemporales = [];
 let ultimaListaEnfocada = null;
 let filtroActual = 'todos';
 let ordenActual = 'recientes';
+let tiendasCache = []; // cache local de la galería
 
 const imagenesNavidenas = [
     { url:'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&auto=format&fit=crop&q=70' },
@@ -1614,37 +829,7 @@ const TEMAS_TIENDA = [
 ];
 let temaTiendaActual = 'clasica';
 
-function cargarTemaTienda() {
-    try {
-        const t = localStorage.getItem(STORAGE_TEMA_TIENDA);
-        if (t && TEMAS_TIENDA.some(x => x.id === t)) temaTiendaActual = t;
-    } catch {}
-}
-function aplicarTemaTienda(id) {
-    if (!TEMAS_TIENDA.some(x => x.id === id)) return;
-    temaTiendaActual = id;
-    const escenario = document.getElementById('tiendaEscenario');
-    if (escenario) escenario.setAttribute('data-tema', id);
-    try { localStorage.setItem(STORAGE_TEMA_TIENDA, id); } catch {}
-    document.querySelectorAll('.tema-btn').forEach(b => b.classList.toggle('activo', b.dataset.tema === id));
-}
-function renderizarTemasTienda() {
-    const cont = document.getElementById('tiendaTemas');
-    if (!cont) return;
-    cont.innerHTML = TEMAS_TIENDA.map(t =>
-        `<button type="button" class="tema-btn ${t.id === temaTiendaActual ? 'activo' : ''}" data-tema="${t.id}" role="tab">${t.nombre}</button>`
-    ).join('');
-    cont.querySelectorAll('.tema-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            aplicarTemaTienda(btn.dataset.tema);
-            toast(`Tema: ${TEMAS_TIENDA.find(x => x.id === btn.dataset.tema)?.nombre}`, 'success');
-        });
-    });
-}
-
-/* ============================================================
-   CATÁLOGO (mantiene los nombres ticos ya aplicados)
-   ============================================================ */
+/* ==== CATÁLOGO: se reutiliza íntegro ==== */
 const TIENDA_CATALOGO = [
     {
         id:'bebidas', nombre:'☕ Bebidas',
@@ -1912,10 +1097,159 @@ const TIENDA_CATALOGO = [
     }
 ];
 
+/* ==== MOTOR ISOMÉTRICO ==== */
+const ISO_TILE = 40;
+const ISO_COS = Math.cos(Math.PI / 6);
+const ISO_SIN = 0.5;
+const ISO_Z = 46;
+const GRID_SIZE = 10;
+
+function iso(gx, gy, gz) {
+  gz = gz || 0;
+  return {
+    x: (gx - gy) * ISO_TILE * ISO_COS,
+    y: (gx + gy) * ISO_TILE * ISO_SIN - gz * ISO_Z
+  };
+}
+function fmtPt(p) { return p.x.toFixed(2) + ',' + p.y.toFixed(2); }
+function ptLine(a, b, stroke, width, extra) {
+  return `<line x1="${a.x.toFixed(2)}" y1="${a.y.toFixed(2)}" x2="${b.x.toFixed(2)}" y2="${b.y.toFixed(2)}" stroke="${stroke}" stroke-width="${width}" ${extra||''}/>`;
+}
+function polyStr(pts) { return pts.map(p => fmtPt(p)).join(' '); }
+
+/* Paletas por tema — con bgSolid para letterbox del canvas */
+const THEMES_ISO = {
+  clasica: {
+    bgSolid: '#143324',
+    bg: 'radial-gradient(ellipse 90% 70% at 50% 40%, #2a5c3f 0%, #143324 45%, #051008 100%)',
+    wallLeft: '#8b6f47', wallRight: '#6b4a2f', wallEdge: '#3a2410', wallLine: 'rgba(0,0,0,0.28)',
+    floorTop: '#d4a574', floorSide: '#8b5a2b', floorSideDark: '#5a3a1a', floorGrid: 'rgba(90,58,26,0.35)',
+    shelfTop: '#a0825a', shelfLeft: '#7a5a32', shelfRight: '#5a3a1a', shelfEdge: '#3a2410',
+    fridgeFrame: '#c8c8c8', fridgeGlass: 'rgba(180,220,240,0.4)', fridgeLight: 'rgba(200,240,255,0.7)',
+    islandTop: '#a0825a', islandLeft: '#7a5a32', islandRight: '#5a3a1a',
+    counterTop: '#8b4513', counterLeft: '#5a3010', counterRight: '#3a2008',
+    registerTop: '#333', registerLeft: '#222', registerRight: '#111',
+    kioskTop: '#1a5c2a', kioskScreen: '#0a2a10', kioskText: '#3ddb54',
+    rug: '#c0392b', rugEdge: '#f1c40f', rugInner: '#f1c40f',
+    labelBg: '#f1c40f', labelEdge: '#d4af37', labelText: '#1a1a1a'
+  },
+  pasteleria: {
+    bgSolid: '#8a6070',
+    bg: 'radial-gradient(ellipse 90% 70% at 50% 40%, #c890aa 0%, #8a6070 45%, #4a2030 100%)',
+    wallLeft: '#ffd6e6', wallRight: '#e0b0c8', wallEdge: '#a0708a', wallLine: 'rgba(160,112,138,0.3)',
+    floorTop: '#fbf5f7', floorSide: '#e0c0c8', floorSideDark: '#b898a0', floorGrid: 'rgba(200,144,168,0.35)',
+    shelfTop: '#ffe0ee', shelfLeft: '#e0b0c8', shelfRight: '#a0708a', shelfEdge: '#a0708a',
+    fridgeFrame: '#d4af37', fridgeGlass: 'rgba(255,220,240,0.4)', fridgeLight: 'rgba(255,230,245,0.8)',
+    islandTop: '#ffe0ee', islandLeft: '#e0b0c8', islandRight: '#a0708a',
+    counterTop: '#ffe0ee', counterLeft: '#e0b0c8', counterRight: '#a0708a',
+    registerTop: '#a0708a', registerLeft: '#805070', registerRight: '#603050',
+    kioskTop: '#d4af37', kioskScreen: '#2a1a2a', kioskText: '#ffd6e6',
+    rug: '#ffd6e6', rugEdge: '#d4af37', rugInner: '#d4af37',
+    labelBg: '#f1c40f', labelEdge: '#d4af37', labelText: '#1a1a1a'
+  },
+  jugueteria: {
+    bgSolid: '#143c3a',
+    bg: 'radial-gradient(ellipse 90% 70% at 50% 40%, #2a5c58 0%, #143c3a 45%, #051f1d 100%)',
+    wallLeft: '#2a5c58', wallRight: '#1e4a47', wallEdge: '#0a2825', wallLine: 'rgba(0,0,0,0.35)',
+    floorTop: '#a0825a', floorSide: '#6b4a2f', floorSideDark: '#4a3018', floorGrid: 'rgba(60,40,20,0.4)',
+    shelfTop: '#a0825a', shelfLeft: '#6b4a2f', shelfRight: '#4a3018', shelfEdge: '#1a0d05',
+    fridgeFrame: '#d4af37', fridgeGlass: 'rgba(120,200,180,0.35)', fridgeLight: 'rgba(150,220,200,0.7)',
+    islandTop: '#a0825a', islandLeft: '#6b4a2f', islandRight: '#4a3018',
+    counterTop: '#4a2f1c', counterLeft: '#3a2410', counterRight: '#2a1808',
+    registerTop: '#3a5550', registerLeft: '#2a3e3a', registerRight: '#1a2e2a',
+    kioskTop: '#1a5c2a', kioskScreen: '#051820', kioskText: '#90e0d0',
+    rug: '#0f3d1a', rugEdge: '#f1c40f', rugInner: '#f1c40f',
+    labelBg: '#f1c40f', labelEdge: '#d4af37', labelText: '#1a1a1a'
+  },
+  supermercado: {
+    bgSolid: '#2a4a6c',
+    bg: 'radial-gradient(ellipse 90% 70% at 50% 40%, #4a7a9c 0%, #2a4a6c 45%, #0a2030 100%)',
+    wallLeft: '#f0f4f8', wallRight: '#e0e8f0', wallEdge: '#3498db', wallLine: 'rgba(52,152,219,0.25)',
+    floorTop: '#eef2f6', floorSide: '#c0d0e0', floorSideDark: '#a0b0c0', floorGrid: 'rgba(52,152,219,0.35)',
+    shelfTop: '#ffffff', shelfLeft: '#e0e8f0', shelfRight: '#c0d0e0', shelfEdge: '#708090',
+    fridgeFrame: '#3498db', fridgeGlass: 'rgba(180,220,240,0.4)', fridgeLight: 'rgba(200,240,255,0.8)',
+    islandTop: '#ffffff', islandLeft: '#e0e8f0', islandRight: '#c0d0e0',
+    counterTop: '#2c3e50', counterLeft: '#1a2530', counterRight: '#0a1520',
+    registerTop: '#3498db', registerLeft: '#2980b9', registerRight: '#1a5580',
+    kioskTop: '#2c3e50', kioskScreen: '#001a2a', kioskText: '#5ad0ff',
+    rug: '#3498db', rugEdge: '#ffffff', rugInner: '#ffffff',
+    labelBg: '#f1c40f', labelEdge: '#d4af37', labelText: '#1a1a1a'
+  },
+  mercado: {
+    bgSolid: '#4a2a10',
+    bg: 'radial-gradient(ellipse 90% 70% at 50% 40%, #8a6030 0%, #4a2a10 45%, #1a0a05 100%)',
+    wallLeft: '#7a5a3c', wallRight: '#5a3a1c', wallEdge: '#2a1508', wallLine: 'rgba(0,0,0,0.35)',
+    floorTop: '#8b6f47', floorSide: '#6b4a2c', floorSideDark: '#4a3018', floorGrid: 'rgba(60,40,20,0.4)',
+    shelfTop: '#6b4a2c', shelfLeft: '#5a3a1a', shelfRight: '#4a2a10', shelfEdge: '#1a0d05',
+    fridgeFrame: '#c0a060', fridgeGlass: 'rgba(255,200,150,0.3)', fridgeLight: 'rgba(255,220,180,0.7)',
+    islandTop: '#8b6f47', islandLeft: '#6b4a2c', islandRight: '#4a3018',
+    counterTop: '#4a3018', counterLeft: '#3a2410', counterRight: '#2a1508',
+    registerTop: '#4a3018', registerLeft: '#3a2410', registerRight: '#1a0d05',
+    kioskTop: '#8b1a0f', kioskScreen: '#0a0502', kioskText: '#ffc870',
+    rug: '#8b1a0f', rugEdge: '#d4af37', rugInner: '#f1c40f',
+    labelBg: '#f1c40f', labelEdge: '#d4af37', labelText: '#1a1a1a'
+  }
+};
+
+/* Slots predefinidos (grilla 10x10) */
+const TIENDA_SLOTS = (() => {
+  const s = [];
+  for (let lv = 1; lv <= 4; lv++) {
+    for (let col = 0; col < 4; col++) {
+      s.push({ id: `w${lv}-${col}`, gx: 0.35, gy: col + 0.5, gz: lv + 0.18, surface: 'wall-shelf', area: 'estantes',
+        label: { plane: 'x', at: 0.65, u1: col, u2: col + 1, v1: lv + 0.02, v2: lv + 0.22 } });
+    }
+  }
+  for (let lv = 1; lv <= 4; lv++) {
+    for (let col = 0; col < 3; col++) {
+      s.push({ id: `f${lv}-${col}`, gx: col + 0.5, gy: 0.35, gz: lv + 0.18, surface: 'fridge', area: 'refrigerados',
+        label: { plane: 'y', at: 0.65, u1: col, u2: col + 1, v1: lv + 0.02, v2: lv + 0.22 } });
+    }
+  }
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      s.push({ id: `i${i}-${j}`, gx: 4 + i + 0.5, gy: 4 + j + 0.5, gz: 1.18, surface: 'island', area: 'frutas',
+        label: { plane: 'y', at: 4 + j + 1, u1: 4 + i, u2: 4 + i + 1, v1: 1.0, v2: 1.2 } });
+    }
+  }
+  for (let i = 0; i < 2; i++) {
+    for (let j = 0; j < 2; j++) {
+      s.push({ id: `c${i}-${j}`, gx: 7 + i + 0.5, gy: 7 + j + 0.5, gz: 1.18, surface: 'counter', area: 'cajas',
+        label: { plane: 'y', at: 7 + j + 1, u1: 7 + i, u2: 7 + i + 1, v1: 1.0, v2: 1.2 } });
+    }
+  }
+  return s;
+})();
+
+function estaEnSlot(gx, gy, gz) {
+  return TIENDA_SLOTS.find(s =>
+    Math.abs(s.gx - gx) < 0.6 &&
+    Math.abs(s.gy - gy) < 0.6 &&
+    Math.abs(s.gz - (gz || 0)) < 0.35
+  );
+}
+function slotMasCercano(gx, gy, gz) {
+  let best = null, bestD = Infinity;
+  for (const s of TIENDA_SLOTS) {
+    const dx = s.gx - gx, dy = s.gy - gy, dz = (s.gz || 0) - (gz || 0);
+    const d = Math.sqrt(dx * dx + dy * dy + 0.25 * dz * dz);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  return { slot: best, dist: bestD };
+}
+
+function buscarItemPorId(id) {
+  for (const cat of TIENDA_CATALOGO) {
+    const f = cat.items.find(it => it.id === id);
+    if (f) return f;
+  }
+  return null;
+}
+
+/* ==== ESTADO TIENDA ==== */
 let categoriaActual = 'bebidas';
 let tiendaState = { items: [], rotulo: 'Mi Tienda Navideña' };
 let tiendaRotulo = 'Mi Tienda Navideña';
-let slotZonesPercent = [];
 let oldSlotsToMigrate = null;
 
 const BIG_SCALE_IDS = new Set([
@@ -1925,6 +1259,881 @@ const BIG_SCALE_IDS = new Set([
   'nacimiento','angel_arbol','muneca'
 ]);
 
+/* Cámara isométrica — viewBox CUADRADO 1:1 */
+const BASE_VIEWBOX = { x: -450, y: -400, w: 900, h: 900 };
+let camera = { cx: 0, cy: 60, zoom: 1 };
+let cameraAnim = null;
+const AREAS = {
+  todo: { cx: 0, cy: 60, zoom: 1 },
+  refrigerados: { cx: iso(2, 0, 2).x, cy: iso(2, 0, 2).y + 10, zoom: 2.2 },
+  frutas: { cx: iso(5, 5, 0.5).x, cy: iso(5, 5, 0.5).y, zoom: 2.2 },
+  estantes: { cx: iso(0.5, 2, 2).x, cy: iso(0.5, 2, 2).y, zoom: 2.2 },
+  cajas: { cx: iso(8, 8, 1).x, cy: iso(8, 8, 1).y, zoom: 2.2 }
+};
+
+function applyCamera() {
+  const svg = document.getElementById('tiendaSvg');
+  if (!svg) return;
+  const vw = BASE_VIEWBOX.w / camera.zoom;
+  const vh = BASE_VIEWBOX.h / camera.zoom;
+  const vx = camera.cx - vw / 2;
+  const vy = camera.cy - vh / 2;
+  svg.setAttribute('viewBox', `${vx.toFixed(2)} ${vy.toFixed(2)} ${vw.toFixed(2)} ${vh.toFixed(2)}`);
+}
+function animateCameraTo(target, duration) {
+  duration = duration || 420;
+  if (cameraAnim) cancelAnimationFrame(cameraAnim.raf);
+  const start = { ...camera };
+  const t0 = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - t0) / duration);
+    const ease = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2) / 2;
+    camera.cx = start.cx + (target.cx - start.cx) * ease;
+    camera.cy = start.cy + (target.cy - start.cy) * ease;
+    camera.zoom = start.zoom + (target.zoom - start.zoom) * ease;
+    applyCamera();
+    if (t < 1) cameraAnim = { raf: requestAnimationFrame(step) };
+    else cameraAnim = null;
+  }
+  cameraAnim = { raf: requestAnimationFrame(step) };
+}
+
+/* ==== RENDER SVG ==== */
+function svgIsometricBox(gx, gy, gz, w, d, h, colors) {
+  const t0 = iso(gx, gy, gz + h);
+  const t1 = iso(gx + w, gy, gz + h);
+  const t2 = iso(gx + w, gy + d, gz + h);
+  const t3 = iso(gx, gy + d, gz + h);
+  const b1 = iso(gx + w, gy, gz);
+  const b2 = iso(gx + w, gy + d, gz);
+  const b3 = iso(gx, gy + d, gz);
+  let out = '';
+  if (colors.left)  out += `<polygon points="${fmtPt(t3)} ${fmtPt(t2)} ${fmtPt(b2)} ${fmtPt(b3)}" fill="${colors.left}"/>`;
+  if (colors.right) out += `<polygon points="${fmtPt(t1)} ${fmtPt(t2)} ${fmtPt(b2)} ${fmtPt(b1)}" fill="${colors.right}"/>`;
+  if (colors.top)   out += `<polygon points="${fmtPt(t0)} ${fmtPt(t1)} ${fmtPt(t2)} ${fmtPt(t3)}" fill="${colors.top}"/>`;
+  return out;
+}
+function renderWalls(theme) {
+  const wallH = 5;
+  const lw0 = iso(0, 0, 0), lw1 = iso(0, GRID_SIZE, 0), lw2 = iso(0, GRID_SIZE, wallH), lw3 = iso(0, 0, wallH);
+  const rw0 = iso(0, 0, 0), rw1 = iso(GRID_SIZE, 0, 0), rw2 = iso(GRID_SIZE, 0, wallH), rw3 = iso(0, 0, wallH);
+  let out = '';
+  out += `<polygon points="${fmtPt(lw0)} ${fmtPt(lw1)} ${fmtPt(lw2)} ${fmtPt(lw3)}" fill="${theme.wallLeft}" stroke="${theme.wallEdge}" stroke-width="1.2"/>`;
+  out += `<polygon points="${fmtPt(rw0)} ${fmtPt(rw1)} ${fmtPt(rw2)} ${fmtPt(rw3)}" fill="${theme.wallRight}" stroke="${theme.wallEdge}" stroke-width="1.2"/>`;
+  for (let z = 0.5; z < wallH; z += 0.5) {
+    const a = iso(0, 0, z), b = iso(0, GRID_SIZE, z), c = iso(GRID_SIZE, 0, z);
+    out += ptLine(a, b, theme.wallLine, 0.6);
+    out += ptLine(a, c, theme.wallLine, 0.6);
+  }
+  return out;
+}
+function renderFloor(theme) {
+  const thick = 0.45;
+  const y0 = iso(0, 0, 0), y1 = iso(GRID_SIZE, 0, 0), y2 = iso(GRID_SIZE, GRID_SIZE, 0), y3 = iso(0, GRID_SIZE, 0);
+  const d1 = iso(GRID_SIZE, 0, -thick), d2 = iso(GRID_SIZE, GRID_SIZE, -thick), d3 = iso(0, GRID_SIZE, -thick);
+  let out = '';
+  out += `<polygon points="${fmtPt(y1)} ${fmtPt(y2)} ${fmtPt(d2)} ${fmtPt(d1)}" fill="${theme.floorSide}"/>`;
+  out += `<polygon points="${fmtPt(y2)} ${fmtPt(y3)} ${fmtPt(d3)} ${fmtPt(d2)}" fill="${theme.floorSideDark}"/>`;
+  out += `<polygon points="${fmtPt(y0)} ${fmtPt(y1)} ${fmtPt(y2)} ${fmtPt(y3)}" fill="${theme.floorTop}" stroke="${theme.floorSideDark}" stroke-width="1"/>`;
+  for (let i = 1; i < GRID_SIZE; i++) {
+    const a = iso(i, 0, 0), b = iso(i, GRID_SIZE, 0);
+    const c = iso(0, i, 0), d = iso(GRID_SIZE, i, 0);
+    out += ptLine(a, b, theme.floorGrid, 0.5);
+    out += ptLine(c, d, theme.floorGrid, 0.5);
+  }
+  const sh0 = iso(-0.3, -0.3, -thick - 0.1);
+  const sh1 = iso(GRID_SIZE + 0.3, -0.3, -thick - 0.1);
+  const sh2 = iso(GRID_SIZE + 0.3, GRID_SIZE + 0.3, -thick - 0.1);
+  const sh3 = iso(-0.3, GRID_SIZE + 0.3, -thick - 0.1);
+  out = `<polygon points="${fmtPt(sh0)} ${fmtPt(sh1)} ${fmtPt(sh2)} ${fmtPt(sh3)}" fill="rgba(0,0,0,0.35)" filter="url(#iso-blur-strong)"/>` + out;
+  return out;
+}
+function renderAlfombra(theme) {
+  const x1 = 2.5, x2 = 7.5, y1 = 2.5, y2 = 7.5;
+  const a = iso(x1, y1, 0.01), b = iso(x2, y1, 0.01), c = iso(x2, y2, 0.01), d = iso(x1, y2, 0.01);
+  const ai = iso(x1 + 0.3, y1 + 0.3, 0.02), bi = iso(x2 - 0.3, y1 + 0.3, 0.02), ci = iso(x2 - 0.3, y2 - 0.3, 0.02), di = iso(x1 + 0.3, y2 - 0.3, 0.02);
+  return `<polygon points="${fmtPt(a)} ${fmtPt(b)} ${fmtPt(c)} ${fmtPt(d)}" fill="${theme.rug}" stroke="${theme.rugEdge}" stroke-width="1.2"/><polygon points="${fmtPt(ai)} ${fmtPt(bi)} ${fmtPt(ci)} ${fmtPt(di)}" fill="none" stroke="${theme.rugInner}" stroke-width="0.6" stroke-dasharray="2 2"/>`;
+}
+function renderRotulo() {
+  const cx = GRID_SIZE / 2;
+  const p = iso(cx, 0, 4.2);
+  const w = 260, h = 36;
+  return `<g transform="translate(${p.x.toFixed(2)}, ${p.y.toFixed(2)})" style="cursor:pointer" data-rotulo="1"><rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="6" fill="url(#iso-sign-grad)" stroke="#3a2410" stroke-width="2"/><rect x="${-w/2+4}" y="${-h/2+4}" width="${w-8}" height="${h-8}" rx="4" fill="none" stroke="#f1c40f" stroke-width="1" opacity="0.7"/><text x="0" y="6" text-anchor="middle" font-family="Georgia,serif" font-weight="900" font-size="18" fill="#fdf6e3">${escapeHtml(tiendaRotulo).slice(0,30)}</text></g>`;
+}
+function renderFridgeBoards(theme) {
+  let out = '';
+  out += svgIsometricBox(0, 0, 0, 3, 0.7, 4.2, { top: theme.fridgeFrame, left: theme.fridgeFrame, right: theme.fridgeFrame });
+  for (let lv = 1; lv <= 4; lv++) {
+    out += svgIsometricBox(0.1, 0.05, lv, 2.8, 0.5, 0.12, { top: theme.fridgeFrame, left: theme.shelfLeft, right: theme.shelfRight });
+  }
+  const p1 = iso(0, 0.7, 0), p2 = iso(3, 0.7, 0), p3 = iso(3, 0.7, 4.2), p4 = iso(0, 0.7, 4.2);
+  out += `<polygon points="${fmtPt(p1)} ${fmtPt(p2)} ${fmtPt(p3)} ${fmtPt(p4)}" fill="${theme.fridgeGlass}" stroke="${theme.fridgeFrame}" stroke-width="0.8" opacity="0.85"/>`;
+  out += `<polygon points="${fmtPt(p1)} ${fmtPt(p2)} ${fmtPt(iso(3,0.7,1.2))} ${fmtPt(iso(0,0.7,1.2))}" fill="${theme.fridgeLight}" opacity="0.35"/>`;
+  return out;
+}
+function renderIsland(theme) {
+  let out = '';
+  out += svgIsometricBox(4, 4, 0, 3, 3, 1, { top: theme.islandTop, left: theme.islandLeft, right: theme.islandRight });
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    const gx = 4 + i, gy = 4 + j;
+    const p1 = iso(gx + 0.05, gy + 0.95, 0.3), p2 = iso(gx + 0.95, gy + 0.95, 0.3), p3 = iso(gx + 0.95, gy + 0.95, 0.85), p4 = iso(gx + 0.05, gy + 0.95, 0.85);
+    out += `<polygon points="${fmtPt(p1)} ${fmtPt(p2)} ${fmtPt(p3)} ${fmtPt(p4)}" fill="${theme.shelfLeft}" stroke="${theme.shelfEdge}" stroke-width="0.5"/>`;
+  }
+  return out;
+}
+function renderCounter(theme) {
+  let out = '';
+  out += svgIsometricBox(7, 7, 0, 2.5, 2.5, 1, { top: theme.counterTop, left: theme.counterLeft, right: theme.counterRight });
+  out += svgIsometricBox(8.3, 7.3, 1, 0.7, 0.7, 0.7, { top: theme.registerTop, left: theme.registerLeft, right: theme.registerRight });
+  const scrCenter = iso(8.65, 7.65, 1.95);
+  const total = formatearColones(calcularTotalTienda());
+  out += `<rect x="${(scrCenter.x - 26).toFixed(2)}" y="${(scrCenter.y - 22).toFixed(2)}" width="52" height="24" rx="3" fill="#0a2a10" stroke="#3ddb54" stroke-width="1.5"/>`;
+  out += `<text x="${scrCenter.x.toFixed(2)}" y="${(scrCenter.y - 5).toFixed(2)}" text-anchor="middle" font-family="Courier New,monospace" font-weight="900" font-size="11" fill="${theme.kioskText}">TOTAL</text>`;
+  out += `<text x="${scrCenter.x.toFixed(2)}" y="${(scrCenter.y + 8).toFixed(2)}" text-anchor="middle" font-family="Courier New,monospace" font-weight="900" font-size="10" fill="#fff">${escapeHtml(total)}</text>`;
+  out += svgIsometricBox(7.3, 8.5, 1, 1.6, 0.8, 1.5, { top: theme.kioskTop, left: theme.kioskTop, right: theme.kioskTop });
+  const kScr = iso(8.1, 8.5, 2.2);
+  out += `<rect x="${(kScr.x - 24).toFixed(2)}" y="${(kScr.y - 12).toFixed(2)}" width="48" height="22" rx="2" fill="${theme.kioskScreen}" stroke="${theme.kioskText}" stroke-width="1"/>`;
+  out += `<text x="${kScr.x.toFixed(2)}" y="${(kScr.y + 4).toFixed(2)}" text-anchor="middle" font-family="Courier New,monospace" font-weight="900" font-size="9" fill="${theme.kioskText}">${escapeHtml(total)}</text>`;
+  return out;
+}
+function renderItem(item, idx, slot, theme) {
+  const itemDef = buscarItemPorId(item.id);
+  if (!itemDef) return '';
+  const p = iso(item.gx, item.gy, item.gz);
+  const s = (item.scale || 1) * 0.62;
+  const rot = item.rotation || 0;
+  let spriteContent;
+  if (itemDef.tipo === 'texto') {
+    const bg = itemDef.clase === 'rotulo-feliz' ? '#c0392b' : itemDef.clase === 'rotulo-santa' ? '#2e9e3f' : '#8b6f47';
+    spriteContent = `<rect x="5" y="15" width="50" height="30" rx="4" fill="${bg}" stroke="#3a2410" stroke-width="2"/><text x="30" y="35" text-anchor="middle" font-family="Georgia,serif" font-weight="900" font-size="10" fill="#fff">${escapeHtml(itemDef.texto || '')}</text>`;
+  } else {
+    const m = (itemDef.svg || '').match(/<svg[^>]*>([\s\S]*)<\/svg>/);
+    spriteContent = m ? m[1] : '';
+  }
+  const shadowW = 16 * s, shadowH = 8 * s;
+  const priceLabel = slot ? renderPriceLabel(slot, itemDef, theme) : '';
+  return `<g class="iso-item" data-idx="${idx}" data-id="${escapeHtml(item.id)}" transform="translate(${p.x.toFixed(2)}, ${p.y.toFixed(2)})" style="cursor:grab"><ellipse cx="0" cy="0" rx="${shadowW.toFixed(2)}" ry="${shadowH.toFixed(2)}" fill="rgba(0,0,0,0.4)" filter="url(#iso-blur)"/><g transform="scale(${s.toFixed(3)}) rotate(${rot})"><g transform="translate(-30,-55)">${spriteContent}</g></g>${priceLabel}</g>`;
+}
+function renderPriceLabel(slot, itemDef, theme) {
+  if (!slot || !slot.label || !itemDef.precio) return '';
+  const lab = slot.label;
+  const off = 0.04;
+  let corners;
+  if (lab.plane === 'x') {
+    corners = [iso(lab.at + off, lab.u1 + 0.08, lab.v1), iso(lab.at + off, lab.u2 - 0.08, lab.v1), iso(lab.at + off, lab.u2 - 0.08, lab.v2), iso(lab.at + off, lab.u1 + 0.08, lab.v2)];
+  } else {
+    corners = [iso(lab.u1 + 0.08, lab.at + off, lab.v1), iso(lab.u2 - 0.08, lab.at + off, lab.v1), iso(lab.u2 - 0.08, lab.at + off, lab.v2), iso(lab.u1 + 0.08, lab.at + off, lab.v2)];
+  }
+  const cx = corners.reduce((a, c) => a + c.x, 0) / 4;
+  const cy = corners.reduce((a, c) => a + c.y, 0) / 4;
+  return `<polygon points="${polyStr(corners)}" fill="${theme.labelBg}" stroke="${theme.labelEdge}" stroke-width="0.7" opacity="0.95"/><text x="${cx.toFixed(2)}" y="${(cy + 2.5).toFixed(2)}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="6" fill="${theme.labelText}">${escapeHtml(formatearColones(itemDef.precio))}</text>`;
+}
+
+function buildScene() {
+  const theme = THEMES_ISO[temaTiendaActual] || THEMES_ISO.clasica;
+  tiendaState.items = tiendaState.items.filter(it => !!buscarItemPorId(it.id));
+  const parts = [];
+  parts.push(`<defs><filter id="iso-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter><filter id="iso-blur-strong" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8"/></filter><linearGradient id="iso-sign-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a0825a"/><stop offset="50%" stop-color="#6b4a2f"/><stop offset="100%" stop-color="#3a2410"/></linearGradient></defs>`);
+  parts.push(renderWalls(theme));
+  parts.push(renderFloor(theme));
+  parts.push(renderAlfombra(theme));
+  const renderList = [];
+  for (let lv = 1; lv <= 4; lv++) {
+    renderList.push({ key: 0 + 2 + lv, html: svgIsometricBox(0, 0, lv, 0.7, 4, 0.15, { top: theme.shelfTop, left: theme.shelfLeft, right: theme.shelfRight }) });
+  }
+  renderList.push({ key: 0.3 + 0.05, html: svgIsometricBox(0.55, 0, 0, 0.15, 0.1, 4.15, { top: theme.shelfEdge, left: theme.shelfEdge, right: theme.shelfEdge }) });
+  renderList.push({ key: 0.3 + 3.95, html: svgIsometricBox(0.55, 3.9, 0, 0.15, 0.1, 4.15, { top: theme.shelfEdge, left: theme.shelfEdge, right: theme.shelfEdge }) });
+  renderList.push({ key: 1.5 + 0.35 + 2, html: renderFridgeBoards(theme) });
+  renderList.push({ key: 5 + 5 + 0.5, html: renderIsland(theme) });
+  renderList.push({ key: 8 + 8 + 0.5, html: renderCounter(theme) });
+  renderList.push({ key: 999, html: renderRotulo() });
+  tiendaState.items.forEach((item, idx) => {
+    const slot = estaEnSlot(item.gx, item.gy, item.gz);
+    renderList.push({ key: item.gx + item.gy + item.gz + 0.001, html: renderItem(item, idx, slot, theme) });
+  });
+  renderList.sort((a, b) => a.key - b.key);
+  renderList.forEach(r => parts.push(r.html));
+  return parts.join('');
+}
+
+function renderizarEscenario() {
+  const svg = document.getElementById('tiendaSvg');
+  if (!svg) return;
+  svg.innerHTML = buildScene();
+}
+
+/* ==== CATÁLOGO ==== */
+function renderizarTabs() {
+  const cont = document.getElementById('tiendaTabs');
+  if (!cont) return;
+  cont.innerHTML = TIENDA_CATALOGO.map(cat => `<button class="tab-categoria ${cat.id === categoriaActual ? 'activo' : ''}" data-cat="${cat.id}" type="button">${cat.nombre}</button>`).join('');
+  cont.querySelectorAll('.tab-categoria').forEach(btn => {
+    btn.addEventListener('click', () => {
+      categoriaActual = btn.dataset.cat;
+      renderizarTabs();
+      renderizarItemsCatalogo();
+    });
+  });
+}
+function renderizarItemsCatalogo() {
+  const cont = document.getElementById('tiendaItems');
+  if (!cont) return;
+  const cat = TIENDA_CATALOGO.find(c => c.id === categoriaActual);
+  if (!cat) { cont.innerHTML = ''; return; }
+  cont.innerHTML = cat.items.map(item => {
+    let preview;
+    if (item.tipo === 'texto') preview = `<div class="rotulo-mini"><div class="rotulo ${item.clase}">${escapeHtml(item.texto)}</div></div>`;
+    else preview = item.svg;
+    const precioHtml = item.precio ? `<div class="item-precio">${formatearColones(item.precio)}</div>` : '';
+    return `<div class="item-catalogo" data-item="${item.id}" draggable="false" title="${escapeHtml(item.nombre)} - ${formatearColones(item.precio || 0)}">${preview}<div class="item-nombre">${escapeHtml(item.nombre)}</div>${precioHtml}</div>`;
+  }).join('');
+  cont.querySelectorAll('.item-catalogo').forEach(el => {
+    el.addEventListener('click', () => colocarEnSiguienteSlotLibre(el.dataset.item));
+  });
+}
+function colocarEnSiguienteSlotLibre(itemId) {
+  for (const slot of TIENDA_SLOTS) {
+    const occupied = tiendaState.items.some(it =>
+      Math.abs(it.gx - slot.gx) < 0.5 &&
+      Math.abs(it.gy - slot.gy) < 0.5 &&
+      Math.abs((it.gz || 0) - slot.gz) < 0.3
+    );
+    if (!occupied) {
+      tiendaState.items.push({ id: itemId, gx: slot.gx, gy: slot.gy, gz: slot.gz, scale: 1, rotation: 0 });
+      guardarTiendaState();
+      renderizarEscenario();
+      toast(`Añadido: ${buscarItemPorId(itemId)?.nombre}`, 'success');
+      return;
+    }
+  }
+  const off = ((tiendaState.items.length % 5) - 2) * 0.4;
+  tiendaState.items.push({ id: itemId, gx: 5 + off, gy: 5 - off, gz: 0, scale: 1, rotation: 0 });
+  guardarTiendaState();
+  renderizarEscenario();
+  toast(`Sin slots libres. Colocado en el piso`, 'info');
+}
+
+/* ==== PERSISTENCIA TIENDA (LOCAL) ==== */
+function cargarTiendaState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_TIENDA_ACTUAL);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return;
+    tiendaRotulo = (typeof data.rotulo === 'string' && data.rotulo.trim()) ? data.rotulo.slice(0, 30) : 'Mi Tienda Navideña';
+    if (Array.isArray(data.items)) {
+      tiendaState.items = data.items.map(it => {
+        if (typeof it.gx === 'number' && typeof it.gy === 'number') {
+          return { id: it.id, gx: it.gx, gy: it.gy, gz: typeof it.gz === 'number' ? it.gz : 0, scale: it.scale || 1, rotation: it.rotation || 0 };
+        }
+        const gx = typeof it.x === 'number' ? (it.x / 100) * GRID_SIZE : 5;
+        const gy = typeof it.y === 'number' ? (it.y / 100) * GRID_SIZE : 5;
+        return { id: it.id, gx, gy, gz: 0, scale: it.scale || 1, rotation: it.rotation || 0 };
+      });
+      tiendaState.items.forEach(it => {
+        if (!estaEnSlot(it.gx, it.gy, it.gz)) {
+          const { slot, dist } = slotMasCercano(it.gx, it.gy, it.gz);
+          if (slot && dist < 2.5) { it.gx = slot.gx; it.gy = slot.gy; it.gz = slot.gz; }
+          else it.gz = 0;
+        }
+      });
+      return;
+    }
+    if (data.slots && typeof data.slots === 'object' && !Array.isArray(data.slots)) oldSlotsToMigrate = data.slots;
+  } catch (e) { console.warn('cargarTiendaState', e); }
+}
+function migrarSlotsViejos() {
+  if (!oldSlotsToMigrate) return;
+  const nuevos = [];
+  Object.keys(oldSlotsToMigrate).forEach(slotId => {
+    const itemId = oldSlotsToMigrate[slotId];
+    if (!itemId) return;
+    let gx = 5, gy = 5, gz = 0;
+    const m = slotId.match(/^t(\d)r(\d)s(\d)$/);
+    if (m) {
+      const t = parseInt(m[1]), r = parseInt(m[2]), s = parseInt(m[3]);
+      if (t === 1) { gx = 0.35; gy = (r - 1) + 0.5; gz = 4 - (s - 1) + 0.18; }
+      else if (t === 2) { gx = (r - 1) + 0.5; gy = 0.35; gz = 4 - (s - 1) + 0.18; }
+    } else if (slotId.startsWith('mesa')) { gx = 7.5; gy = 7.5; gz = 1.18; }
+    nuevos.push({ id: itemId, gx, gy, gz, scale: 1, rotation: 0 });
+  });
+  tiendaState.items = nuevos;
+  oldSlotsToMigrate = null;
+  guardarTiendaState();
+}
+function guardarTiendaState() {
+  try {
+    localStorage.setItem(STORAGE_TIENDA_ACTUAL, JSON.stringify({ items: tiendaState.items, rotulo: tiendaRotulo, version: 2 }));
+  } catch {}
+}
+function editarRotulo() {
+  const nuevo = prompt('Nombre de su tienda (máx. 30 caracteres):', tiendaRotulo);
+  if (nuevo === null) return;
+  const limpio = String(nuevo).trim().slice(0, 30);
+  tiendaRotulo = limpio || 'Mi Tienda Navideña';
+  guardarTiendaState();
+  renderizarEscenario();
+  toast('Rótulo actualizado', 'success');
+}
+function calcularTotalTienda() {
+  let total = 0;
+  tiendaState.items.forEach(item => {
+    if (!estaEnSlot(item.gx, item.gy, item.gz)) return;
+    const def = buscarItemPorId(item.id);
+    if (def && typeof def.precio === 'number') total += def.precio;
+  });
+  return total;
+}
+
+/* ==== INTERACCIÓN ==== */
+let gesture = null;
+let pinchState = null;
+
+function setupStoreInteractions() {
+  const svg = document.getElementById('tiendaSvg');
+  if (!svg) return;
+
+  svg.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const itemEl = e.target.closest('.iso-item');
+    const rotEl = e.target.closest('[data-rotulo]');
+
+    if (rotEl && !itemEl) { e.preventDefault(); editarRotulo(); return; }
+
+    if (itemEl) {
+      const idx = parseInt(itemEl.dataset.idx);
+      if (isNaN(idx) || !tiendaState.items[idx]) return;
+      e.preventDefault();
+      gesture = { type: 'item', idx, el: itemEl, startPointer: { x: e.clientX, y: e.clientY }, moved: false, pointerId: e.pointerId };
+      try { svg.setPointerCapture(e.pointerId); } catch {}
+      itemEl.style.cursor = 'grabbing';
+    } else {
+      gesture = { type: 'pan', startPointer: { x: e.clientX, y: e.clientY }, startCam: { cx: camera.cx, cy: camera.cy }, pointerId: e.pointerId, moved: false };
+      svg.classList.add('panning');
+      try { svg.setPointerCapture(e.pointerId); } catch {}
+    }
+  });
+
+  svg.addEventListener('pointermove', (e) => {
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    if (gesture.type === 'item') {
+      const item = tiendaState.items[gesture.idx];
+      if (!item) return;
+      const dx = e.clientX - gesture.startPointer.x;
+      const dy = e.clientY - gesture.startPointer.y;
+      if (!gesture.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      gesture.moved = true;
+      const svgP = clientToSvg(e.clientX, e.clientY);
+      const adjY = svgP.y + item.gz * ISO_Z;
+      const a = svgP.x / (ISO_TILE * ISO_COS);
+      const b = adjY / (ISO_TILE * ISO_SIN);
+      let gx = (a + b) / 2;
+      let gy = (b - a) / 2;
+      gx = Math.max(0.3, Math.min(GRID_SIZE - 0.3, gx));
+      gy = Math.max(0.3, Math.min(GRID_SIZE - 0.3, gy));
+      item.gx = gx; item.gy = gy;
+      const p = iso(item.gx, item.gy, item.gz);
+      gesture.el.setAttribute('transform', `translate(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
+    } else if (gesture.type === 'pan') {
+      const dx = e.clientX - gesture.startPointer.x;
+      const dy = e.clientY - gesture.startPointer.y;
+      if (!gesture.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+      gesture.moved = true;
+      const rect = svg.getBoundingClientRect();
+      const svgPerPxX = (BASE_VIEWBOX.w / camera.zoom) / rect.width;
+      const svgPerPxY = (BASE_VIEWBOX.h / camera.zoom) / rect.height;
+      camera.cx = gesture.startCam.cx - dx * svgPerPxX;
+      camera.cy = gesture.startCam.cy - dy * svgPerPxY;
+      applyCamera();
+    }
+  });
+
+  const endGesture = (e) => {
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    if (gesture.type === 'item') {
+      const item = tiendaState.items[gesture.idx];
+      if (item && gesture.moved) {
+        const { slot, dist } = slotMasCercano(item.gx, item.gy, item.gz);
+        if (slot && dist < 1.8) { item.gx = slot.gx; item.gy = slot.gy; item.gz = slot.gz; }
+        else item.gz = 0;
+        guardarTiendaState();
+        renderizarEscenario();
+      } else if (item && !gesture.moved) {
+        const steps = BIG_SCALE_IDS.has(item.id) ? [1, 1.5, 2, 3, 4, 5, 0.75] : [1, 1.5, 2, 0.75];
+        const curIdx = steps.indexOf(item.scale || 1);
+        item.scale = steps[(curIdx + 1) % steps.length];
+        guardarTiendaState();
+        renderizarEscenario();
+        toast(`Escala: ${Math.round(item.scale * 100)}%`, 'info');
+      }
+    } else if (gesture.type === 'pan') {
+      svg.classList.remove('panning');
+    }
+    gesture = null;
+    try { svg.releasePointerCapture(e.pointerId); } catch {}
+  };
+  svg.addEventListener('pointerup', endGesture);
+  svg.addEventListener('pointercancel', endGesture);
+
+  svg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const svgP = clientToSvg(e.clientX, e.clientY);
+    const newZoom = Math.max(1, Math.min(3, camera.zoom * factor));
+    const realFactor = newZoom / camera.zoom;
+    camera.cx = camera.cx + (svgP.x - camera.cx) * (1 - 1/realFactor);
+    camera.cy = camera.cy + (svgP.y - camera.cy) * (1 - 1/realFactor);
+    camera.zoom = newZoom;
+    applyCamera();
+    actualizarBotonAreaActivo(null);
+  }, { passive: false });
+
+  const pointers = new Map();
+  svg.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinchState = { startDist: Math.hypot(b.x - a.x, b.y - a.y), startZoom: camera.zoom, startCam: { cx: camera.cx, cy: camera.cy }, centerClient: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+    }
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinchState && pointers.size === 2) {
+      e.preventDefault();
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(b.x - a.x, b.y - a.y);
+      const factor = dist / pinchState.startDist;
+      const newZoom = Math.max(1, Math.min(3, pinchState.startZoom * factor));
+      const svgP = clientToSvg(pinchState.centerClient.x, pinchState.centerClient.y);
+      const realFactor = newZoom / pinchState.startZoom;
+      camera.cx = pinchState.startCam.cx + (svgP.x - pinchState.startCam.cx) * (1 - 1/realFactor);
+      camera.cy = pinchState.startCam.cy + (svgP.y - pinchState.startCam.cy) * (1 - 1/realFactor);
+      camera.zoom = newZoom;
+      applyCamera();
+    }
+  });
+  const clearPointer = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) pinchState = null; };
+  svg.addEventListener('pointerup', clearPointer);
+  svg.addEventListener('pointercancel', clearPointer);
+
+  document.querySelectorAll('#tiendaZoomBtns button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const area = AREAS[btn.dataset.area];
+      if (!area) return;
+      animateCameraTo(area);
+      actualizarBotonAreaActivo(btn.dataset.area);
+    });
+  });
+
+  let lastTapTime = 0, lastTapPos = null;
+  svg.addEventListener('pointerup', (e) => {
+    if (e.target.closest('.iso-item')) return;
+    const now = Date.now();
+    if (now - lastTapTime < 350 && lastTapPos) {
+      const d = Math.hypot(e.clientX - lastTapPos.x, e.clientY - lastTapPos.y);
+      if (d < 30) {
+        const svgP = clientToSvg(e.clientX, e.clientY);
+        let bestArea = 'todo', bestD = Infinity;
+        Object.entries(AREAS).forEach(([k, a]) => {
+          if (k === 'todo') return;
+          const d2 = Math.hypot(svgP.x - a.cx, svgP.y - a.cy);
+          if (d2 < bestD) { bestD = d2; bestArea = k; }
+        });
+        if (AREAS[bestArea]) { animateCameraTo(AREAS[bestArea]); actualizarBotonAreaActivo(bestArea); }
+      }
+    }
+    lastTapTime = now;
+    lastTapPos = { x: e.clientX, y: e.clientY };
+  });
+}
+function actualizarBotonAreaActivo(area) {
+  document.querySelectorAll('#tiendaZoomBtns button').forEach(b => b.classList.toggle('activo', b.dataset.area === area));
+}
+function clientToSvg(clientX, clientY) {
+  const svg = document.getElementById('tiendaSvg');
+  const pt = svg.createSVGPoint();
+  pt.x = clientX; pt.y = clientY;
+  const m = svg.getScreenCTM();
+  if (!m) return { x: 0, y: 0 };
+  const r = pt.matrixTransform(m.inverse());
+  return { x: r.x, y: r.y };
+}
+
+/* ==== TEMAS TIENDA ==== */
+function cargarTemaTienda() {
+  try {
+    const t = localStorage.getItem(STORAGE_TEMA_TIENDA);
+    if (t && TEMAS_TIENDA.some(x => x.id === t)) temaTiendaActual = t;
+  } catch {}
+}
+function aplicarTemaTienda(id) {
+  if (!TEMAS_TIENDA.some(x => x.id === id)) return;
+  temaTiendaActual = id;
+  const escenario = document.getElementById('tiendaEscenario');
+  if (escenario) escenario.setAttribute('data-tema', id);
+  const theme = THEMES_ISO[id];
+  if (escenario && theme) escenario.style.background = theme.bg;
+  try { localStorage.setItem(STORAGE_TEMA_TIENDA, id); } catch {}
+  document.querySelectorAll('.tema-btn').forEach(b => b.classList.toggle('activo', b.dataset.tema === id));
+  renderizarEscenario();
+}
+function renderizarTemasTienda() {
+  const cont = document.getElementById('tiendaTemas');
+  if (!cont) return;
+  cont.innerHTML = TEMAS_TIENDA.map(t => `<button type="button" class="tema-btn ${t.id === temaTiendaActual ? 'activo' : ''}" data-tema="${t.id}" role="tab">${t.nombre}</button>`).join('');
+  cont.querySelectorAll('.tema-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      aplicarTemaTienda(btn.dataset.tema);
+      toast(`Tema: ${TEMAS_TIENDA.find(x => x.id === btn.dataset.tema)?.nombre}`, 'success');
+    });
+  });
+}
+
+/* ==== CAPTURA 1:1 — PNG descarga + JPG Supabase ==== */
+const CAPTURE_SIZE = 1200; // 1200x1200 → 1:1, HD
+
+function normalizarA1a1(source, size, bgColor) {
+  const out = document.createElement('canvas');
+  out.width = size; out.height = size;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = bgColor || '#1e4a2f';
+  ctx.fillRect(0, 0, size, size);
+  const sw = source.width, sh = source.height;
+  const scale = Math.min(size / sw, size / sh);
+  const dw = sw * scale, dh = sh * scale;
+  const dx = (size - dw) / 2, dy = (size - dh) / 2;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, dx, dy, dw, dh);
+  return out;
+}
+
+async function capturarEscenario() {
+  const escenario = document.getElementById('tiendaEscenario');
+  const zoomBtns = document.getElementById('tiendaZoomBtns');
+  const expandBtn = document.getElementById('btnExpandStore');
+  const prevZoom = zoomBtns ? zoomBtns.style.display : '';
+  const prevExpand = expandBtn ? expandBtn.style.display : '';
+  if (zoomBtns) zoomBtns.style.display = 'none';
+  if (expandBtn) expandBtn.style.display = 'none';
+  try {
+    const theme = THEMES_ISO[temaTiendaActual] || THEMES_ISO.clasica;
+    if (window.html2canvas) {
+      try {
+        return await html2canvas(escenario, { backgroundColor: theme.bgSolid, scale: 2, useCORS: true, allowTaint: false, logging: false, imageTimeout: 8000 });
+      } catch (e) { console.warn('html2canvas falló, usando SVG fallback:', e); }
+    }
+    return await capturarSvgComoCanvas();
+  } finally {
+    if (zoomBtns) zoomBtns.style.display = prevZoom || '';
+    if (expandBtn) expandBtn.style.display = prevExpand || '';
+  }
+}
+
+async function capturarSvgComoCanvas() {
+  const svgEl = document.getElementById('tiendaSvg');
+  const theme = THEMES_ISO[temaTiendaActual] || THEMES_ISO.clasica;
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute('viewBox', '-450 -400 900 900');
+  clone.setAttribute('width', CAPTURE_SIZE);
+  clone.setAttribute('height', CAPTURE_SIZE);
+  clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bgRect.setAttribute('x', '-5000');
+  bgRect.setAttribute('y', '-5000');
+  bgRect.setAttribute('width', '10000');
+  bgRect.setAttribute('height', '10000');
+  bgRect.setAttribute('fill', theme.bgSolid);
+  clone.insertBefore(bgRect, clone.firstChild);
+  const xml = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = CAPTURE_SIZE; canvas.height = CAPTURE_SIZE;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = theme.bgSolid;
+      ctx.fillRect(0, 0, CAPTURE_SIZE, CAPTURE_SIZE);
+      ctx.drawImage(img, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE);
+      URL.revokeObjectURL(url);
+      resolve(canvas);
+    };
+    img.onerror = (err) => { URL.revokeObjectURL(url); reject(err); };
+    img.src = url;
+  });
+}
+
+function dibujarFooterEnCanvas(canvas, nombreCreador) {
+  const ctx = canvas.getContext('2d');
+  const fecha = new Date().toLocaleDateString('es-CR');
+  const temaNombre = (TEMAS_TIENDA.find(t => t.id === temaTiendaActual)?.nombre || '').replace(/[^\w\s]/g, '').trim();
+  const footerH = Math.round(canvas.height * 0.06);
+  const grad = ctx.createLinearGradient(0, canvas.height - footerH, canvas.width, canvas.height);
+  grad.addColorStop(0, 'rgba(26,92,42,0.92)');
+  grad.addColorStop(0.5, 'rgba(46,158,63,0.92)');
+  grad.addColorStop(1, 'rgba(192,57,43,0.92)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, canvas.height - footerH, canvas.width, footerH);
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${Math.round(canvas.height * 0.022)}px "Segoe UI", Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 4;
+  ctx.fillText(`🎄 Creado por: ${nombreCreador}  ·  ${fecha}  ·  ${temaNombre} 🎄`, canvas.width / 2, canvas.height - footerH / 2);
+  ctx.shadowBlur = 0;
+}
+
+/* ==== SUBIR A SUPABASE ==== */
+async function subirTiendaASupabase(nombreCreador, jpgBlob) {
+  if (!supabaseDisponible || !jpgBlob) return null;
+  try {
+    const ts = Date.now();
+    const rand = Math.random().toString(36).slice(2, 8);
+    const fileName = `tienda_${ts}_${rand}.jpg`;
+    const { error: upErr } = await supabaseClient.storage
+      .from(SUPABASE_BUCKET_TIENDAS)
+      .upload(fileName, jpgBlob, { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false });
+    if (upErr) {
+      console.error('Upload error:', upErr);
+      if (/bucket/i.test(upErr.message || '')) {
+        toast('El bucket "tiendas" no existe. Ejecutá el SQL de configuración.', 'error');
+      }
+      throw upErr;
+    }
+    const { data: urlData } = supabaseClient.storage.from(SUPABASE_BUCKET_TIENDAS).getPublicUrl(fileName);
+    const publicUrl = urlData?.publicUrl;
+    if (!publicUrl) throw new Error('No se pudo obtener URL pública');
+    const { data: inserted, error: insErr } = await supabaseClient
+      .from('tiendas_guardadas')
+      .insert({ nombre: nombreCreador, tema: temaTiendaActual, imagen_url: publicUrl, imagen_path: fileName })
+      .select()
+      .single();
+    if (insErr) throw insErr;
+    return inserted;
+  } catch (e) {
+    console.error('subirTiendaASupabase:', e);
+    toast('No se pudo subir a Supabase: ' + (e.message || e), 'error');
+    return null;
+  }
+}
+
+async function capturarYGuardarTienda(nombreCreador) {
+  toast('Generando imagen de la tienda...', 'info');
+  const teniaLuces = document.body.classList.contains('luces-navidad');
+  if (teniaLuces) document.body.classList.remove('luces-navidad');
+  try {
+    await new Promise(r => setTimeout(r, 180));
+    const rawCanvas = await capturarEscenario();
+    const bgColor = (THEMES_ISO[temaTiendaActual] || THEMES_ISO.clasica).bgSolid;
+    const square = normalizarA1a1(rawCanvas, CAPTURE_SIZE, bgColor);
+    dibujarFooterEnCanvas(square, nombreCreador);
+
+    // 1) Descarga PNG (alta calidad, sin compresión)
+    const pngDataURL = square.toDataURL('image/png');
+    const archivoNombre = `tienda-${nombreCreador.replace(/\s+/g, '-')}-${temaTiendaActual}-${Date.now()}.png`;
+    const a = document.createElement('a');
+    a.href = pngDataURL;
+    a.download = archivoNombre;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    // 2) Sube JPG de alta calidad a Supabase
+    let guardadoEnSupabase = false;
+    if (supabaseDisponible) {
+      const jpgBlob = await new Promise(r => square.toBlob(r, 'image/jpeg', 0.92));
+      const saved = await subirTiendaASupabase(nombreCreador, jpgBlob);
+      guardadoEnSupabase = !!saved;
+    }
+    if (!guardadoEnSupabase) {
+      // Fallback local con JPG más liviano
+      const small = normalizarA1a1(rawCanvas, 800, bgColor);
+      dibujarFooterEnCanvas(small, nombreCreador);
+      const jpgData = small.toDataURL('image/jpeg', 0.85);
+      guardarTiendaLocal(nombreCreador, jpgData);
+      toast('Guardado localmente (Supabase no disponible)', 'info');
+    }
+
+    await actualizarGaleriaDesdeSupabase();
+    toast('¡Tienda guardada y descargada! 🎄', 'success');
+  } catch (err) {
+    console.error('Error al guardar tienda:', err);
+    toast('No se pudo generar la imagen', 'error');
+  } finally {
+    if (teniaLuces) document.body.classList.add('luces-navidad');
+  }
+}
+
+function guardarTiendaLocal(nombreCreador, jpgDataURL) {
+  const tiendas = leerTiendasGuardadas();
+  tiendas.unshift({
+    id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    nombre: nombreCreador, fecha: new Date().toISOString(),
+    imagen: jpgDataURL, tema: temaTiendaActual
+  });
+  if (tiendas.length > 30) tiendas.length = 30;
+  try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(tiendas)); }
+  catch (e) {
+    console.error('localStorage full:', e);
+    tiendas.splice(15);
+    try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(tiendas)); } catch {}
+  }
+}
+
+/* ==== GALERÍA: LEER DE SUPABASE ==== */
+function leerTiendasGuardadas() { try { const raw = localStorage.getItem(STORAGE_TIENDAS); const arr = raw ? JSON.parse(raw) : []; return Array.isArray(arr) ? arr : []; } catch { return []; } }
+
+async function cargarTiendasGuardadas() {
+  let remote = [];
+  if (supabaseDisponible) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('tiendas_guardadas')
+        .select('id,nombre,tema,imagen_url,imagen_path,fecha')
+        .order('fecha', { ascending: false })
+        .limit(60);
+      if (error) {
+        if (/does not exist|relation/i.test(error.message || '')) {
+          toast('Falta la tabla tiendas_guardadas. Ejecutá el SQL.', 'error');
+        }
+        console.warn('cargarTiendasGuardadas:', error);
+      } else if (Array.isArray(data)) {
+        remote = data;
+      }
+    } catch (e) { console.warn('cargarTiendasGuardadas:', e); }
+  }
+  const locales = leerTiendasGuardadas();
+  const idsRemotos = new Set(remote.map(t => String(t.id)));
+  const soloLocales = locales.filter(t => !idsRemotos.has(String(t.id)));
+  const merged = [...remote, ...soloLocales];
+  merged.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+  const result = merged.slice(0, 60);
+  try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(result)); } catch {}
+  return result;
+}
+
+function renderGaleriaCon(tiendas) {
+  const cont = document.getElementById('galeriaTiendas');
+  if (!cont) return;
+  if (!tiendas || tiendas.length === 0) {
+    cont.innerHTML = '<p class="galeria-vacia">🎄 Aún no hay tiendas creadas. ¡Cree la suya y pulse "Guardar PNG"!</p>';
+    return;
+  }
+  cont.innerHTML = tiendas.map(t => {
+    const imgSrc = t.imagen_url || t.imagen || '';
+    const fechaStr = formatearFechaCorta(t.fecha);
+    const temaStr = t.tema ? escapeHtml(TEMAS_TIENDA.find(x => x.id === t.tema)?.nombre || '') : '';
+    return `<div class="tienda-thumb" data-id="${escapeHtml(t.id)}" data-url="${escapeHtml(imgSrc)}"><button class="tienda-thumb-borrar" data-id="${escapeHtml(t.id)}" type="button" title="Eliminar tienda">🗑️</button><img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(t.nombre)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'"><div class="tienda-thumb-info"><div class="tienda-thumb-nombre">${escapeHtml(t.nombre)}</div><div class="tienda-thumb-fecha">${escapeHtml(fechaStr)}${temaStr ? ' · ' + temaStr : ''}</div></div></div>`;
+  }).join('');
+  cont.querySelectorAll('.tienda-thumb').forEach(thumb => {
+    thumb.addEventListener('click', (e) => {
+      if (e.target.closest('.tienda-thumb-borrar')) return;
+      const url = thumb.dataset.url;
+      if (url) {
+        const lb = document.getElementById('lightbox');
+        const lbImg = document.getElementById('lightboxImg');
+        lbImg.src = url;
+        lb.classList.add('activo');
+      }
+    });
+  });
+  cont.querySelectorAll('.tienda-thumb-borrar').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if (id) eliminarTiendaGuardada(id);
+    });
+  });
+}
+
+function renderizarGaleriaTiendas() {
+  renderGaleriaCon(leerTiendasGuardadas()); // cache inmediata
+  actualizarGaleriaDesdeSupabase();         // refresh async
+}
+async function actualizarGaleriaDesdeSupabase() {
+  const tiendas = await cargarTiendasGuardadas();
+  tiendasCache = tiendas;
+  renderGaleriaCon(tiendas);
+}
+
+async function eliminarTiendaGuardada(id) {
+  if (!id) return;
+  if (!confirm('¿Eliminar esta tienda guardada?')) return;
+  const tiendas = await cargarTiendasGuardadas();
+  const t = tiendas.find(x => String(x.id) === String(id));
+  if (supabaseDisponible && t && t.imagen_path) {
+    try {
+      const { error: delErr } = await supabaseClient.storage.from(SUPABASE_BUCKET_TIENDAS).remove([t.imagen_path]);
+      if (delErr) console.warn('Storage delete:', delErr);
+    } catch (e) { console.warn('Storage delete:', e); }
+    try {
+      const { error: rowErr } = await supabaseClient.from('tiendas_guardadas').delete().eq('id', t.id);
+      if (rowErr) console.warn('Table delete:', rowErr);
+    } catch (e) { console.warn('Table delete:', e); }
+  }
+  const locales = leerTiendasGuardadas().filter(x => String(x.id) !== String(id));
+  try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(locales)); } catch {}
+  toast('Tienda eliminada', 'success');
+  await actualizarGaleriaDesdeSupabase();
+}
+
+document.getElementById('btnLimpiarTienda').addEventListener('click', () => {
+  if (tiendaState.items.length === 0) { toast('La tienda ya está vacía', 'info'); return; }
+  if (!confirm('¿Vaciar toda la tienda?')) return;
+  tiendaState.items = [];
+  guardarTiendaState();
+  renderizarEscenario();
+  toast('Tienda vaciada', 'success');
+});
+
+const modalGuardarTienda = document.getElementById('modalGuardarTienda');
+const inputCreadorTienda = document.getElementById('nombreCreadorTienda');
+document.getElementById('btnGuardarTienda').addEventListener('click', () => {
+  if (tiendaState.items.length === 0 && !confirm('La tienda está vacía. ¿Guardar de todas formas?')) return;
+  inputCreadorTienda.value = '';
+  abrirModal(modalGuardarTienda, '#nombreCreadorTienda');
+});
+document.getElementById('btnCancelarGuardarTienda').addEventListener('click', () => cerrarModal(modalGuardarTienda));
+document.getElementById('btnConfirmarGuardarTienda').addEventListener('click', async () => {
+  const nombre = inputCreadorTienda.value.trim() || 'Anónimo';
+  cerrarModal(modalGuardarTienda);
+  await capturarYGuardarTienda(nombre);
+});
+inputCreadorTienda.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnConfirmarGuardarTienda').click(); } });
+
+/* Fullscreen */
+function ajustarTamanoFullscreen() { applyCamera(); }
+function resetEscenarioSize() { applyCamera(); }
+async function toggleFullscreenTienda() {
+  const el = document.getElementById('tiendaBox');
+  if (!el) return;
+  if (!el.classList.contains('is-fullscreen') && document.fullscreenElement !== el) {
+    try { if (el.requestFullscreen) await el.requestFullscreen(); else { el.classList.add('is-fullscreen'); setTimeout(ajustarTamanoFullscreen, 50); } }
+    catch { el.classList.add('is-fullscreen'); setTimeout(ajustarTamanoFullscreen, 50); }
+  } else {
+    try { if (document.exitFullscreen) await document.exitFullscreen(); } catch {}
+    el.classList.remove('is-fullscreen');
+    resetEscenarioSize();
+  }
+}
+document.getElementById('btnExpandStore').addEventListener('click', toggleFullscreenTienda);
+document.addEventListener('fullscreenchange', () => {
+  const el = document.getElementById('tiendaBox');
+  if (document.fullscreenElement === el) setTimeout(ajustarTamanoFullscreen, 100);
+  else { if (el) el.classList.remove('is-fullscreen'); resetEscenarioSize(); }
+});
+window.addEventListener('resize', () => {
+  const el = document.getElementById('tiendaBox');
+  if ((document.fullscreenElement === el) || (el && el.classList.contains('is-fullscreen'))) ajustarTamanoFullscreen();
+  else applyCamera();
+});
+
+/* ==== RESTO: listas, mensajes, calendario, PDF ==== */
 function toast(msg, tipo = 'info') {
     const cont = document.getElementById('toastContainer');
     const t = document.createElement('div');
@@ -2246,445 +2455,6 @@ function programarCambioImagenCalendario() {
     const espera = (siguiente - ahora) + 1500;
     setTimeout(() => { cargarImagenDelDia(); programarCambioImagenCalendario(); }, espera);
 }
-function buscarItemPorId(id) { for (const cat of TIENDA_CATALOGO) { const found = cat.items.find(it => it.id === id); if (found) return found; } return null; }
-function cargarTiendaState() {
-    try {
-        const raw = localStorage.getItem(STORAGE_TIENDA_ACTUAL);
-        if (!raw) return;
-        const data = JSON.parse(raw);
-        if (!data || typeof data !== 'object') return;
-        if (Array.isArray(data.items)) { tiendaState.items = data.items; tiendaRotulo = (typeof data.rotulo === 'string' && data.rotulo.trim()) ? data.rotulo.slice(0, 30) : 'Mi Tienda Navideña'; return; }
-        if (data.slots && typeof data.slots === 'object' && !Array.isArray(data.slots)) { oldSlotsToMigrate = data.slots; tiendaRotulo = (typeof data.rotulo === 'string' && data.rotulo.trim()) ? data.rotulo.slice(0, 30) : 'Mi Tienda Navideña'; return; }
-        oldSlotsToMigrate = data;
-    } catch {}
-}
-function migrarSlotsViejos() {
-    if (!oldSlotsToMigrate) return;
-    const escenario = document.getElementById('tiendaEscenario');
-    if (!escenario) return;
-    const escRect = escenario.getBoundingClientRect();
-    if (escRect.width < 10) return;
-    const newItems = [];
-    const oldKeys = Object.keys(oldSlotsToMigrate);
-    for (const slotId of oldKeys) {
-        const itemId = oldSlotsToMigrate[slotId];
-        if (!itemId) continue;
-        const zone = document.querySelector(`.slot-zone[data-slot="${slotId}"]`);
-        if (!zone) continue;
-        const zr = zone.getBoundingClientRect();
-        if (zr.width === 0) continue;
-        newItems.push({ id: itemId, x: ((zr.left + zr.width/2 - escRect.left) / escRect.width) * 100, y: ((zr.top + zr.height/2 - escRect.top) / escRect.height) * 100, scale: 1, rotation: 0 });
-    }
-    tiendaState.items = newItems;
-    oldSlotsToMigrate = null;
-    guardarTiendaState();
-}
-function guardarTiendaState() { try { localStorage.setItem(STORAGE_TIENDA_ACTUAL, JSON.stringify({ items: tiendaState.items, rotulo: tiendaRotulo })); } catch {} }
-function actualizarRotulo() { const el = document.getElementById('tiendaRotuloTexto'); if (el) el.textContent = tiendaRotulo; }
-function editarRotulo() {
-    const nuevo = prompt('Nombre de su tienda (máx. 30 caracteres):', tiendaRotulo);
-    if (nuevo === null) return;
-    const limpio = String(nuevo).trim().slice(0, 30);
-    tiendaRotulo = limpio || 'Mi Tienda Navideña';
-    actualizarRotulo(); guardarTiendaState(); toast('Rótulo actualizado', 'success');
-}
-function computeSlotZones() {
-    const escenario = document.getElementById('tiendaEscenario');
-    if (!escenario) { slotZonesPercent = []; return; }
-    const escRect = escenario.getBoundingClientRect();
-    if (escRect.width < 10 || escRect.height < 10) { slotZonesPercent = []; return; }
-    slotZonesPercent = [];
-    document.querySelectorAll('.slot-zone').forEach(zone => {
-        const zr = zone.getBoundingClientRect();
-        if (zr.width === 0 || zr.height === 0) return;
-        slotZonesPercent.push({
-            left: ((zr.left - escRect.left) / escRect.width) * 100,
-            top: ((zr.top - escRect.top) / escRect.height) * 100,
-            right: ((zr.right - escRect.left) / escRect.width) * 100,
-            bottom: ((zr.bottom - escRect.top) / escRect.height) * 100
-        });
-    });
-}
-function estaEnSlot(x, y) {
-    if (!slotZonesPercent || slotZonesPercent.length === 0) return false;
-    return slotZonesPercent.some(z => x >= z.left && x <= z.right && y >= z.top && y <= z.bottom);
-}
-function calcularTotalTienda() {
-    let total = 0;
-    tiendaState.items.forEach(item => {
-        if (!estaEnSlot(item.x, item.y)) return;
-        const itemDef = buscarItemPorId(item.id);
-        if (itemDef && typeof itemDef.precio === 'number') total += itemDef.precio;
-    });
-    return total;
-}
-function actualizarTotalCaja() { const el = document.getElementById('cajaTotal'); if (el) el.textContent = formatearColones(calcularTotalTienda()); }
-function renderizarTabs() {
-    const cont = document.getElementById('tiendaTabs');
-    if (!cont) return;
-    cont.innerHTML = TIENDA_CATALOGO.map(cat => `<button class="tab-categoria ${cat.id === categoriaActual ? 'activo' : ''}" data-cat="${cat.id}" type="button">${cat.nombre}</button>`).join('');
-    cont.querySelectorAll('.tab-categoria').forEach(btn => { btn.addEventListener('click', () => { categoriaActual = btn.dataset.cat; renderizarTabs(); renderizarItemsCatalogo(); }); });
-}
-function renderizarItemsCatalogo() {
-    const cont = document.getElementById('tiendaItems');
-    if (!cont) return;
-    const cat = TIENDA_CATALOGO.find(c => c.id === categoriaActual);
-    if (!cat) { cont.innerHTML = ''; return; }
-    cont.innerHTML = cat.items.map(item => {
-        let preview;
-        if (item.tipo === 'texto') preview = `<div class="rotulo-mini"><div class="rotulo ${item.clase}">${escapeHtml(item.texto)}</div></div>`;
-        else preview = item.svg;
-        const precioHtml = item.precio ? `<div class="item-precio">${formatearColones(item.precio)}</div>` : '';
-        return `<div class="item-catalogo" data-item="${item.id}" draggable="false" title="${escapeHtml(item.nombre)} - ${formatearColones(item.precio || 0)}">${preview}<div class="item-nombre">${escapeHtml(item.nombre)}</div>${precioHtml}</div>`;
-    }).join('');
-    cont.querySelectorAll('.item-catalogo').forEach(el => { el.addEventListener('click', () => colocarEnSiguienteSlotLibre(el.dataset.item)); });
-}
-function colocarEnSiguienteSlotLibre(itemId) {
-    const escenario = document.getElementById('tiendaEscenario');
-    if (!escenario) return;
-    const escRect = escenario.getBoundingClientRect();
-    const slotZones = document.querySelectorAll('.slot-zone');
-    for (const zone of slotZones) {
-        const zr = zone.getBoundingClientRect();
-        const centerX = ((zr.left + zr.width/2 - escRect.left) / escRect.width) * 100;
-        const centerY = ((zr.top + zr.height/2 - escRect.top) / escRect.height) * 100;
-        const occupied = tiendaState.items.some(it => Math.abs(it.x - centerX) < 2 && Math.abs(it.y - centerY) < 2);
-        if (!occupied) {
-            tiendaState.items.push({ id: itemId, x: centerX, y: centerY, scale: 1, rotation: 0 });
-            guardarTiendaState(); renderizarEscenario();
-            toast(`Añadido: ${buscarItemPorId(itemId)?.nombre}`, 'success');
-            return;
-        }
-    }
-    const offset = ((tiendaState.items.length % 5) - 2) * 4;
-    tiendaState.items.push({ id: itemId, x: 50 + offset, y: 50 + offset, scale: 1, rotation: 0 });
-    guardarTiendaState(); renderizarEscenario();
-    toast(`Añadido: ${buscarItemPorId(itemId)?.nombre} (arrástrelo donde quiera)`, 'info');
-}
-/* FIX: empareja cada elemento con SU item (antes usaba layer.children[idx], que se
-   desincronizaba si algún item del catálogo ya no existía → precios en objetos fuera de estantes) */
-function renderizarEscenario() {
-    actualizarRotulo();
-    const layer = document.getElementById('itemsLayer');
-    if (!layer) return;
-    layer.innerHTML = '';
-    // Limpia items huérfanos (IDs que ya no existen en el catálogo)
-    tiendaState.items = tiendaState.items.filter(it => !!buscarItemPorId(it.id));
-    const created = [];
-    tiendaState.items.forEach((item, idx) => {
-        if (item.rotation === undefined) item.rotation = 0;
-        if (item.scale === undefined) item.scale = 1;
-        const itemDef = buscarItemPorId(item.id);
-        if (!itemDef) return;
-        const el = crearItemElemento(item, itemDef, idx);
-        layer.appendChild(el);
-        created.push({ el, item });
-    });
-    requestAnimationFrame(() => {
-        computeSlotZones();
-        created.forEach(({ el, item }) => {
-            const inSlot = estaEnSlot(item.x, item.y);
-            el.classList.toggle('en-slot', inSlot);
-        });
-        actualizarTotalCaja();
-    });
-}
-function aplicarTransform(el, item) { el.style.transform = `translate(-50%, -50%) rotate(${item.rotation || 0}deg) scale(${item.scale || 1})`; }
-function crearItemElemento(item, itemDef, idx) {
-    const el = document.createElement('div');
-    el.className = 'tienda-item';
-    el.style.left = item.x + '%';
-    el.style.top = item.y + '%';
-    aplicarTransform(el, item);
-    el.style.zIndex = 20 + idx;
-    el.dataset.index = idx;
-    let contentHtml = itemDef.tipo === 'texto' ? `<div class="rotulo ${itemDef.clase}">${escapeHtml(itemDef.texto)}</div>` : itemDef.svg;
-    const precio = itemDef.precio ? formatearColones(itemDef.precio) : '';
-    el.innerHTML = `
-        <div class="tienda-item-content">${contentHtml}</div>
-        ${precio ? `<div class="tienda-item-precio">${precio}</div>` : ''}
-        <button class="item-rotate" type="button" title="Rotar 45°" aria-label="Rotar">⟳</button>
-        <button class="item-delete" type="button" title="Eliminar" aria-label="Eliminar">×</button>
-    `;
-    attachItemInteractions(el, item, idx);
-    return el;
-}
-
-function attachItemInteractions(el, item, idx) {
-    const pointers = new Map();
-    let mode = null;
-    let dragStart = null;
-    let pinchStart = null;
-    let moved = false;
-
-    function getPinchInfo() {
-        const pts = [...pointers.values()];
-        if (pts.length < 2) return null;
-        const [a, b] = pts;
-        return {
-            dist: Math.hypot(b.x - a.x, b.y - a.y),
-            angle: Math.atan2(b.y - a.y, b.x - a.x)
-        };
-    }
-
-    el.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.item-delete') || e.target.closest('.item-rotate')) return;
-        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        try { el.setPointerCapture(e.pointerId); } catch {}
-
-        if (pointers.size === 1) {
-            const p = pointers.get(e.pointerId);
-            dragStart = { x: p.x, y: p.y, itemX: item.x, itemY: item.y };
-            mode = 'drag';
-            moved = false;
-            el.classList.add('dragging');
-            el.style.zIndex = 9999;
-        } else if (pointers.size === 2) {
-            const info = getPinchInfo();
-            if (info) {
-                pinchStart = { dist: info.dist, angle: info.angle, scale: item.scale || 1, rotation: item.rotation || 0 };
-                mode = 'pinch';
-                moved = true;
-            }
-        }
-    });
-
-    el.addEventListener('pointermove', (e) => {
-        if (!pointers.has(e.pointerId)) return;
-        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-        if (mode === 'drag' && pointers.size === 1) {
-            const p = pointers.get(e.pointerId);
-            const dx = p.x - dragStart.x;
-            const dy = p.y - dragStart.y;
-            if (!moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) moved = true;
-            if (!moved) return;
-            const escRect = document.getElementById('tiendaEscenario').getBoundingClientRect();
-            item.x = Math.max(2, Math.min(98, dragStart.itemX + (dx / escRect.width) * 100));
-            item.y = Math.max(2, Math.min(98, dragStart.itemY + (dy / escRect.height) * 100));
-            el.style.left = item.x + '%';
-            el.style.top = item.y + '%';
-            const inSlot = estaEnSlot(item.x, item.y);
-            el.classList.toggle('en-slot', inSlot);
-            actualizarTotalCaja();
-        } else if (mode === 'pinch' && pointers.size >= 2) {
-            const info = getPinchInfo();
-            if (!info) return;
-            const scaleRatio = info.dist / pinchStart.dist;
-            const angleDiff = (info.angle - pinchStart.angle) * 180 / Math.PI;
-            item.scale = Math.max(0.4, Math.min(5, pinchStart.scale * scaleRatio));
-            item.rotation = ((pinchStart.rotation + angleDiff) % 360 + 360) % 360;
-            aplicarTransform(el, item);
-        }
-    });
-
-    const onUp = (e) => {
-        if (!pointers.has(e.pointerId)) return;
-        pointers.delete(e.pointerId);
-        try { el.releasePointerCapture(e.pointerId); } catch {}
-
-        if (pointers.size === 0) {
-            el.classList.remove('dragging');
-            el.style.zIndex = 20 + idx;
-
-            if (mode === 'drag' && !moved) {
-                const steps = BIG_SCALE_IDS.has(item.id) ? [1, 1.5, 2, 3, 4, 5, 0.75] : [1, 1.5, 2, 0.75];
-                const curIdx = steps.indexOf(item.scale || 1);
-                item.scale = steps[(curIdx + 1) % steps.length];
-                aplicarTransform(el, item);
-                toast(`Escala: ${Math.round(item.scale * 100)}%`, 'info');
-            }
-            guardarTiendaState();
-            actualizarTotalCaja();
-            mode = null; dragStart = null; pinchStart = null; moved = false;
-        } else if (pointers.size === 1) {
-            const p = [...pointers.values()][0];
-            dragStart = { x: p.x, y: p.y, itemX: item.x, itemY: item.y };
-            mode = 'drag';
-            moved = true;
-            pinchStart = null;
-        }
-    };
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointercancel', onUp);
-
-    const delBtn = el.querySelector('.item-delete');
-    if (delBtn) {
-        delBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-        delBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            tiendaState.items.splice(idx, 1);
-            guardarTiendaState();
-            renderizarEscenario();
-            toast('Objeto eliminado', 'success');
-        });
-    }
-    const rotBtn = el.querySelector('.item-rotate');
-    if (rotBtn) {
-        rotBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-        rotBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            item.rotation = ((item.rotation || 0) + 45) % 360;
-            aplicarTransform(el, item);
-            guardarTiendaState();
-            toast(`Rotación: ${item.rotation}°`, 'info');
-        });
-    }
-}
-
-const modalGuardarTienda = document.getElementById('modalGuardarTienda');
-const inputCreadorTienda = document.getElementById('nombreCreadorTienda');
-document.getElementById('btnGuardarTienda').addEventListener('click', () => {
-    if (tiendaState.items.length === 0 && !confirm('La tienda está vacía. ¿Guardar de todas formas?')) return;
-    inputCreadorTienda.value = '';
-    abrirModal(modalGuardarTienda, '#nombreCreadorTienda');
-});
-document.getElementById('btnCancelarGuardarTienda').addEventListener('click', () => cerrarModal(modalGuardarTienda));
-document.getElementById('btnConfirmarGuardarTienda').addEventListener('click', async () => {
-    const nombre = inputCreadorTienda.value.trim() || 'Anónimo';
-    cerrarModal(modalGuardarTienda);
-    await capturarYGuardarTienda(nombre);
-});
-inputCreadorTienda.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnConfirmarGuardarTienda').click(); } });
-async function capturarYGuardarTienda(nombreCreador) {
-    if (!window.html2canvas) { toast('html2canvas no disponible (revisá su conexión)', 'error'); return; }
-    toast('Generando imagen de la tienda...', 'info');
-    const teniaLuces = document.body.classList.contains('luces-navidad');
-    if (teniaLuces) document.body.classList.remove('luces-navidad');
-    try {
-        await new Promise(r => setTimeout(r, 200));
-        const captureEl = document.getElementById('tiendaCaptura');
-        if (!captureEl) throw new Error('Elemento tienda no encontrado');
-        const fecha = new Date().toLocaleDateString('es-CR');
-        const temaNombre = (TEMAS_TIENDA.find(t => t.id === temaTiendaActual)?.nombre || '').replace(/[^\w\s]/g,'').trim();
-        const canvas = await html2canvas(captureEl, {
-            backgroundColor: '#fdf6e3', scale: 2, useCORS: true, allowTaint: false, logging: false, imageTimeout: 8000,
-            onclone: (clonedDoc) => {
-                const captureClone = clonedDoc.getElementById('tiendaCaptura');
-                if (captureClone) {
-                    const footer = clonedDoc.createElement('div');
-                    footer.style.cssText = 'background:linear-gradient(90deg,#1a5c2a 0%,#2e9e3f 40%,#c0392b 100%);color:#fff;padding:12px 16px;text-align:center;font-weight:800;font-size:15px;font-family:\'Segoe UI\',Arial,sans-serif;letter-spacing:.5px;text-shadow:0 1px 2px rgba(0,0,0,.4);';
-                    footer.textContent = `🎄 Creado por: ${nombreCreador}  ·  ${fecha}  ·  ${temaNombre} 🎄`;
-                    captureClone.appendChild(footer);
-                }
-            }
-        });
-        const dataURL = canvas.toDataURL('image/jpeg', 0.88);
-        const nombreArchivo = `tienda-${nombreCreador.replace(/\s+/g,'-')}-${temaTiendaActual}-${Date.now()}.jpg`;
-        const a = document.createElement('a');
-        a.href = dataURL; a.download = nombreArchivo;
-        document.body.appendChild(a); a.click(); a.remove();
-        const tiendas = leerTiendasGuardadas();
-        tiendas.unshift({ id: 'tienda_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), nombre: nombreCreador, fecha: new Date().toISOString(), imagen: dataURL, tema: temaTiendaActual });
-        if (tiendas.length > 30) tiendas.length = 30;
-        try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(tiendas)); } catch (e) {
-            console.error('localStorage full:', e); tiendas.splice(15);
-            try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(tiendas)); } catch {}
-        }
-        renderizarGaleriaTiendas();
-        toast('¡Tienda guardada y descargada! 🎄', 'success');
-    } catch (err) {
-        console.error('Error al guardar tienda:', err);
-        toast('No se pudo generar la imagen', 'error');
-    } finally {
-        if (teniaLuces) document.body.classList.add('luces-navidad');
-    }
-}
-function leerTiendasGuardadas() { try { const raw = localStorage.getItem(STORAGE_TIENDAS); const arr = raw ? JSON.parse(raw) : []; return Array.isArray(arr) ? arr : []; } catch { return []; } }
-function renderizarGaleriaTiendas() {
-    const cont = document.getElementById('galeriaTiendas');
-    if (!cont) return;
-    const tiendas = leerTiendasGuardadas();
-    if (tiendas.length === 0) { cont.innerHTML = '<p class="galeria-vacia">🎄 Aún no hay tiendas creadas. ¡Cree la suya y pulse "Guardar JPG"!</p>'; return; }
-    cont.innerHTML = tiendas.map(t => `
-        <div class="tienda-thumb" data-id="${escapeHtml(t.id)}">
-            <button class="tienda-thumb-borrar" data-id="${escapeHtml(t.id)}" type="button" title="Eliminar tienda">🗑️</button>
-            <img src="${t.imagen}" alt="${escapeHtml(t.nombre)}" loading="lazy">
-            <div class="tienda-thumb-info">
-                <div class="tienda-thumb-nombre">${escapeHtml(t.nombre)}</div>
-                <div class="tienda-thumb-fecha">${formatearFechaCorta(t.fecha)}${t.tema ? ' · ' + escapeHtml(TEMAS_TIENDA.find(x => x.id === t.tema)?.nombre || '') : ''}</div>
-            </div>
-        </div>
-    `).join('');
-    cont.querySelectorAll('.tienda-thumb').forEach(thumb => {
-        thumb.addEventListener('click', (e) => {
-            if (e.target.closest('.tienda-thumb-borrar')) return;
-            const id = thumb.dataset.id;
-            const t = tiendas.find(x => x.id === id);
-            if (t) { const lb = document.getElementById('lightbox'); const lbImg = document.getElementById('lightboxImg'); lbImg.src = t.imagen; lb.classList.add('activo'); }
-        });
-    });
-    cont.querySelectorAll('.tienda-thumb-borrar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const id = btn.dataset.id;
-            if (!id) return;
-            if (!confirm('¿Eliminar esta tienda guardada?')) return;
-            let tiendas = leerTiendasGuardadas();
-            tiendas = tiendas.filter(x => x.id !== id);
-            try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(tiendas)); } catch {}
-            renderizarGaleriaTiendas();
-            toast('Tienda eliminada', 'success');
-        });
-    });
-}
-document.getElementById('btnLimpiarTienda').addEventListener('click', () => {
-    if (tiendaState.items.length === 0) { toast('La tienda ya está vacía', 'info'); return; }
-    if (!confirm('¿Vaciar toda la tienda?')) return;
-    tiendaState.items = [];
-    guardarTiendaState();
-    renderizarEscenario();
-    toast('Tienda vaciada', 'success');
-});
-
-function ajustarTamanoFullscreen() {
-    const el = document.getElementById('tiendaBox');
-    if (!el) return;
-    const captura = el.querySelector('.tienda-captura');
-    const escenario = el.querySelector('.tienda-escenario');
-    if (!captura || !escenario) return;
-    const rect = captura.getBoundingClientRect();
-    if (rect.width < 10 || rect.height < 10) return;
-    const vw = window.innerWidth;
-    const ratio = vw >= 1024 ? 5/4 : vw >= 600 ? 1 : 4/5;
-    let targetW = rect.width - 8;
-    let targetH = targetW / ratio;
-    if (targetH > rect.height - 8) {
-        targetH = rect.height - 8;
-        targetW = targetH * ratio;
-    }
-    escenario.style.width = targetW + 'px';
-    escenario.style.height = targetH + 'px';
-    requestAnimationFrame(() => { computeSlotZones(); actualizarTotalCaja(); });
-}
-function resetEscenarioSize() {
-    const escenario = document.getElementById('tiendaBox')?.querySelector('.tienda-escenario');
-    if (escenario) { escenario.style.width = ''; escenario.style.height = ''; }
-    requestAnimationFrame(() => { computeSlotZones(); actualizarTotalCaja(); });
-}
-async function toggleFullscreenTienda() {
-    const el = document.getElementById('tiendaBox');
-    if (!el) return;
-    if (!el.classList.contains('is-fullscreen') && document.fullscreenElement !== el) {
-        try { if (el.requestFullscreen) await el.requestFullscreen(); else { el.classList.add('is-fullscreen'); setTimeout(ajustarTamanoFullscreen, 50); } }
-        catch (e) { el.classList.add('is-fullscreen'); setTimeout(ajustarTamanoFullscreen, 50); }
-    } else {
-        try { if (document.exitFullscreen) await document.exitFullscreen(); } catch {}
-        el.classList.remove('is-fullscreen');
-        resetEscenarioSize();
-    }
-}
-document.getElementById('btnExpandStore').addEventListener('click', toggleFullscreenTienda);
-document.addEventListener('fullscreenchange', () => {
-    const el = document.getElementById('tiendaBox');
-    if (document.fullscreenElement === el) setTimeout(ajustarTamanoFullscreen, 100);
-    else { if (el) el.classList.remove('is-fullscreen'); resetEscenarioSize(); }
-});
-window.addEventListener('resize', () => {
-    const el = document.getElementById('tiendaBox');
-    if ((document.fullscreenElement === el) || (el && el.classList.contains('is-fullscreen'))) ajustarTamanoFullscreen();
-    else { computeSlotZones(); actualizarTotalCaja(); }
-});
 
 /* LISTAS */
 function crearTarjetaLista(lista) {
@@ -2703,7 +2473,6 @@ function crearTarjetaLista(lista) {
     card.addEventListener('click', (e) => { if (e.target.closest('.acciones-tarjeta')) return; if (e.target.closest('img')) return; if (e.target.closest('.deseo-destacado-link')) return; abrir(); });
     card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(); } });
     const deseosValidos = (lista.deseos || []).filter(d => (d.nombre && d.nombre.trim()) || (d.notas && d.notas.trim()) || (d.enlace && d.enlace.trim()) || (Array.isArray(d.imagenes) && d.imagenes.length));
-
     const header = document.createElement('div'); header.className = 'card-header';
     const h3 = document.createElement('h3'); h3.textContent = lista.nombre;
     const badges = document.createElement('div'); badges.className = 'header-badges';
@@ -2980,11 +2749,9 @@ function cargarImagenDataURL(url) {
         img.onload = () => {
             try {
                 const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth || 300;
-                canvas.height = img.naturalHeight || 300;
+                canvas.width = img.naturalWidth || 300; canvas.height = img.naturalHeight || 300;
                 const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, 0, 0);
                 resolve(canvas.toDataURL('image/jpeg', 0.85));
             } catch { resolve(null); }
@@ -3066,30 +2833,11 @@ async function descargarImagen(lista) {
     const deseos = (lista.deseos || []).filter(d => (d.nombre||'').trim() || (d.notas||'').trim() || (d.enlace||'').trim() || (Array.isArray(d.imagenes) && d.imagenes.length));
     const cont = document.createElement('div');
     cont.style.cssText = 'position:fixed;left:-99999px;top:0;width:720px;background:#fff;font-family:"Segoe UI",Arial,sans-serif;color:#1f2937;box-sizing:border-box;overflow:hidden;';
-    let html = `
-        <div style="height:12px;background:linear-gradient(90deg,#c0392b,#d4af37,#2e9e3f);"></div>
-        <div style="background:linear-gradient(135deg,#0e3a1c 0%,#1a5c2a 55%,#c0392b 140%);padding:26px 32px;color:#fff;text-align:center;">
-            <div style="font-size:28px;font-weight:900;letter-spacing:1px;text-shadow:0 2px 8px rgba(0,0,0,0.55);">AMIGO INVISIBLE 2026</div>
-            <div style="font-size:13px;color:#f1c40f;letter-spacing:3px;text-transform:uppercase;margin-top:6px;font-weight:700;">Lista de deseos</div>
-        </div>
-        <div style="padding:26px 32px 30px;">
-            <div style="display:flex;align-items:center;gap:12px;background:#fdf6e3;border-left:5px solid #2e9e3f;border-radius:12px;padding:14px 18px;margin-bottom:22px;flex-wrap:wrap;">
-                <div style="font-size:24px;font-weight:900;color:#c0392b;">${escapeHtml(lista.nombre)}</div>
-                <span style="background:${tipo === 'adulto' ? '#2e9e3f' : '#c0392b'};color:#fff;padding:3px 12px;border-radius:14px;font-size:12px;font-weight:700;">${tipo === 'adulto' ? 'Adulto' : 'Niño'}</span>
-                ${(tipo === 'nino' && lista.edad != null) ? `<span style="color:#5b6472;font-size:13px;font-weight:600;">${lista.edad} años</span>` : ''}
-            </div>`;
+    let html = `<div style="height:12px;background:linear-gradient(90deg,#c0392b,#d4af37,#2e9e3f);"></div><div style="background:linear-gradient(135deg,#0e3a1c 0%,#1a5c2a 55%,#c0392b 140%);padding:26px 32px;color:#fff;text-align:center;"><div style="font-size:28px;font-weight:900;letter-spacing:1px;text-shadow:0 2px 8px rgba(0,0,0,0.55);">AMIGO INVISIBLE 2026</div><div style="font-size:13px;color:#f1c40f;letter-spacing:3px;text-transform:uppercase;margin-top:6px;font-weight:700;">Lista de deseos</div></div><div style="padding:26px 32px 30px;"><div style="display:flex;align-items:center;gap:12px;background:#fdf6e3;border-left:5px solid #2e9e3f;border-radius:12px;padding:14px 18px;margin-bottom:22px;flex-wrap:wrap;"><div style="font-size:24px;font-weight:900;color:#c0392b;">${escapeHtml(lista.nombre)}</div><span style="background:${tipo === 'adulto' ? '#2e9e3f' : '#c0392b'};color:#fff;padding:3px 12px;border-radius:14px;font-size:12px;font-weight:700;">${tipo === 'adulto' ? 'Adulto' : 'Niño'}</span>${(tipo === 'nino' && lista.edad != null) ? `<span style="color:#5b6472;font-size:13px;font-weight:600;">${lista.edad} años</span>` : ''}</div>`;
     if (deseos.length === 0) html += '<p style="text-align:center;color:#95a5a6;font-style:italic;padding:30px;">Sin deseos registrados.</p>';
     else deseos.forEach((d, i) => {
         const tieneImgs = Array.isArray(d.imagenes) && d.imagenes.length;
-        html += `
-            <div style="background:#fff;border:1px solid #e5eaf0;border-left:5px solid #d4af37;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-                    <div style="background:#2e9e3f;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${i+1}</div>
-                    <div style="font-weight:800;color:#1f2937;font-size:15px;">${escapeHtml(d.nombre || 'Deseo')}</div>
-                </div>
-                ${d.notas ? `<div style="font-size:13px;color:#5b6472;line-height:1.5;margin-left:36px;">${escapeHtml(d.notas)}</div>` : ''}
-                ${tieneImgs ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-left:36px;margin-top:8px;">${d.imagenes.map(u => `<img crossorigin="anonymous" src="${escapeHtml(u)}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e5eaf0;" />`).join('')}</div>` : ''}
-            </div>`;
+        html += `<div style="background:#fff;border:1px solid #e5eaf0;border-left:5px solid #d4af37;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);"><div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="background:#2e9e3f;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">${i+1}</div><div style="font-weight:800;color:#1f2937;font-size:15px;">${escapeHtml(d.nombre || 'Deseo')}</div></div>${d.notas ? `<div style="font-size:13px;color:#5b6472;line-height:1.5;margin-left:36px;">${escapeHtml(d.notas)}</div>` : ''}${tieneImgs ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-left:36px;margin-top:8px;">${d.imagenes.map(u => `<img crossorigin="anonymous" src="${escapeHtml(u)}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e5eaf0;" />`).join('')}</div>` : ''}</div>`;
     });
     html += `<div style="text-align:center;color:#5b6472;font-size:11px;margin-top:24px;font-style:italic;">Generado el ${new Date().toLocaleDateString('es-CR')} - Amigo Invisible 2026</div></div><div style="height:12px;background:linear-gradient(90deg,#2e9e3f,#d4af37,#c0392b);"></div>`;
     cont.innerHTML = html;
@@ -3123,33 +2871,31 @@ async function inicializar() {
     renderizarCalendario();
     cargarImagenDelDia();
     programarCambioImagenCalendario();
-    cargarTiendaState();
-    cargarTemaTienda();
-    renderizarTemasTienda();
-    aplicarTemaTienda(temaTiendaActual);
-    actualizarRotulo();
-    renderizarTabs();
-    renderizarItemsCatalogo();
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    computeSlotZones();
-    migrarSlotsViejos();
-    renderizarEscenario();
-    renderizarGaleriaTiendas();
-    const rotuloEl = document.getElementById('tiendaRotulo');
-    if (rotuloEl) {
-        rotuloEl.addEventListener('click', editarRotulo);
-        rotuloEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editarRotulo(); } });
-    }
+
+    // Supabase init
     if (window.supabase && typeof window.supabase.createClient === 'function') {
         try { supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); supabaseDisponible = true; } catch (e) { console.error('Init Supabase:', e); }
     }
+    if (!supabaseDisponible) mostrarAvisoSetup();
+
+    // Tienda isométrica
+    cargarTemaTienda();
+    renderizarTemasTienda();
+    cargarTiendaState();
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    migrarSlotsViejos();
+    aplicarTemaTienda(temaTiendaActual);
+    renderizarEscenario();
+    setupStoreInteractions();
+    applyCamera();
+    renderizarGaleriaTiendas(); // render cache + refresh async
+
     await cargarListas();
     renderizarListas();
     await cargarMensajesAnonimos();
     renderizarCinta();
     renderizarMensajesFooter();
     actualizarContadorCaracteres();
-    if (!supabaseDisponible) mostrarAvisoSetup();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', inicializar);
 else inicializar();
