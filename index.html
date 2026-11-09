@@ -63,8 +63,8 @@ CREATE POLICY "public_tiendas" ON tiendas_guardadas FOR ALL USING (true) WITH CH
   --acento-suave:#1f2c44;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:var(--fondo);color:var(--texto);line-height:1.6;padding:22px 20px 20px;min-height:100vh;transition:background-color .3s,color .3s;position:relative;overflow-x:hidden;}
+html{scroll-behavior:smooth;overscroll-behavior-y:contain}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:var(--fondo);color:var(--texto);line-height:1.6;padding:22px 20px 20px;min-height:100vh;transition:background-color .3s,color .3s;position:relative;overflow-x:hidden;overscroll-behavior-y:contain}
 body.modal-abierto{overflow:hidden}
 body.paused *{animation-play-state:paused!important}
 body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z-index:1}
@@ -152,7 +152,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .tema-btn:hover{border-color:var(--dorado)}
 .tema-btn.activo{background:linear-gradient(135deg,var(--rojo),var(--rojo-claro));color:#fff;border-color:var(--rojo);box-shadow:0 3px 10px rgba(192,57,43,.4)}
 .tienda-captura{width:100%;display:flex;justify-content:center;align-items:flex-start;padding:6px 0;overflow:hidden;position:relative}
-.tienda-escenario{position:relative;width:96%;max-width:100%;aspect-ratio:1 / 1;background:#fdf6e3;overflow:hidden;display:block;border-radius:8px;box-shadow:0 6px 18px var(--sombra-fuerte);touch-action:none;transform-origin:0 0;will-change:transform;transition:transform 0.08s ease-out}
+.tienda-escenario{position:relative;width:96%;max-width:100%;aspect-ratio:1 / 1;background:#fdf6e3;overflow:hidden;display:block;border-radius:8px;box-shadow:0 6px 18px var(--sombra-fuerte);touch-action:none;transform-origin:0 0;will-change:transform;transition:transform 0.08s ease-out;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 @media(min-width:600px){.tienda-escenario{width:94%;aspect-ratio:1 / 1}}
 @media(min-width:1024px){.tienda-escenario{width:90%;max-width:1000px;aspect-ratio:1 / 1}}
 .tienda-zoom-indicator{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.72);color:#f1c40f;padding:3px 10px;border-radius:12px;font-size:.68rem;font-weight:800;letter-spacing:.4px;z-index:30;pointer-events:none;transition:opacity .3s;opacity:0;box-shadow:0 2px 8px rgba(0,0,0,.5)}
@@ -1638,7 +1638,6 @@ function calcularTotalTienda() {
 }
 function actualizarTotalCaja() { const el = document.getElementById('cajaTotal'); if (el) el.textContent = formatearColones(calcularTotalTienda()); }
 
-/* Los objetos aparecen en el CENTRO con espiral dorada para evitar solapamiento */
 function colocarEnSiguienteSlotLibre(itemId) {
     let x = 50, y = 50;
     let intentos = 0;
@@ -1825,7 +1824,7 @@ function attachItemInteractions(el, item, idx) {
     }
 }
 
-/* ============ ZOOM ESCENARIO (pinch móvil + rueda ratón desktop + doble-tap) ============ */
+/* ============ ZOOM + PAN ESCENARIO ============ */
 function applyEscenarioView(animate) {
     const esc = document.getElementById('tiendaEscenario');
     if (!esc) return;
@@ -1836,6 +1835,9 @@ function applyEscenarioView(animate) {
         ind.textContent = '🔍 '+viewZoom.toFixed(1)+'x';
         ind.classList.toggle('visible', viewZoom > 1.05);
     }
+    if (!esc.dataset.panning) {
+        esc.style.cursor = viewZoom > 1.01 ? 'grab' : '';
+    }
     if (!animate) {
         requestAnimationFrame(function(){ esc.style.transition = ''; });
     }
@@ -1843,6 +1845,18 @@ function applyEscenarioView(animate) {
 function resetEscenarioZoom(animate) {
     viewZoom = 1; viewPanX = 0; viewPanY = 0;
     applyEscenarioView(animate);
+}
+function clampPan() {
+    const esc = document.getElementById('tiendaEscenario');
+    if (!esc) return;
+    const w = esc.offsetWidth;
+    const h = esc.offsetHeight;
+    if (w < 10 || h < 10) return;
+    if (viewZoom <= 1.001) { viewPanX = 0; viewPanY = 0; return; }
+    const minX = -(viewZoom - 1) * w;
+    const minY = -(viewZoom - 1) * h;
+    viewPanX = Math.max(minX, Math.min(0, viewPanX));
+    viewPanY = Math.max(minY, Math.min(0, viewPanY));
 }
 function initEscenarioZoom() {
     const esc = document.getElementById('tiendaEscenario');
@@ -1852,15 +1866,48 @@ function initEscenarioZoom() {
     let lastTapTime = 0;
     let lastTapPos = null;
 
+    /* --- Estado de PAN --- */
+    let isPanning = false;
+    let didPan = false;
+    let panPointerId = null;
+    let panStartX = 0, panStartY = 0;
+    let panStartViewPanX = 0, panStartViewPanY = 0;
+
+    function startPan(e) {
+        isPanning = true;
+        didPan = false;
+        panPointerId = e.pointerId;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panStartViewPanX = viewPanX;
+        panStartViewPanY = viewPanY;
+        esc.dataset.panning = '1';
+        esc.style.cursor = 'grabbing';
+        try { esc.setPointerCapture(e.pointerId); } catch(err){}
+    }
+    function endPan() {
+        if (!isPanning) return;
+        isPanning = false;
+        delete esc.dataset.panning;
+        esc.style.cursor = viewZoom > 1.01 ? 'grab' : '';
+        if (panPointerId !== null) {
+            try { esc.releasePointerCapture(panPointerId); } catch(err){}
+            panPointerId = null;
+        }
+    }
+
     esc.addEventListener('pointerdown', function(e){
         if (e.target.closest('.item-delete') || e.target.closest('.item-rotate')) return;
         escPointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
 
         if (escPointers.size === 2) {
+            e.preventDefault(); /* Evita scroll/pull-to-refresh durante pinch */
             document.querySelectorAll('.tienda-item.dragging').forEach(function(item){
                 if (item._cancelDrag) item._cancelDrag();
             });
             pinchActive = true;
+            endPan();
+            didPan = false;
             const pts = Array.from(escPointers.values());
             const a = pts[0], b = pts[1];
             const parent = esc.parentElement;
@@ -1870,6 +1917,14 @@ function initEscenarioZoom() {
             const cxLayout = cx - parentRect.left - esc.offsetLeft;
             const cyLayout = cy - parentRect.top - esc.offsetTop;
             escPinch = { initialDist: Math.hypot(b.x-a.x, b.y-a.y) || 1, initialZoom: viewZoom, initialPanX: viewPanX, initialPanY: viewPanY, initialCenterInLayoutX: cxLayout, initialCenterInLayoutY: cyLayout };
+        } else if (escPointers.size === 1) {
+            if (viewZoom > 1.01
+                && !e.target.closest('.tienda-item')
+                && !e.target.closest('.tienda-rotulo')
+                && !e.target.closest('.btn-expand-store')) {
+                e.preventDefault(); /* Evita que el navegador robe el gesto */
+                startPan(e);
+            }
         }
     }, true);
 
@@ -1893,15 +1948,53 @@ function initEscenarioZoom() {
             viewZoom = newZoom;
             viewPanX = cxLayout - worldX * newZoom;
             viewPanY = cyLayout - worldY * newZoom;
+            clampPan();
             applyEscenarioView(false);
+        } else if (isPanning && escPointers.size === 1 && e.pointerId === panPointerId) {
+            const dx = e.clientX - panStartX;
+            const dy = e.clientY - panStartY;
+            if (!didPan && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) didPan = true;
+            if (didPan) {
+                e.preventDefault();
+
+                const w = esc.offsetWidth, h = esc.offsetHeight;
+                const minX = -(viewZoom - 1) * w;
+                const minY = -(viewZoom - 1) * h;
+
+                const rawPanX = panStartViewPanX + dx;
+                const rawPanY = panStartViewPanY + dy;
+
+                const clampedX = Math.max(minX, Math.min(0, rawPanX));
+                const clampedY = Math.max(minY, Math.min(0, rawPanY));
+
+                /* RE-ANCLAJE: si tocamos el límite, movemos el "origen" del drag
+                   al borde. Así, al invertir la dirección, el pan responde al instante
+                   (sin dead-zone del excedente acumulado). */
+                if (rawPanX !== clampedX) { panStartViewPanX = clampedX; panStartX = e.clientX; }
+                if (rawPanY !== clampedY) { panStartViewPanY = clampedY; panStartY = e.clientY; }
+
+                viewPanX = clampedX;
+                viewPanY = clampedY;
+                applyEscenarioView(false);
+            }
         }
     }, {passive:false});
 
     esc.addEventListener('pointerup', function(e){
+        if (e.pointerId === panPointerId) {
+            const wasPanning = didPan;
+            endPan();
+            didPan = false;
+            if (wasPanning) return;
+        }
+
         if (escPointers.size > 1) return;
         if (pinchActive) return;
         if (e.target.closest('.tienda-item')) return;
         if (e.target.closest('.item-delete') || e.target.closest('.item-rotate')) return;
+        if (e.target.closest('.tienda-rotulo')) return;
+        if (e.target.closest('.btn-expand-store')) return;
+
         const now = Date.now();
         if (now - lastTapTime < 300 && lastTapPos && viewZoom > 1.05) {
             const d = Math.hypot(e.clientX - lastTapPos.x, e.clientY - lastTapPos.y);
@@ -1909,6 +2002,13 @@ function initEscenarioZoom() {
         }
         lastTapTime = now;
         lastTapPos = {x:e.clientX, y:e.clientY};
+    });
+
+    esc.addEventListener('pointercancel', function(e){
+        if (e.pointerId === panPointerId) {
+            endPan();
+            didPan = false;
+        }
     });
 
     document.addEventListener('pointerup', function(e){
@@ -1926,35 +2026,23 @@ function initEscenarioZoom() {
         }
     });
 
-    /* === NUEVO: ZOOM CON RUEDA DEL RATÓN (desktop) === */
+    /* === ZOOM CON RUEDA DEL RATÓN === */
     esc.addEventListener('wheel', function(e){
         if (pinchActive) return;
-
-        /* Normalizar delta: mouse wheel ~100, trackpad ~1-10, y según deltaMode */
         let delta = e.deltaY;
-        if (e.deltaMode === 1) delta *= 20;        // DOM_DELTA_LINE
-        else if (e.deltaMode === 2) delta *= 400;  // DOM_DELTA_PAGE
-
-        /* Zoom exponencial: suave en trackpad, paso firme en mouse */
+        if (e.deltaMode === 1) delta *= 20;
+        else if (e.deltaMode === 2) delta *= 400;
         const factor = Math.exp(-delta * 0.0015);
         const newZoom = Math.max(VIEW_MIN_ZOOM, Math.min(VIEW_MAX_ZOOM, viewZoom * factor));
-
-        /* Si no cambió (ya en el límite), dejar que la página haga scroll normal */
         if (Math.abs(newZoom - viewZoom) < 0.0001) return;
-
         e.preventDefault();
-
-        /* Zoom centrado en el cursor (mismo principio que el pinch) */
         const parent = esc.parentElement;
         const parentRect = parent.getBoundingClientRect();
         const cxLayout = e.clientX - parentRect.left - esc.offsetLeft;
         const cyLayout = e.clientY - parentRect.top - esc.offsetTop;
-
         const worldX = (cxLayout - viewPanX) / viewZoom;
         const worldY = (cyLayout - viewPanY) / viewZoom;
-
         if (newZoom <= VIEW_MIN_ZOOM + 0.001) {
-            /* Al volver al 100%, recentrar la escena */
             viewZoom = VIEW_MIN_ZOOM;
             viewPanX = 0;
             viewPanY = 0;
@@ -1962,6 +2050,7 @@ function initEscenarioZoom() {
             viewZoom = newZoom;
             viewPanX = cxLayout - worldX * newZoom;
             viewPanY = cyLayout - worldY * newZoom;
+            clampPan();
         }
         applyEscenarioView(false);
     }, { passive: false });
@@ -2233,7 +2322,7 @@ document.addEventListener('fullscreenchange', function(){
 window.addEventListener('resize', function(){
     const el = document.getElementById('tiendaBox');
     if ((document.fullscreenElement === el) || (el && el.classList.contains('is-fullscreen'))) ajustarTamanoFullscreen();
-    else { computeSlotZones(); actualizarTotalCaja(); actualizarTodosZIndex(); }
+    else { computeSlotZones(); actualizarTotalCaja(); actualizarTodosZIndex(); clampPan(); applyEscenarioView(false); }
 });
 
 /* ============ LISTAS ============ */
