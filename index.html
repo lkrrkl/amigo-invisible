@@ -126,7 +126,10 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .cinta-sep{padding:0 16px;font-size:1rem;opacity:.9}
 .cinta-vacio{padding:0 30px;font-style:italic;opacity:.95}
 
-/* LAYOUT: calendario + anónimo arriba, galería debajo del anónimo; tienda va al final */
+/* ============================================================
+   LAYOUT: calendario (col izq) + col-derecha (anónimo + galería)
+   Misma altura total gracias a aspect-ratio idéntico (16/11)
+   ============================================================ */
 .barra-info-linea{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -134,13 +137,49 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
   margin:0 0 14px;
   align-items:start;
 }
-.calendario-box{grid-column:1;grid-row:1;align-self:start}
-.anonimo-box{grid-column:2;grid-row:1}
-.galeria-tiendas{grid-column:2;grid-row:2}
+.calendario-box{
+  grid-column:1;grid-row:1;
+  align-self:start;
+}
+.col-derecha{
+  grid-column:2;grid-row:1;
+  aspect-ratio:16/11;      /* misma proporción que el calendario */
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+}
+.col-derecha .anonimo-box,
+.col-derecha .galeria-tiendas{
+  flex:1 1 0;              /* reparten la altura por igual */
+  min-height:0;
+  min-width:0;
+  overflow:auto;
+}
+.col-derecha .anonimo-box{
+  overflow-y:auto;
+  overflow-x:hidden;       /* recorta el 🎄 decorativo que sobresale por la derecha */
+  align-self:stretch;      /* anula el align-self:start original */
+}
 
 @media(max-width:900px){
-  .barra-info-linea{grid-template-columns:1fr}
-  .calendario-box,.anonimo-box,.galeria-tiendas{grid-column:1;grid-row:auto}
+  .barra-info-linea{grid-template-columns:1fr;align-items:start}
+  .calendario-box{grid-column:1;grid-row:auto;align-self:start}
+  .col-derecha{
+    grid-column:1;grid-row:auto;
+    aspect-ratio:auto;
+    overflow:visible;
+    height:auto;
+  }
+  .col-derecha .anonimo-box,
+  .col-derecha .galeria-tiendas{
+    flex:0 0 auto;
+    min-height:auto;
+    overflow:visible;
+    align-self:auto;
+  }
 }
 
 /* CALENDARIO */
@@ -168,7 +207,7 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .leyenda-nochebuena{background:rgba(231,76,60,.55);border:1px solid rgba(255,107,107,.8)}
 .leyenda-navidad{background:rgba(192,57,43,.65);border:1px solid rgba(241,196,15,.85)}
 
-/* TIENDA — RESPONSIVE */
+/* TIENDA */
 .tienda-box{
   position:relative;
   background:linear-gradient(160deg,var(--tarjeta-bg) 0%,var(--acento-suave) 100%);
@@ -287,7 +326,6 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
     radial-gradient(circle at 84% 12%, rgba(255,255,255,.55) 1.5px, transparent 2.5px);
 }
 
-/* LUCES DE TECHO — full-width, sin recortes */
 .tienda-luces-techo{position:absolute;top:0;left:0;right:0;height:34%;pointer-events:none;z-index:3;overflow:visible}
 .tienda-guirnalda{position:absolute;top:6%;left:0;right:0;height:8%;pointer-events:none;z-index:3;overflow:visible}
 .tienda-guirnalda.dos{top:16%;height:7%;opacity:.92}
@@ -1118,7 +1156,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
     <div class="cinta-track" id="cintaTrack"></div>
 </div>
 
-<!-- NUEVO ORDEN: calendario | anónimo arriba; galería de tiendas debajo del anónimo -->
 <div class="barra-info-linea">
 
     <section class="calendario-box" aria-label="Calendario de diciembre">
@@ -1135,23 +1172,25 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
         </div>
     </section>
 
-    <section class="anonimo-box">
-        <h2>✉️ Mensaje navideño anónimo</h2>
-        <textarea id="inputMensajeAnonimo" maxlength="100"
-                  placeholder="Deja un mensaje corto de Navidad (máx. 100 caracteres)..."></textarea>
-        <div class="anonimo-footer">
-            <span class="anonimo-contador">
-                <span id="contadorCaracteres">0</span>/100
-                <span class="cinta-info">✨ Se verá en la cinta</span>
-            </span>
-            <button class="btn-enviar-anonimo" id="btnEnviarAnonimo" type="button" disabled>Enviar 🎄</button>
-        </div>
-    </section>
+    <div class="col-derecha">
+        <section class="anonimo-box">
+            <h2>✉️ Mensaje navideño anónimo</h2>
+            <textarea id="inputMensajeAnonimo" maxlength="100"
+                      placeholder="Deja un mensaje corto de Navidad (máx. 100 caracteres)..."></textarea>
+            <div class="anonimo-footer">
+                <span class="anonimo-contador">
+                    <span id="contadorCaracteres">0</span>/100
+                    <span class="cinta-info">✨ Se verá en la cinta</span>
+                </span>
+                <button class="btn-enviar-anonimo" id="btnEnviarAnonimo" type="button" disabled>Enviar 🎄</button>
+            </div>
+        </section>
 
-    <section class="galeria-tiendas" aria-label="Galería de tiendas creadas">
-        <h3>📸 Tiendas Creadas</h3>
-        <div class="galeria-grid" id="galeriaTiendas"></div>
-    </section>
+        <section class="galeria-tiendas" aria-label="Galería de tiendas creadas">
+            <h3>📸 Tiendas Creadas</h3>
+            <div class="galeria-grid" id="galeriaTiendas"></div>
+        </section>
+    </div>
 
 </div>
 
@@ -1180,7 +1219,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
     </div>
 </section>
 
-<!-- TIENDA MOVIDA: debajo de listas de deseos y sobre el título del footer -->
 <section class="tienda-box" id="tiendaBox" aria-label="Tienda navideña interactiva 2.5D">
     <h2 class="tienda-titulo">🏪 Mi Tienda Navideña</h2>
 
@@ -1226,7 +1264,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 
             <div class="tienda-copos"></div>
 
-            <!-- GUIRNALDA 1 — full-width, sin deformación -->
             <svg class="tienda-guirnalda" viewBox="0 0 1400 80" preserveAspectRatio="none" aria-hidden="true">
                 <path d="M0 20 Q175 55 350 20 Q525 55 700 20 Q875 55 1050 20 Q1225 55 1400 20"
                       stroke="#1a5c2a" stroke-width="3.5" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round"/>
@@ -1252,7 +1289,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
                 </g>
             </svg>
 
-            <!-- GUIRNALDA 2 (nueva) — full-width -->
             <svg class="tienda-guirnalda dos" viewBox="0 0 1400 80" preserveAspectRatio="none" aria-hidden="true">
                 <path d="M0 40 Q175 10 350 40 Q525 70 700 40 Q875 10 1050 40 Q1225 70 1400 40"
                       stroke="#2e9e3f" stroke-width="3" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round"/>
@@ -1277,7 +1313,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
                 </g>
             </svg>
 
-            <!-- LUCES DE TECHO — full-width, sin recortes -->
             <svg class="tienda-luces-techo" viewBox="0 0 1400 400" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
                     <linearGradient id="lcWarm" x1="0" y1="0" x2="0" y2="1">
@@ -1607,6 +1642,9 @@ function renderizarTemasTienda() {
     });
 }
 
+/* ============================================================
+   CATÁLOGO (mantiene los nombres ticos ya aplicados)
+   ============================================================ */
 const TIENDA_CATALOGO = [
     {
         id:'bebidas', nombre:'☕ Bebidas',
@@ -2252,12 +2290,13 @@ function editarRotulo() {
 }
 function computeSlotZones() {
     const escenario = document.getElementById('tiendaEscenario');
-    if (!escenario) return;
+    if (!escenario) { slotZonesPercent = []; return; }
     const escRect = escenario.getBoundingClientRect();
-    if (escRect.width < 10) return;
+    if (escRect.width < 10 || escRect.height < 10) { slotZonesPercent = []; return; }
     slotZonesPercent = [];
     document.querySelectorAll('.slot-zone').forEach(zone => {
         const zr = zone.getBoundingClientRect();
+        if (zr.width === 0 || zr.height === 0) return;
         slotZonesPercent.push({
             left: ((zr.left - escRect.left) / escRect.width) * 100,
             top: ((zr.top - escRect.top) / escRect.height) * 100,
@@ -2266,7 +2305,10 @@ function computeSlotZones() {
         });
     });
 }
-function estaEnSlot(x, y) { return slotZonesPercent.some(z => x >= z.left && x <= z.right && y >= z.top && y <= z.bottom); }
+function estaEnSlot(x, y) {
+    if (!slotZonesPercent || slotZonesPercent.length === 0) return false;
+    return slotZonesPercent.some(z => x >= z.left && x <= z.right && y >= z.top && y <= z.bottom);
+}
 function calcularTotalTienda() {
     let total = 0;
     tiendaState.items.forEach(item => {
@@ -2319,23 +2361,28 @@ function colocarEnSiguienteSlotLibre(itemId) {
     guardarTiendaState(); renderizarEscenario();
     toast(`Añadido: ${buscarItemPorId(itemId)?.nombre} (arrástrelo donde quiera)`, 'info');
 }
+/* FIX: empareja cada elemento con SU item (antes usaba layer.children[idx], que se
+   desincronizaba si algún item del catálogo ya no existía → precios en objetos fuera de estantes) */
 function renderizarEscenario() {
     actualizarRotulo();
     const layer = document.getElementById('itemsLayer');
     if (!layer) return;
     layer.innerHTML = '';
+    // Limpia items huérfanos (IDs que ya no existen en el catálogo)
+    tiendaState.items = tiendaState.items.filter(it => !!buscarItemPorId(it.id));
+    const created = [];
     tiendaState.items.forEach((item, idx) => {
         if (item.rotation === undefined) item.rotation = 0;
         if (item.scale === undefined) item.scale = 1;
         const itemDef = buscarItemPorId(item.id);
         if (!itemDef) return;
-        layer.appendChild(crearItemElemento(item, itemDef, idx));
+        const el = crearItemElemento(item, itemDef, idx);
+        layer.appendChild(el);
+        created.push({ el, item });
     });
     requestAnimationFrame(() => {
         computeSlotZones();
-        tiendaState.items.forEach((item, idx) => {
-            const el = layer.children[idx];
-            if (!el) return;
+        created.forEach(({ el, item }) => {
             const inSlot = estaEnSlot(item.x, item.y);
             el.classList.toggle('en-slot', inSlot);
         });
@@ -2363,7 +2410,6 @@ function crearItemElemento(item, itemDef, idx) {
     return el;
 }
 
-/* GESTOS: 1 dedo = drag; 2 dedos = pinch-to-zoom + rotación; tap = ciclar escala */
 function attachItemInteractions(el, item, idx) {
     const pointers = new Map();
     let mode = null;
