@@ -162,7 +162,6 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .tienda-suelo-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
 .tienda-suelo-svg .piso-long line{stroke:rgba(90,58,26,.42);stroke-width:.35;fill:none}
 .tienda-suelo-svg .piso-trans line{stroke:rgba(90,58,26,.28);stroke-width:.28}
-/* Alfombra subida al centro del piso (entre estantes y mostrador) */
 .tienda-alfombra{position:absolute;left:18%;right:18%;bottom:18%;height:16%;z-index:2;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.4)) drop-shadow(0 8px 14px rgba(0,0,0,.35))}
 .tienda-alfombra svg{display:block;width:100%;height:100%}
 .alfombra-cuerpo{fill:#c0392b;stroke:#8b1a0f;stroke-width:1.5}
@@ -197,7 +196,6 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .items-layer{position:absolute;inset:0;z-index:5;pointer-events:none}
 .tienda-item{position:absolute;width:min(11%, 52px);aspect-ratio:1;transform-origin:center center;cursor:grab;pointer-events:auto;transition:transform .12s ease-out;will-change:transform, left, top;touch-action:none}
 .tienda-item:active{cursor:grabbing}
-/* Sin z-index en dragging: respeta jerarquía (tier + escala). Solo refuerza sombra/brillo. */
 .tienda-item.dragging{cursor:grabbing;transition:none;filter:drop-shadow(0 8px 16px rgba(0,0,0,.65)) drop-shadow(0 0 10px rgba(241,196,15,.75)) brightness(1.12)}
 .tienda-item-content{width:100%;height:100%;pointer-events:none;display:flex;align-items:center;justify-content:center}
 .tienda-item-content svg{width:100%;height:100%;display:block;filter:drop-shadow(2px 3px 2px rgba(0,0,0,.42)) drop-shadow(5px 11px 6px rgba(0,0,0,.28));pointer-events:none}
@@ -1601,13 +1599,6 @@ function computeSlotZones() {
     });
 }
 
-/* === JERARQUÍA DE CERCANÍA ===
-   Tier 3 (mostrador/mesa): siempre encima de todo.
-   Tier 2 (objetos libres): en medio.
-   Tier 1 (estantes): siempre detrás de los libres.
-   Dentro de cada tier: menor escala = más adelante (mayor z-index).
-   Fórmula: z = tier*10000 + (6 - escala)*100  (rango bonus 0..1000)
-*/
 function obtenerSlotDeItem(x, y) {
     if (!slotZonesPercent || slotZonesPercent.length === 0) return null;
     for (let i = 0; i < slotZonesPercent.length; i++) {
@@ -1620,9 +1611,9 @@ function calcularZIndex(item) {
     const slot = obtenerSlotDeItem(item.x, item.y);
     const escala = (item.scale != null && item.scale > 0) ? item.scale : 1;
     let tier;
-    if (slot && /^mesa/.test(slot.id)) tier = 3;               // mostrador
-    else if (slot && /^t[12]r/.test(slot.id)) tier = 1;        // estantes
-    else tier = 2;                                             // libres
+    if (slot && /^mesa/.test(slot.id)) tier = 3;
+    else if (slot && /^t[12]r/.test(slot.id)) tier = 1;
+    else tier = 2;
     const escalaBonus = Math.max(0, Math.min(1000, Math.round((6 - escala) * 100)));
     return tier * 10000 + escalaBonus;
 }
@@ -1647,7 +1638,7 @@ function calcularTotalTienda() {
 }
 function actualizarTotalCaja() { const el = document.getElementById('cajaTotal'); if (el) el.textContent = formatearColones(calcularTotalTienda()); }
 
-/* === NUEVO: los objetos aparecen en el CENTRO de la tienda (con separación en espiral) === */
+/* Los objetos aparecen en el CENTRO con espiral dorada para evitar solapamiento */
 function colocarEnSiguienteSlotLibre(itemId) {
     let x = 50, y = 50;
     let intentos = 0;
@@ -1656,8 +1647,7 @@ function colocarEnSiguienteSlotLibre(itemId) {
             return Math.hypot(it.x - x, it.y - y) < 3;
         });
         if (!ocupado) break;
-        // Espiral áurea alrededor del centro
-        const angulo = intentos * 2.399963229728653; // 137.5° en radianes
+        const angulo = intentos * 2.399963229728653;
         const radio = 3 + Math.floor(intentos / 8) * 3;
         x = 50 + Math.cos(angulo) * radio;
         y = 50 + Math.sin(angulo) * radio;
@@ -1677,7 +1667,6 @@ function renderizarEscenario() {
     if (!layer) return;
     layer.innerHTML = '';
     tiendaState.items = tiendaState.items.filter(function(it){return !!buscarItemPorId(it.id);});
-    // Recalcular zonas ANTES de crear los items, para que el z-index inicial sea correcto
     computeSlotZones();
     const created = [];
     tiendaState.items.forEach(function(item, idx){
@@ -1772,7 +1761,7 @@ function attachItemInteractions(el, item, idx) {
             el.style.left = item.x+'%';
             el.style.top = item.y+'%';
             el.classList.toggle('en-slot', estaEnSlot(item.x, item.y));
-            el.style.zIndex = calcularZIndex(item); // recalcular al cambiar de tier
+            el.style.zIndex = calcularZIndex(item);
             actualizarTotalCaja();
         } else if (mode === 'pinch' && pointers.size >= 2) {
             const info = getPinchInfo();
@@ -1782,7 +1771,7 @@ function attachItemInteractions(el, item, idx) {
             item.scale = Math.max(0.4, Math.min(5, pinchStart.scale * scaleRatio));
             item.rotation = ((pinchStart.rotation + angleDiff) % 360 + 360) % 360;
             aplicarTransform(el, item);
-            el.style.zIndex = calcularZIndex(item); // recalcular al cambiar escala
+            el.style.zIndex = calcularZIndex(item);
         }
     });
 
@@ -1799,7 +1788,7 @@ function attachItemInteractions(el, item, idx) {
                 aplicarTransform(el, item);
                 toast('Escala: '+Math.round(item.scale*100)+'%', 'info');
             }
-            el.style.zIndex = calcularZIndex(item); // aplicar jerarquía final
+            el.style.zIndex = calcularZIndex(item);
             guardarTiendaState();
             actualizarTotalCaja();
             mode = null; dragStart = null; pinchStart = null; moved = false;
@@ -1836,7 +1825,7 @@ function attachItemInteractions(el, item, idx) {
     }
 }
 
-/* ============ ZOOM ESCENARIO (pinch + doble-tap) ============ */
+/* ============ ZOOM ESCENARIO (pinch móvil + rueda ratón desktop + doble-tap) ============ */
 function applyEscenarioView(animate) {
     const esc = document.getElementById('tiendaEscenario');
     if (!esc) return;
@@ -1936,6 +1925,46 @@ function initEscenarioZoom() {
             if (pinchActive) setTimeout(function(){ pinchActive = false; }, 80);
         }
     });
+
+    /* === NUEVO: ZOOM CON RUEDA DEL RATÓN (desktop) === */
+    esc.addEventListener('wheel', function(e){
+        if (pinchActive) return;
+
+        /* Normalizar delta: mouse wheel ~100, trackpad ~1-10, y según deltaMode */
+        let delta = e.deltaY;
+        if (e.deltaMode === 1) delta *= 20;        // DOM_DELTA_LINE
+        else if (e.deltaMode === 2) delta *= 400;  // DOM_DELTA_PAGE
+
+        /* Zoom exponencial: suave en trackpad, paso firme en mouse */
+        const factor = Math.exp(-delta * 0.0015);
+        const newZoom = Math.max(VIEW_MIN_ZOOM, Math.min(VIEW_MAX_ZOOM, viewZoom * factor));
+
+        /* Si no cambió (ya en el límite), dejar que la página haga scroll normal */
+        if (Math.abs(newZoom - viewZoom) < 0.0001) return;
+
+        e.preventDefault();
+
+        /* Zoom centrado en el cursor (mismo principio que el pinch) */
+        const parent = esc.parentElement;
+        const parentRect = parent.getBoundingClientRect();
+        const cxLayout = e.clientX - parentRect.left - esc.offsetLeft;
+        const cyLayout = e.clientY - parentRect.top - esc.offsetTop;
+
+        const worldX = (cxLayout - viewPanX) / viewZoom;
+        const worldY = (cyLayout - viewPanY) / viewZoom;
+
+        if (newZoom <= VIEW_MIN_ZOOM + 0.001) {
+            /* Al volver al 100%, recentrar la escena */
+            viewZoom = VIEW_MIN_ZOOM;
+            viewPanX = 0;
+            viewPanY = 0;
+        } else {
+            viewZoom = newZoom;
+            viewPanX = cxLayout - worldX * newZoom;
+            viewPanY = cyLayout - worldY * newZoom;
+        }
+        applyEscenarioView(false);
+    }, { passive: false });
 }
 
 /* ============ CAPTURA / SUPABASE ============ */
