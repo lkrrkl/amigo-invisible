@@ -11,6 +11,7 @@
 <!--
 SQL Supabase — ejecutar en el SQL Editor.
 
+-- TABLAS
 CREATE TABLE IF NOT EXISTS listas (
   id TEXT PRIMARY KEY, tipo TEXT NOT NULL DEFAULT 'adulto',
   nombre TEXT NOT NULL, edad INTEGER,
@@ -26,6 +27,7 @@ ALTER TABLE mensajes_anonimos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "public_listas"   ON listas            FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "public_mensajes" ON mensajes_anonimos FOR ALL USING (true) WITH CHECK (true);
 
+-- BUCKET TIENDAS
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('tiendas','tiendas', true, 5242880, ARRAY['image/jpeg','image/jpg'])
 ON CONFLICT (id) DO NOTHING;
@@ -45,6 +47,18 @@ CREATE TABLE IF NOT EXISTS tiendas_guardadas (
 CREATE INDEX IF NOT EXISTS idx_tiendas_fecha ON tiendas_guardadas (fecha DESC);
 ALTER TABLE tiendas_guardadas ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "public_tiendas" ON tiendas_guardadas FOR ALL USING (true) WITH CHECK (true);
+
+-- BUCKET DESEOS (imágenes de listas de deseos)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('deseos','deseos', true, 5242880, ARRAY['image/jpeg','image/jpg','image/png','image/webp'])
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "deseos_public_read"   ON storage.objects;
+DROP POLICY IF EXISTS "deseos_public_insert" ON storage.objects;
+DROP POLICY IF EXISTS "deseos_public_delete" ON storage.objects;
+CREATE POLICY "deseos_public_read"   ON storage.objects FOR SELECT USING (bucket_id='deseos');
+CREATE POLICY "deseos_public_insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id='deseos');
+CREATE POLICY "deseos_public_delete" ON storage.objects FOR DELETE USING (bucket_id='deseos');
 -->
 <style>
 :root{
@@ -306,10 +320,13 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .tarjeta-lista:focus-visible{outline:3px solid var(--dorado);outline-offset:2px}
 .card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
 .tarjeta-lista h3{color:var(--texto);font-size:1.15rem;word-break:break-word;line-height:1.25;flex:1}
-.header-badges{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.header-badges{display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 .badge-tipo{font-size:.68rem;padding:3px 9px;border-radius:12px;font-weight:700;white-space:nowrap;letter-spacing:.3px}
 .badge-tipo.adulto{background:var(--verde);color:#fff}
 .badge-tipo.nino{background:var(--rojo);color:#fff}
+/* CUADRANTE ROJO: badge de conteo de deseos */
+.badge-count{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;padding:3px 10px;border-radius:12px;font-size:.7rem;font-weight:900;white-space:nowrap;letter-spacing:.3px;box-shadow:0 2px 6px rgba(192,57,43,.4),inset 0 1px 0 rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.2);text-shadow:0 1px 2px rgba(0,0,0,.35);transition:box-shadow .2s, transform .2s}
+.tarjeta-lista:hover .badge-count{box-shadow:0 4px 10px rgba(192,57,43,.55),inset 0 1px 0 rgba(255,255,255,.25);transform:scale(1.05)}
 .meta-info{font-size:.78rem;color:var(--texto-suave);margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .deseos-preview{display:flex;flex-direction:column;gap:8px;margin:4px 0 6px;flex-grow:1}
 .deseo-destacado{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--acento-suave);border-radius:10px;border-left:3px solid var(--dorado);min-width:0}
@@ -456,6 +473,7 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 .btn-guardar,.btn-cancelar,.btn-eliminar-lista{border:none;padding:11px 22px;border-radius:26px;font-size:.92rem;cursor:pointer;font-weight:700;transition:transform .15s, background .2s}
 .btn-guardar{background:var(--verde);color:#fff}
 .btn-guardar:hover{background:var(--verde-hover);transform:translateY(-1px)}
+.btn-guardar:disabled{opacity:.65;cursor:not-allowed;transform:none}
 .btn-cancelar{background:#95a5a6;color:#fff}
 .btn-cancelar:hover{background:#7f8c8d}
 .btn-eliminar-lista{background:var(--rojo-claro);color:#fff;margin-right:auto}
@@ -851,12 +869,15 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 <script>
 'use strict';
 
+/* ============ CONFIGURACIÓN SUPABASE ============ */
 const SUPABASE_URL = 'https://fumpktmixrnifdythkvr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9mhjOYFNhCywiX92TtMQVQ_PfcG9UpX';
 const SUPABASE_BUCKET_TIENDAS = 'tiendas';
+const SUPABASE_BUCKET_DESEOS = 'deseos';
 let supabaseClient = null;
 let supabaseDisponible = false;
 
+/* ============ CLAVES LOCALSTORAGE ============ */
 const STORAGE_KEY = 'amigoInvisible2026_listas_cache';
 const STORAGE_TEMA = 'amigoInvisible2026_tema';
 const STORAGE_NIEVE = 'amigoInvisible2026_nieve';
@@ -869,6 +890,7 @@ const CAPTURE_SIZE = 1200;
 
 const PLACEHOLDER_IMG = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#f5f0e0"/><text x="100" y="105" text-anchor="middle" font-size="42" fill="#d4af37">🎁</text><text x="100" y="150" text-anchor="middle" font-size="11" fill="#a08626" font-family="sans-serif">sin imagen</text></svg>');
 
+/* ============ ESTADO GLOBAL ============ */
 let listas = [];
 let mensajesAnonimos = [];
 let listaEditandoId = null;
@@ -878,12 +900,12 @@ let filtroActual = 'todos';
 let ordenActual = 'recientes';
 
 const imagenesNavidenas = [
-    { url:'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&auto=format&fit=crop&q=70' },
-    { url:'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=800&auto=format&fit=crop&q=70' },
-    { url:'https://images.unsplash.com/photo-1607344645866-009c320b63e0?w=800&auto=format&fit=crop&q=70' },
-    { url:'https://images.unsplash.com/photo-1513297887119-d46091b24bfa?w=800&auto=format&fit=crop&q=70' },
-    { url:'https://images.unsplash.com/photo-1545048702-79362596cdc9?w=800&auto=format&fit=crop&q=70' },
-    { url:'https://images.unsplash.com/photo-1482517967863-00e15c9b44be?w=800&auto=format&fit=crop&q=70' }
+    'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=800&auto=format&fit=crop&q=70',
+    'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=800&auto=format&fit=crop&q=70',
+    'https://images.unsplash.com/photo-1607344645866-009c320b63e0?w=800&auto=format&fit=crop&q=70',
+    'https://images.unsplash.com/photo-1513297887119-d46091b24bfa?w=800&auto=format&fit=crop&q=70',
+    'https://images.unsplash.com/photo-1545048702-79362596cdc9?w=800&auto=format&fit=crop&q=70',
+    'https://images.unsplash.com/photo-1482517967863-00e15c9b44be?w=800&auto=format&fit=crop&q=70'
 ];
 
 const TEMAS_TIENDA = [
@@ -902,6 +924,7 @@ let viewPanX = 0;
 let viewPanY = 0;
 let pinchActive = false;
 
+/* ============ CATÁLOGO TIENDA (SVGs completos, se mantienen íntegros) ============ */
 const TIENDA_CATALOGO = [
     { id:'bebidas', nombre:'☕ Bebidas', items:[
         { id:'taza', nombre:'Taza navideña', precio:4500, svg:'<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><path d="M12 18 Q12 14 16 14 L42 14 Q46 14 46 18 L44 46 Q44 50 40 50 L18 50 Q14 50 14 46 Z" fill="#c0392b" stroke="#5a1510" stroke-width="2"/><path d="M44 22 Q54 22 54 32 Q54 42 44 42" fill="none" stroke="#5a1510" stroke-width="3" stroke-linecap="round"/><circle cx="22" cy="30" r="2" fill="#fff"/><circle cx="30" cy="24" r="2" fill="#fff"/><circle cx="38" cy="32" r="2" fill="#fff"/></svg>' },
@@ -1156,7 +1179,7 @@ let oldSlotsToMigrate = null;
 
 const BIG_SCALE_IDS = new Set(['arbol','pino','portal','santa','muneco_nieve','fantasma','alce','reno','duende','pinguino','angel','cascanueces','oso_polar','bebe_jesus','virgen_maria','san_jose','buey','burro','reyes_magos','camellos','pastor','santa_mujer','elfo_ayudante','muneca_trapo','soldadito','osito_peluche','hada_nieve','venadito','hada_madrina','bruja_befana','nacimiento','angel_arbol','muneca']);
 
-/* Utilidades */
+/* ============ UTILIDADES ============ */
 function toast(msg, tipo) {
     tipo = tipo || 'info';
     const cont = document.getElementById('toastContainer');
@@ -1166,29 +1189,38 @@ function toast(msg, tipo) {
     cont.appendChild(t);
     setTimeout(function(){ t.classList.add('salir'); setTimeout(function(){ t.remove(); }, 300); }, 4000);
 }
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function formatearFechaCorta(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleDateString('es-CR', {day:'2-digit',month:'2-digit',year:'numeric'}); } catch { return iso; } }
 function formatearColones(n) { return '₡' + Math.round(n || 0).toLocaleString('es-CR'); }
 function contarCaracteres(txt) { return String(txt || '').length; }
 function normalizarURL(url) { if (!url) return ''; url = String(url).trim(); if (!url) return ''; if (!/^https?:\/\//i.test(url)) url = 'https://' + url; try { return new URL(url).href; } catch { return ''; } }
 function obtenerTimestampLista(l) { if (l && l.createdAt) { const t = new Date(l.createdAt).getTime(); if (!isNaN(t)) return t; } const m = String((l && l.id) || '').match(/(?:lista_)?(\d{10,})/); if (m) return parseInt(m[1], 10); return 0; }
-function contarDeseos(lista) { if (!Array.isArray(lista.deseos)) return 0; return lista.deseos.filter(function(d){ return (d.nombre && d.nombre.trim()) || (d.notas && d.notas.trim()) || (d.enlace && d.enlace.trim()) || (Array.isArray(d.imagenes) && d.imagenes.length); }).length; }
+function contarDeseos(lista) { if (!Array.isArray(lista.deseos)) return 0; return lista.deseos.filter(d => (d.nombre && d.nombre.trim()) || (d.notas && d.notas.trim()) || (d.enlace && d.enlace.trim()) || (Array.isArray(d.imagenes) && d.imagenes.length)).length; }
 function crearDeseoVacio() { return { nombre:'', notas:'', imagenes:[], enlace:'' }; }
 function normalizarDeseo(d) { return { nombre:(d&&d.nombre)||'', notas:(d&&d.notas)||'', imagenes:Array.isArray(d&&d.imagenes)?d.imagenes.slice():[], enlace:(d&&d.enlace)||'' }; }
 function esListaEjemplo(l) { return l && /^ejemplo\d+$/.test(String(l.id || '')); }
 function normalizarLista(l) { if (!l || typeof l !== 'object') return l; if (!Array.isArray(l.deseos)) l.deseos = []; l.deseos = l.deseos.map(normalizarDeseo); if (!l.createdAt) { const ts = obtenerTimestampLista(l); if (ts) l.createdAt = new Date(ts).toISOString(); } return l; }
 function rowToLocal(r) { return normalizarLista({id:r.id,tipo:r.tipo||'adulto',nombre:r.nombre,edad:r.edad!=null?r.edad:null,deseos:Array.isArray(r.deseos)?r.deseos:null,createdAt:r.created_at||null}); }
-function localToRow(l) { const row = {id:l.id,tipo:l.tipo,nombre:l.nombre,edad:l.edad,deseos:(l.deseos||[]).map(function(d){return{nombre:d.nombre||'',notas:d.notas||'',imagenes:d.imagenes||[],enlace:d.enlace||''};}),updated_at:new Date().toISOString()}; if (l.createdAt) row.created_at = l.createdAt; return row; }
+function localToRow(l) { const row = {id:l.id,tipo:l.tipo,nombre:l.nombre,edad:l.edad,deseos:(l.deseos||[]).map(d=>({nombre:d.nombre||'',notas:d.notas||'',imagenes:d.imagenes||[],enlace:d.enlace||''})),updated_at:new Date().toISOString()}; if (l.createdAt) row.created_at = l.createdAt; return row; }
 
+function persistirLocal() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch(e) { console.warn('localStorage lleno:', e); }
+}
+
+/* ============ SUPABASE: CRUD LISTAS ============ */
 async function upsertLista(row) {
-    let res = await supabaseClient.from('listas').upsert(row);
-    let error = res.error;
-    if (error && /deseos/i.test(error.message || '')) {
-        const copy = Object.assign({}, row); delete copy.deseos;
-        const retry = await supabaseClient.from('listas').upsert(copy);
-        if (retry.error) throw retry.error; return;
+    const res = await supabaseClient.from('listas').upsert(row, { onConflict: 'id' });
+    if (res.error) { console.error('upsertLista:', res.error); throw res.error; }
+}
+
+async function guardarListaSupabase(lista) {
+    if (!supabaseDisponible) return;
+    try {
+        await upsertLista(localToRow(lista));
+    } catch (e) {
+        console.error('Guardar lista error:', e);
+        toast('Guardado localmente. Error al sincronizar con la nube.', 'error');
     }
-    if (error) throw error;
 }
 
 async function cargarListas() {
@@ -1199,47 +1231,106 @@ async function cargarListas() {
                 if (error.code === '42P01' || (error.message||'').indexOf('does not exist') !== -1) { supabaseDisponible = false; mostrarAvisoSetup(); }
                 else throw error;
             } else if (data && data.length > 0) {
-                listas = data.map(rowToLocal).filter(function(l){return !esListaEjemplo(l);});
-                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch(e){}
+                listas = data.map(rowToLocal).filter(l => !esListaEjemplo(l));
+                persistirLocal();
                 return;
             } else {
                 const cache = localStorage.getItem(STORAGE_KEY);
-                if (cache) { try { const parsed = JSON.parse(cache); if (Array.isArray(parsed) && parsed.length>0) { listas = parsed.map(normalizarLista).filter(function(l){return !esListaEjemplo(l);}); await sincronizarTodas(); return; } } catch(e){} }
+                if (cache) { try { const parsed = JSON.parse(cache); if (Array.isArray(parsed) && parsed.length>0) { listas = parsed.map(normalizarLista).filter(l => !esListaEjemplo(l)); await sincronizarTodas(); return; } } catch(e){} }
                 listas = []; await sincronizarTodas(); return;
             }
         } catch (e) { console.error('Supabase load error:', e); }
     }
     const cache = localStorage.getItem(STORAGE_KEY);
-    if (cache) { try { listas = JSON.parse(cache); } catch(e){} if (!Array.isArray(listas)) listas = []; listas = listas.map(normalizarLista).filter(function(l){return !esListaEjemplo(l);}); }
-    else { listas = []; try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch(e){} }
+    if (cache) { try { listas = JSON.parse(cache); } catch(e){} if (!Array.isArray(listas)) listas = []; listas = listas.map(normalizarLista).filter(l => !esListaEjemplo(l)); }
+    else { listas = []; persistirLocal(); }
 }
 
 async function sincronizarTodas() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch(e){}
+    persistirLocal();
     if (!supabaseDisponible || listas.length === 0) return;
     try {
         const rows = listas.map(localToRow);
-        let res = await supabaseClient.from('listas').upsert(rows);
-        let error = res.error;
-        if (error && /deseos/i.test(error.message || '')) {
-            const rowsSin = rows.map(function(r){ const c = Object.assign({},r); delete c.deseos; return c; });
-            const retry = await supabaseClient.from('listas').upsert(rowsSin);
-            if (retry.error) throw retry.error; return;
-        }
-        if (error) throw error;
+        const res = await supabaseClient.from('listas').upsert(rows, { onConflict: 'id' });
+        if (res.error) throw res.error;
     } catch (e) { console.error('Sync error:', e); }
 }
 
-async function guardarListaSupabase(lista) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch(e){}
+async function eliminarListaSupabase(id) {
+    persistirLocal();
     if (!supabaseDisponible) return;
-    try { await upsertLista(localToRow(lista)); } catch (e) { console.error('Guardar lista error:', e); toast('Guardado localmente. Supabase falló.', 'error'); }
+    try { const {error} = await supabaseClient.from('listas').delete().eq('id', id); if (error) throw error; }
+    catch (e) { console.error('Delete error:', e); toast('Eliminado localmente. Supabase falló.', 'error'); }
 }
 
-async function eliminarListaSupabase(id) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(listas)); } catch(e){}
-    if (!supabaseDisponible) return;
-    try { const {error} = await supabaseClient.from('listas').delete().eq('id', id); if (error) throw error; } catch (e) { console.error('Delete error:', e); toast('Eliminado localmente. Supabase falló.', 'error'); }
+/* ============ SUPABASE: IMÁGENES DE DESEOS (NUEVO) ============ */
+function comprimirImagenABlob(source, maxSide, quality) {
+    maxSide = maxSide || 1200;
+    quality = quality == null ? 0.82 : quality;
+    return new Promise(function(resolve, reject) {
+        const img = new Image();
+        img.onload = function() {
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            if (w < 1 || h < 1) return reject(new Error('Imagen inválida'));
+            const scale = Math.min(1, maxSide / Math.max(w, h));
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            canvas.toBlob(function(blob) {
+                if (!blob) reject(new Error('No se pudo comprimir'));
+                else resolve(blob);
+            }, 'image/jpeg', quality);
+        };
+        img.onerror = function() { reject(new Error('No se pudo cargar la imagen')); };
+        if (typeof source === 'string') img.src = source;
+        else img.src = URL.createObjectURL(source);
+    });
+}
+
+async function subirImagenDeseo(blob) {
+    if (!supabaseDisponible || !blob) return null;
+    try {
+        const fileName = 'deseo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.jpg';
+        const up = await supabaseClient.storage.from(SUPABASE_BUCKET_DESEOS).upload(fileName, blob, {
+            contentType: 'image/jpeg', cacheControl: '31536000', upsert: false
+        });
+        if (up.error) throw up.error;
+        const urlRes = supabaseClient.storage.from(SUPABASE_BUCKET_DESEOS).getPublicUrl(fileName);
+        return (urlRes.data && urlRes.data.publicUrl) || null;
+    } catch (e) {
+        console.error('subirImagenDeseo:', e);
+        return null;
+    }
+}
+
+async function procesarImagenesDeseos(deseos) {
+    const out = [];
+    for (let i = 0; i < deseos.length; i++) {
+        const d = deseos[i];
+        const imgs = Array.isArray(d.imagenes) ? d.imagenes : [];
+        const nuevas = [];
+        for (let j = 0; j < imgs.length; j++) {
+            const u = String(imgs[j] || '').trim();
+            if (!u) continue;
+            if (/^https?:\/\//i.test(u)) { nuevas.push(u); continue; }
+            if (u.indexOf('data:image') === 0) {
+                if (!supabaseDisponible) { nuevas.push(u); continue; }
+                try {
+                    const blob = await comprimirImagenABlob(u, 1200, 0.82);
+                    const publicUrl = await subirImagenDeseo(blob);
+                    if (publicUrl) nuevas.push(publicUrl);
+                    else toast('No se pudo subir una imagen; se omite', 'error');
+                } catch (e) { console.error('procesar imagen:', e); toast('Error al procesar una imagen', 'error'); }
+            } else nuevas.push(u);
+        }
+        out.push({ nombre: d.nombre || '', notas: d.notas || '', enlace: d.enlace || '', imagenes: nuevas });
+    }
+    return out;
 }
 
 function mostrarAvisoSetup() {
@@ -1248,6 +1339,7 @@ function mostrarAvisoSetup() {
     aviso.innerHTML = '⚠️ <strong>Supabase no está configurado.</strong> Ejecutá el SQL del comentario del <code>&lt;head&gt;</code> en el SQL Editor.';
 }
 
+/* ============ MENSAJES ANÓNIMOS ============ */
 async function cargarMensajesAnonimos() {
     let remote = [];
     if (supabaseDisponible) {
@@ -1255,10 +1347,10 @@ async function cargarMensajesAnonimos() {
     }
     let local = [];
     try { const cache = localStorage.getItem(STORAGE_MENSAJES); if (cache) local = JSON.parse(cache); } catch(e){}
-    const keys = new Set(remote.map(function(m){return m.mensaje+'|'+m.fecha;}));
+    const keys = new Set(remote.map(m => m.mensaje+'|'+m.fecha));
     const merged = remote.slice();
-    local.forEach(function(m){ const k = m.mensaje+'|'+m.fecha; if (!keys.has(k)) { merged.push(m); keys.add(k); } });
-    merged.sort(function(a,b){ return new Date(b.fecha) - new Date(a.fecha); });
+    local.forEach(m => { const k = m.mensaje+'|'+m.fecha; if (!keys.has(k)) { merged.push(m); keys.add(k); } });
+    merged.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
     mensajesAnonimos = merged.slice(0, 60);
     try { localStorage.setItem(STORAGE_MENSAJES, JSON.stringify(mensajesAnonimos)); } catch(e){}
 }
@@ -1277,7 +1369,7 @@ async function guardarMensajeAnonimo(texto) {
 async function eliminarMensajeAnonimo(id) {
     if (!id) return;
     if (!confirm('¿Eliminar este mensaje navideño?')) return;
-    const idx = mensajesAnonimos.findIndex(function(m){return String(m.id) === String(id);});
+    const idx = mensajesAnonimos.findIndex(m => String(m.id) === String(id));
     if (idx === -1) return;
     mensajesAnonimos.splice(idx, 1);
     try { localStorage.setItem(STORAGE_MENSAJES, JSON.stringify(mensajesAnonimos)); } catch(e){}
@@ -1292,28 +1384,27 @@ function renderizarCinta() {
         track.innerHTML = '<span class="cinta-msg cinta-vacio">🎄 Aún no hay mensajes navideños anónimos. ¡Sea el primero en dejar el suyo!</span>';
         track.style.setProperty('--cinta-duracion', '60s'); return;
     }
-    const items = mensajesAnonimos.map(function(m){ const fechaTxt = formatearFechaCorta(m.fecha); return '<span class="cinta-msg"><span class="cinta-fecha">'+escapeHtml(fechaTxt)+'</span>'+escapeHtml(m.mensaje)+'</span>'; });
+    const items = mensajesAnonimos.map(m => '<span class="cinta-msg"><span class="cinta-fecha">'+escapeHtml(formatearFechaCorta(m.fecha))+'</span>'+escapeHtml(m.mensaje)+'</span>');
     const sep = '<span class="cinta-sep">🎄</span>';
-    const baseContent = items.map(function(i){return i+sep;}).join('');
-    let fullContent = baseContent; let safety = 0;
+    const baseContent = items.map(i => i+sep).join('');
+    let fullContent = baseContent, safety = 0;
     while (fullContent.length < 1400 && safety < 20) { fullContent += baseContent; safety++; }
     track.innerHTML = fullContent + fullContent;
-    const duracion = Math.max(35, Math.round(fullContent.length / 15));
-    track.style.setProperty('--cinta-duracion', duracion+'s');
+    track.style.setProperty('--cinta-duracion', Math.max(35, Math.round(fullContent.length / 15))+'s');
 }
 
 function renderizarMensajesFooter() {
     const cont = document.getElementById('mensajesFooterLista');
     if (!cont) return;
     if (!Array.isArray(mensajesAnonimos) || mensajesAnonimos.length === 0) { cont.innerHTML = '<p class="mensajes-footer-vacio">🎄 Aún no hay mensajes navideños.</p>'; return; }
-    cont.innerHTML = mensajesAnonimos.map(function(m){
-        const fechaTxt = formatearFechaCorta(m.fecha);
+    cont.innerHTML = mensajesAnonimos.map(m => {
         const id = escapeHtml(m.id || '');
-        return '<div class="mensaje-footer-item" data-id="'+id+'"><div class="mensaje-footer-txt"><span class="mensaje-footer-fecha">'+escapeHtml(fechaTxt)+'</span>'+escapeHtml(m.mensaje)+'</div><button type="button" class="btn-borrar-mensaje" data-id="'+id+'" title="Eliminar mensaje">🗑️</button></div>';
+        return '<div class="mensaje-footer-item" data-id="'+id+'"><div class="mensaje-footer-txt"><span class="mensaje-footer-fecha">'+escapeHtml(formatearFechaCorta(m.fecha))+'</span>'+escapeHtml(m.mensaje)+'</div><button type="button" class="btn-borrar-mensaje" data-id="'+id+'" title="Eliminar mensaje">🗑️</button></div>';
     }).join('');
-    cont.querySelectorAll('.btn-borrar-mensaje').forEach(function(btn){ btn.addEventListener('click', function(e){ e.stopPropagation(); if (btn.dataset.id) eliminarMensajeAnonimo(btn.dataset.id); }); });
+    cont.querySelectorAll('.btn-borrar-mensaje').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); if (btn.dataset.id) eliminarMensajeAnonimo(btn.dataset.id); }));
 }
 
+/* ============ LUCES / TEMA / NIEVE ============ */
 function crearLucesFondo() {
     const cont = document.getElementById('lucesFondo'); cont.innerHTML = '';
     const colores = ['#c0392b','#33AB44','#d4af37','#e74c3c','#33AB44','#f1c40f'];
@@ -1336,7 +1427,7 @@ function aplicarTema(tema) {
     btnTema.title = tema === 'dark' ? 'Cambiar a modo día' : 'Cambiar a modo noche';
     try { localStorage.setItem(STORAGE_TEMA, tema); } catch(e){}
 }
-btnTema.addEventListener('click', function(){ const actual = document.body.getAttribute('data-theme') || 'dark'; aplicarTema(actual === 'dark' ? 'light' : 'dark'); });
+btnTema.addEventListener('click', () => { const actual = document.body.getAttribute('data-theme') || 'dark'; aplicarTema(actual === 'dark' ? 'light' : 'dark'); });
 
 const btnNieve = document.getElementById('btnNieve');
 const contNieve = document.getElementById('nieve');
@@ -1358,7 +1449,7 @@ function activarNieve(activa) {
     else { contNieve.classList.add('oculto'); btnNieve.classList.add('inactivo'); btnNieve.textContent = '🌫️'; }
     try { localStorage.setItem(STORAGE_NIEVE, activa ? '1' : '0'); } catch(e){}
 }
-btnNieve.addEventListener('click', function(){ activarNieve(contNieve.classList.contains('oculto')); });
+btnNieve.addEventListener('click', () => activarNieve(contNieve.classList.contains('oculto')));
 
 const btnLuces = document.getElementById('btnLuces');
 function activarLuces(activa) {
@@ -1366,10 +1457,11 @@ function activarLuces(activa) {
     else { document.body.classList.remove('luces-navidad'); btnLuces.classList.add('inactivo'); btnLuces.classList.remove('encendido'); btnLuces.textContent = '💡'; btnLuces.title = 'Activar luces navideñas'; btnLuces.setAttribute('aria-pressed','false'); }
     try { localStorage.setItem(STORAGE_LUCES, activa ? '1' : '0'); } catch(e){}
 }
-btnLuces.addEventListener('click', function(){ activarLuces(!document.body.classList.contains('luces-navidad')); });
+btnLuces.addEventListener('click', () => activarLuces(!document.body.classList.contains('luces-navidad')));
 
-document.addEventListener('visibilitychange', function(){ if (document.hidden) document.body.classList.add('paused'); else document.body.classList.remove('paused'); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) document.body.classList.add('paused'); else document.body.classList.remove('paused'); });
 
+/* ============ MODALES ============ */
 function abrirModal(modalEl, focusSelector) {
     if (!modalEl) return;
     ultimaListaEnfocada = document.activeElement;
@@ -1377,7 +1469,7 @@ function abrirModal(modalEl, focusSelector) {
     const sb = window.innerWidth - document.documentElement.clientWidth;
     if (sb > 0) document.body.style.paddingRight = sb+'px';
     modalEl.classList.add('activo');
-    setTimeout(function(){
+    setTimeout(() => {
         const target = focusSelector ? modalEl.querySelector(focusSelector) : modalEl.querySelector('input,button,textarea,select');
         if (target) target.focus();
     }, 80);
@@ -1391,7 +1483,7 @@ function cerrarModal(modalEl) {
         if (ultimaListaEnfocada && typeof ultimaListaEnfocada.focus === 'function') { try { ultimaListaEnfocada.focus(); } catch(e){} }
     }
 }
-document.addEventListener('keydown', function(e){
+document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         const activos = document.querySelectorAll('.modal-overlay.activo');
         if (activos.length) cerrarModal(activos[activos.length-1]);
@@ -1399,8 +1491,9 @@ document.addEventListener('keydown', function(e){
         if (lb.classList.contains('activo')) lb.classList.remove('activo');
     }
 });
-document.querySelectorAll('.modal-overlay').forEach(function(m){ m.addEventListener('click', function(e){ if (e.target !== m) return; if (m.id === 'modalLista') return; cerrarModal(m); }); });
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target !== m) return; if (m.id === 'modalLista') return; cerrarModal(m); }));
 
+/* ============ CALENDARIO / CONTADOR ============ */
 function actualizarContador() {
     const ahora = new Date();
     const objetivo = new Date(2026, 11, 25, 0, 0, 0);
@@ -1438,7 +1531,7 @@ function renderizarCalendario() {
     const esDiciembre2026 = (hoy.getFullYear() === año && hoy.getMonth() === mes);
     const diaHoy = esDiciembre2026 ? hoy.getDate() : -1;
     let html = '';
-    ['L','M','X','J','V','S','D'].forEach(function(d){ html += '<div class="cal-dia-semana">'+d+'</div>'; });
+    ['L','M','X','J','V','S','D'].forEach(d => { html += '<div class="cal-dia-semana">'+d+'</div>'; });
     for (let i = 0; i < offset; i++) html += '<div class="cal-celda cal-vacia"></div>';
     for (let dia = 1; dia <= diasEnMes; dia++) {
         const info = FECHAS_IMPORTANTES[dia];
@@ -1461,82 +1554,60 @@ function renderizarCalendario() {
 const PERIODO_IMAGEN_MS = 3 * 60 * 60 * 1000;
 function cargarImagenDelDia() {
     const slot = Math.floor(Date.now() / PERIODO_IMAGEN_MS);
-    const imagen = imagenesNavidenas[slot % imagenesNavidenas.length];
+    const url = imagenesNavidenas[slot % imagenesNavidenas.length];
     const bg = document.getElementById('calendarioBg');
     if (!bg) return;
     const probe = new Image();
-    probe.onload = function(){ bg.style.backgroundImage = "url('"+imagen.url+"')"; };
-    probe.onerror = function(){ bg.style.backgroundImage = "url('"+PLACEHOLDER_IMG+"')"; };
-    probe.src = imagen.url;
+    probe.onload = () => { bg.style.backgroundImage = "url('"+url+"')"; };
+    probe.onerror = () => { bg.style.backgroundImage = "url('"+PLACEHOLDER_IMG+"')"; };
+    probe.src = url;
 }
 function programarCambioImagenCalendario() {
     const ahora = Date.now();
     const siguiente = Math.ceil(ahora / PERIODO_IMAGEN_MS) * PERIODO_IMAGEN_MS;
-    const espera = (siguiente - ahora) + 1500;
-    setTimeout(function(){ cargarImagenDelDia(); programarCambioImagenCalendario(); }, espera);
+    setTimeout(() => { cargarImagenDelDia(); programarCambioImagenCalendario(); }, (siguiente - ahora) + 1500);
 }
 
 /* ============ TIENDA ============ */
-function buscarItemPorId(id) { for (let i = 0; i < TIENDA_CATALOGO.length; i++) { const f = TIENDA_CATALOGO[i].items.find(function(it){return it.id===id;}); if (f) return f; } return null; }
-
-function cargarTemaTienda() {
-    try { const t = localStorage.getItem(STORAGE_TEMA_TIENDA); if (t && TEMAS_TIENDA.some(function(x){return x.id === t;})) temaTiendaActual = t; } catch(e){}
-}
+function buscarItemPorId(id) { for (let i = 0; i < TIENDA_CATALOGO.length; i++) { const f = TIENDA_CATALOGO[i].items.find(it => it.id===id); if (f) return f; } return null; }
+function cargarTemaTienda() { try { const t = localStorage.getItem(STORAGE_TEMA_TIENDA); if (t && TEMAS_TIENDA.some(x => x.id === t)) temaTiendaActual = t; } catch(e){} }
 function aplicarTemaTienda(id) {
-    if (!TEMAS_TIENDA.some(function(x){return x.id === id;})) return;
+    if (!TEMAS_TIENDA.some(x => x.id === id)) return;
     temaTiendaActual = id;
     const escenario = document.getElementById('tiendaEscenario');
     if (escenario) escenario.setAttribute('data-tema', id);
     try { localStorage.setItem(STORAGE_TEMA_TIENDA, id); } catch(e){}
-    document.querySelectorAll('.tema-btn').forEach(function(b){ b.classList.toggle('activo', b.dataset.tema === id); });
+    document.querySelectorAll('.tema-btn').forEach(b => b.classList.toggle('activo', b.dataset.tema === id));
 }
 function renderizarTemasTienda() {
     const cont = document.getElementById('tiendaTemas');
     if (!cont) return;
-    cont.innerHTML = TEMAS_TIENDA.map(function(t){
-        return '<button type="button" class="tema-btn '+(t.id === temaTiendaActual ? 'activo' : '')+'" data-tema="'+t.id+'" role="tab">'+t.nombre+'</button>';
-    }).join('');
-    cont.querySelectorAll('.tema-btn').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            aplicarTemaTienda(btn.dataset.tema);
-            toast('Tema: '+(TEMAS_TIENDA.find(function(x){return x.id === btn.dataset.tema;}) || {}).nombre, 'success');
-        });
-    });
+    cont.innerHTML = TEMAS_TIENDA.map(t => '<button type="button" class="tema-btn '+(t.id === temaTiendaActual ? 'activo' : '')+'" data-tema="'+t.id+'" role="tab">'+t.nombre+'</button>').join('');
+    cont.querySelectorAll('.tema-btn').forEach(btn => btn.addEventListener('click', () => {
+        aplicarTemaTienda(btn.dataset.tema);
+        toast('Tema: '+(TEMAS_TIENDA.find(x => x.id === btn.dataset.tema) || {}).nombre, 'success');
+    }));
 }
-
 function renderizarTabs() {
     const cont = document.getElementById('tiendaTabs');
-    if (!cont) { console.warn('renderizarTabs: #tiendaTabs no existe'); return; }
-    if (!Array.isArray(TIENDA_CATALOGO) || TIENDA_CATALOGO.length === 0) { console.warn('renderizarTabs: TIENDA_CATALOGO vacío'); return; }
-    cont.innerHTML = TIENDA_CATALOGO.map(function(cat){
-        return '<button class="tab-categoria '+(cat.id === categoriaActual ? 'activo' : '')+'" data-cat="'+cat.id+'" type="button">'+cat.nombre+'</button>';
-    }).join('');
-    cont.querySelectorAll('.tab-categoria').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            categoriaActual = btn.dataset.cat;
-            renderizarTabs();
-            renderizarItemsCatalogo();
-        });
-    });
+    if (!cont) return;
+    cont.innerHTML = TIENDA_CATALOGO.map(cat => '<button class="tab-categoria '+(cat.id === categoriaActual ? 'activo' : '')+'" data-cat="'+cat.id+'" type="button">'+cat.nombre+'</button>').join('');
+    cont.querySelectorAll('.tab-categoria').forEach(btn => btn.addEventListener('click', () => {
+        categoriaActual = btn.dataset.cat; renderizarTabs(); renderizarItemsCatalogo();
+    }));
 }
-
 function renderizarItemsCatalogo() {
     const cont = document.getElementById('tiendaItems');
-    if (!cont) { console.warn('renderizarItemsCatalogo: #tiendaItems no existe'); return; }
-    const cat = TIENDA_CATALOGO.find(function(c){return c.id === categoriaActual;});
+    if (!cont) return;
+    const cat = TIENDA_CATALOGO.find(c => c.id === categoriaActual);
     if (!cat) { cont.innerHTML = ''; return; }
-    cont.innerHTML = cat.items.map(function(item){
-        let preview;
-        if (item.tipo === 'texto') preview = '<div class="rotulo-mini"><div class="rotulo '+item.clase+'">'+escapeHtml(item.texto)+'</div></div>';
-        else preview = item.svg;
+    cont.innerHTML = cat.items.map(item => {
+        let preview = item.tipo === 'texto' ? '<div class="rotulo-mini"><div class="rotulo '+item.clase+'">'+escapeHtml(item.texto)+'</div></div>' : item.svg;
         const precioHtml = item.precio ? '<div class="item-precio">'+formatearColones(item.precio)+'</div>' : '';
-        return '<div class="item-catalogo" data-item="'+item.id+'" draggable="false" title="'+escapeHtml(item.nombre)+' - '+formatearColones(item.precio||0)+'">'+preview+'<div class="item-nombre">'+escapeHtml(item.nombre)+'</div>'+precioHtml+'</div>';
+        return '<div class="item-catalogo" data-item="'+item.id+'" title="'+escapeHtml(item.nombre)+' - '+formatearColones(item.precio||0)+'">'+preview+'<div class="item-nombre">'+escapeHtml(item.nombre)+'</div>'+precioHtml+'</div>';
     }).join('');
-    cont.querySelectorAll('.item-catalogo').forEach(function(el){
-        el.addEventListener('click', function(){ colocarEnSiguienteSlotLibre(el.dataset.item); });
-    });
+    cont.querySelectorAll('.item-catalogo').forEach(el => el.addEventListener('click', () => colocarEnSiguienteSlotLibre(el.dataset.item)));
 }
-
 function cargarTiendaState() {
     try {
         const raw = localStorage.getItem(STORAGE_TIENDA_ACTUAL);
@@ -1548,7 +1619,6 @@ function cargarTiendaState() {
         oldSlotsToMigrate = data;
     } catch(e){}
 }
-
 function migrarSlotsViejos() {
     if (!oldSlotsToMigrate) return;
     const escenario = document.getElementById('tiendaEscenario');
@@ -1556,7 +1626,7 @@ function migrarSlotsViejos() {
     const escRect = escenario.getBoundingClientRect();
     if (escRect.width < 10) return;
     const newItems = [];
-    Object.keys(oldSlotsToMigrate).forEach(function(slotId){
+    Object.keys(oldSlotsToMigrate).forEach(slotId => {
         const itemId = oldSlotsToMigrate[slotId];
         if (!itemId) return;
         const zone = document.querySelector('.slot-zone[data-slot="'+slotId+'"]');
@@ -1565,28 +1635,23 @@ function migrarSlotsViejos() {
         if (zr.width === 0) return;
         newItems.push({ id:itemId, x:((zr.left+zr.width/2-escRect.left)/escRect.width)*100, y:((zr.top+zr.height/2-escRect.top)/escRect.height)*100, scale:1, rotation:0 });
     });
-    tiendaState.items = newItems;
-    oldSlotsToMigrate = null;
-    guardarTiendaState();
+    tiendaState.items = newItems; oldSlotsToMigrate = null; guardarTiendaState();
 }
-
 function guardarTiendaState() { try { localStorage.setItem(STORAGE_TIENDA_ACTUAL, JSON.stringify({items:tiendaState.items, rotulo:tiendaRotulo})); } catch(e){} }
 function actualizarRotulo() { const el = document.getElementById('tiendaRotuloTexto'); if (el) el.textContent = tiendaRotulo; }
 function editarRotulo() {
     const nuevo = prompt('Nombre de su tienda (máx. 30 caracteres):', tiendaRotulo);
     if (nuevo === null) return;
-    const limpio = String(nuevo).trim().slice(0,30);
-    tiendaRotulo = limpio || 'Mi Tienda Navideña';
+    tiendaRotulo = String(nuevo).trim().slice(0,30) || 'Mi Tienda Navideña';
     actualizarRotulo(); guardarTiendaState(); toast('Rótulo actualizado', 'success');
 }
-
 function computeSlotZones() {
     const escenario = document.getElementById('tiendaEscenario');
     if (!escenario) { slotZonesPercent = []; return; }
     const escRect = escenario.getBoundingClientRect();
     if (escRect.width < 10 || escRect.height < 10) { slotZonesPercent = []; return; }
     slotZonesPercent = [];
-    document.querySelectorAll('.slot-zone').forEach(function(zone){
+    document.querySelectorAll('.slot-zone').forEach(zone => {
         const zr = zone.getBoundingClientRect();
         if (zr.width === 0 || zr.height === 0) return;
         slotZonesPercent.push({
@@ -1598,7 +1663,6 @@ function computeSlotZones() {
         });
     });
 }
-
 function obtenerSlotDeItem(x, y) {
     if (!slotZonesPercent || slotZonesPercent.length === 0) return null;
     for (let i = 0; i < slotZonesPercent.length; i++) {
@@ -1614,22 +1678,18 @@ function calcularZIndex(item) {
     if (slot && /^mesa/.test(slot.id)) tier = 3;
     else if (slot && /^t[12]r/.test(slot.id)) tier = 1;
     else tier = 2;
-    const escalaBonus = Math.max(0, Math.min(1000, Math.round((6 - escala) * 100)));
-    return tier * 10000 + escalaBonus;
+    return tier * 10000 + Math.max(0, Math.min(1000, Math.round((6 - escala) * 100)));
 }
 function actualizarTodosZIndex() {
-    const items = document.querySelectorAll('.tienda-item');
-    items.forEach(function(el){ if (el._itemRef) el.style.zIndex = calcularZIndex(el._itemRef); });
+    document.querySelectorAll('.tienda-item').forEach(el => { if (el._itemRef) el.style.zIndex = calcularZIndex(el._itemRef); });
 }
-
 function estaEnSlot(x, y) {
     if (!slotZonesPercent || slotZonesPercent.length === 0) return false;
-    return slotZonesPercent.some(function(z){ return x >= z.left && x <= z.right && y >= z.top && y <= z.bottom; });
+    return slotZonesPercent.some(z => x >= z.left && x <= z.right && y >= z.top && y <= z.bottom);
 }
-
 function calcularTotalTienda() {
     let total = 0;
-    tiendaState.items.forEach(function(item){
+    tiendaState.items.forEach(item => {
         if (!estaEnSlot(item.x, item.y)) return;
         const itemDef = buscarItemPorId(item.id);
         if (itemDef && typeof itemDef.precio === 'number') total += itemDef.precio;
@@ -1639,24 +1699,18 @@ function calcularTotalTienda() {
 function actualizarTotalCaja() { const el = document.getElementById('cajaTotal'); if (el) el.textContent = formatearColones(calcularTotalTienda()); }
 
 function colocarEnSiguienteSlotLibre(itemId) {
-    let x = 50, y = 50;
-    let intentos = 0;
+    let x = 50, y = 50, intentos = 0;
     while (intentos < 40) {
-        const ocupado = tiendaState.items.some(function(it){
-            return Math.hypot(it.x - x, it.y - y) < 3;
-        });
+        const ocupado = tiendaState.items.some(it => Math.hypot(it.x - x, it.y - y) < 3);
         if (!ocupado) break;
         const angulo = intentos * 2.399963229728653;
         const radio = 3 + Math.floor(intentos / 8) * 3;
-        x = 50 + Math.cos(angulo) * radio;
-        y = 50 + Math.sin(angulo) * radio;
-        x = Math.max(5, Math.min(95, x));
-        y = Math.max(5, Math.min(95, y));
+        x = Math.max(5, Math.min(95, 50 + Math.cos(angulo) * radio));
+        y = Math.max(5, Math.min(95, 50 + Math.sin(angulo) * radio));
         intentos++;
     }
     tiendaState.items.push({id:itemId, x:x, y:y, scale:1, rotation:0});
-    guardarTiendaState();
-    renderizarEscenario();
+    guardarTiendaState(); renderizarEscenario();
     toast('Añadido al centro: '+(buscarItemPorId(itemId)||{}).nombre, 'success');
 }
 
@@ -1665,10 +1719,10 @@ function renderizarEscenario() {
     const layer = document.getElementById('itemsLayer');
     if (!layer) return;
     layer.innerHTML = '';
-    tiendaState.items = tiendaState.items.filter(function(it){return !!buscarItemPorId(it.id);});
+    tiendaState.items = tiendaState.items.filter(it => !!buscarItemPorId(it.id));
     computeSlotZones();
     const created = [];
-    tiendaState.items.forEach(function(item, idx){
+    tiendaState.items.forEach((item, idx) => {
         if (item.rotation === undefined) item.rotation = 0;
         if (item.scale === undefined) item.scale = 1;
         const itemDef = buscarItemPorId(item.id);
@@ -1677,23 +1731,20 @@ function renderizarEscenario() {
         layer.appendChild(el);
         created.push({ el:el, item:item });
     });
-    requestAnimationFrame(function(){
+    requestAnimationFrame(() => {
         computeSlotZones();
-        created.forEach(function(c){
+        created.forEach(c => {
             c.el.classList.toggle('en-slot', estaEnSlot(c.item.x, c.item.y));
             c.el.style.zIndex = calcularZIndex(c.item);
         });
         actualizarTotalCaja();
     });
 }
-
 function aplicarTransform(el, item) { el.style.transform = 'translate(-50%, -50%) rotate('+(item.rotation||0)+'deg) scale('+(item.scale||1)+')'; }
-
 function crearItemElemento(item, itemDef, idx) {
     const el = document.createElement('div');
     el.className = 'tienda-item';
-    el.style.left = item.x+'%';
-    el.style.top = item.y+'%';
+    el.style.left = item.x+'%'; el.style.top = item.y+'%';
     aplicarTransform(el, item);
     el._itemRef = item;
     el.style.zIndex = calcularZIndex(item);
@@ -1707,29 +1758,17 @@ function crearItemElemento(item, itemDef, idx) {
     attachItemInteractions(el, item, idx);
     return el;
 }
-
 function attachItemInteractions(el, item, idx) {
     const pointers = new Map();
-    let mode = null;
-    let dragStart = null;
-    let pinchStart = null;
-    let moved = false;
-
-    el._cancelDrag = function(){
-        pointers.clear();
-        el.classList.remove('dragging');
-        el.style.zIndex = calcularZIndex(item);
-        mode = null; dragStart = null; pinchStart = null; moved = false;
-    };
-
+    let mode = null, dragStart = null, pinchStart = null, moved = false;
+    el._cancelDrag = () => { pointers.clear(); el.classList.remove('dragging'); el.style.zIndex = calcularZIndex(item); mode = null; dragStart = null; pinchStart = null; moved = false; };
     function getPinchInfo() {
         const pts = Array.from(pointers.values());
         if (pts.length < 2) return null;
         const a = pts[0], b = pts[1];
         return { dist: Math.hypot(b.x-a.x, b.y-a.y), angle: Math.atan2(b.y-a.y, b.x-a.x) };
     }
-
-    el.addEventListener('pointerdown', function(e){
+    el.addEventListener('pointerdown', e => {
         if (pinchActive) return;
         if (e.target.closest('.item-delete') || e.target.closest('.item-rotate')) return;
         pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
@@ -1737,15 +1776,13 @@ function attachItemInteractions(el, item, idx) {
         if (pointers.size === 1) {
             const p = pointers.get(e.pointerId);
             dragStart = {x:p.x, y:p.y, itemX:item.x, itemY:item.y};
-            mode = 'drag'; moved = false;
-            el.classList.add('dragging');
+            mode = 'drag'; moved = false; el.classList.add('dragging');
         } else if (pointers.size === 2) {
             const info = getPinchInfo();
             if (info) { pinchStart = {dist:info.dist, angle:info.angle, scale:item.scale||1, rotation:item.rotation||0}; mode='pinch'; moved=true; }
         }
     });
-
-    el.addEventListener('pointermove', function(e){
+    el.addEventListener('pointermove', e => {
         if (pinchActive) return;
         if (!pointers.has(e.pointerId)) return;
         pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
@@ -1757,23 +1794,19 @@ function attachItemInteractions(el, item, idx) {
             const escRect = document.getElementById('tiendaEscenario').getBoundingClientRect();
             item.x = Math.max(2, Math.min(98, dragStart.itemX + (dx/escRect.width)*100));
             item.y = Math.max(2, Math.min(98, dragStart.itemY + (dy/escRect.height)*100));
-            el.style.left = item.x+'%';
-            el.style.top = item.y+'%';
+            el.style.left = item.x+'%'; el.style.top = item.y+'%';
             el.classList.toggle('en-slot', estaEnSlot(item.x, item.y));
             el.style.zIndex = calcularZIndex(item);
             actualizarTotalCaja();
         } else if (mode === 'pinch' && pointers.size >= 2) {
             const info = getPinchInfo();
             if (!info) return;
-            const scaleRatio = info.dist / pinchStart.dist;
-            const angleDiff = (info.angle - pinchStart.angle) * 180 / Math.PI;
-            item.scale = Math.max(0.4, Math.min(5, pinchStart.scale * scaleRatio));
-            item.rotation = ((pinchStart.rotation + angleDiff) % 360 + 360) % 360;
+            item.scale = Math.max(0.4, Math.min(5, pinchStart.scale * (info.dist / pinchStart.dist)));
+            item.rotation = ((pinchStart.rotation + (info.angle - pinchStart.angle) * 180 / Math.PI) % 360 + 360) % 360;
             aplicarTransform(el, item);
             el.style.zIndex = calcularZIndex(item);
         }
     });
-
     function onUp(e) {
         if (!pointers.has(e.pointerId)) return;
         pointers.delete(e.pointerId);
@@ -1788,8 +1821,7 @@ function attachItemInteractions(el, item, idx) {
                 toast('Escala: '+Math.round(item.scale*100)+'%', 'info');
             }
             el.style.zIndex = calcularZIndex(item);
-            guardarTiendaState();
-            actualizarTotalCaja();
+            guardarTiendaState(); actualizarTotalCaja();
             mode = null; dragStart = null; pinchStart = null; moved = false;
         } else if (pointers.size === 1) {
             const p = Array.from(pointers.values())[0];
@@ -1799,26 +1831,23 @@ function attachItemInteractions(el, item, idx) {
     }
     el.addEventListener('pointerup', onUp);
     el.addEventListener('pointercancel', onUp);
-
     const delBtn = el.querySelector('.item-delete');
     if (delBtn) {
-        delBtn.addEventListener('pointerdown', function(e){e.stopPropagation();});
-        delBtn.addEventListener('click', function(e){
+        delBtn.addEventListener('pointerdown', e => e.stopPropagation());
+        delBtn.addEventListener('click', e => {
             e.stopPropagation();
             tiendaState.items.splice(idx, 1);
-            guardarTiendaState();
-            renderizarEscenario();
+            guardarTiendaState(); renderizarEscenario();
             toast('Objeto eliminado', 'success');
         });
     }
     const rotBtn = el.querySelector('.item-rotate');
     if (rotBtn) {
-        rotBtn.addEventListener('pointerdown', function(e){e.stopPropagation();});
-        rotBtn.addEventListener('click', function(e){
+        rotBtn.addEventListener('pointerdown', e => e.stopPropagation());
+        rotBtn.addEventListener('click', e => {
             e.stopPropagation();
             item.rotation = ((item.rotation||0) + 45) % 360;
-            aplicarTransform(el, item);
-            guardarTiendaState();
+            aplicarTransform(el, item); guardarTiendaState();
             toast('Rotación: '+item.rotation+'°', 'info');
         });
     }
@@ -1831,116 +1860,69 @@ function applyEscenarioView(animate) {
     if (!animate) esc.style.transition = 'none';
     esc.style.transform = 'translate('+viewPanX+'px, '+viewPanY+'px) scale('+viewZoom+')';
     const ind = document.getElementById('tiendaZoomIndicator');
-    if (ind) {
-        ind.textContent = '🔍 '+viewZoom.toFixed(1)+'x';
-        ind.classList.toggle('visible', viewZoom > 1.05);
-    }
-    if (!esc.dataset.panning) {
-        esc.style.cursor = viewZoom > 1.01 ? 'grab' : '';
-    }
-    if (!animate) {
-        requestAnimationFrame(function(){ esc.style.transition = ''; });
-    }
+    if (ind) { ind.textContent = '🔍 '+viewZoom.toFixed(1)+'x'; ind.classList.toggle('visible', viewZoom > 1.05); }
+    if (!esc.dataset.panning) esc.style.cursor = viewZoom > 1.01 ? 'grab' : '';
+    if (!animate) requestAnimationFrame(() => { esc.style.transition = ''; });
 }
-function resetEscenarioZoom(animate) {
-    viewZoom = 1; viewPanX = 0; viewPanY = 0;
-    applyEscenarioView(animate);
-}
+function resetEscenarioZoom(animate) { viewZoom = 1; viewPanX = 0; viewPanY = 0; applyEscenarioView(animate); }
 function clampPan() {
     const esc = document.getElementById('tiendaEscenario');
     if (!esc) return;
-    const w = esc.offsetWidth;
-    const h = esc.offsetHeight;
+    const w = esc.offsetWidth, h = esc.offsetHeight;
     if (w < 10 || h < 10) return;
     if (viewZoom <= 1.001) { viewPanX = 0; viewPanY = 0; return; }
-    const minX = -(viewZoom - 1) * w;
-    const minY = -(viewZoom - 1) * h;
-    viewPanX = Math.max(minX, Math.min(0, viewPanX));
-    viewPanY = Math.max(minY, Math.min(0, viewPanY));
+    viewPanX = Math.max(-(viewZoom - 1) * w, Math.min(0, viewPanX));
+    viewPanY = Math.max(-(viewZoom - 1) * h, Math.min(0, viewPanY));
 }
 function initEscenarioZoom() {
     const esc = document.getElementById('tiendaEscenario');
     if (!esc) return;
     const escPointers = new Map();
-    let escPinch = null;
-    let lastTapTime = 0;
-    let lastTapPos = null;
-
-    /* --- Estado de PAN --- */
-    let isPanning = false;
-    let didPan = false;
-    let panPointerId = null;
-    let panStartX = 0, panStartY = 0;
-    let panStartViewPanX = 0, panStartViewPanY = 0;
-
+    let escPinch = null, lastTapTime = 0, lastTapPos = null;
+    let isPanning = false, didPan = false, panPointerId = null, panStartX = 0, panStartY = 0, panStartViewPanX = 0, panStartViewPanY = 0;
     function startPan(e) {
-        isPanning = true;
-        didPan = false;
-        panPointerId = e.pointerId;
-        panStartX = e.clientX;
-        panStartY = e.clientY;
-        panStartViewPanX = viewPanX;
-        panStartViewPanY = viewPanY;
-        esc.dataset.panning = '1';
-        esc.style.cursor = 'grabbing';
+        isPanning = true; didPan = false; panPointerId = e.pointerId;
+        panStartX = e.clientX; panStartY = e.clientY;
+        panStartViewPanX = viewPanX; panStartViewPanY = viewPanY;
+        esc.dataset.panning = '1'; esc.style.cursor = 'grabbing';
         try { esc.setPointerCapture(e.pointerId); } catch(err){}
     }
     function endPan() {
         if (!isPanning) return;
-        isPanning = false;
-        delete esc.dataset.panning;
+        isPanning = false; delete esc.dataset.panning;
         esc.style.cursor = viewZoom > 1.01 ? 'grab' : '';
-        if (panPointerId !== null) {
-            try { esc.releasePointerCapture(panPointerId); } catch(err){}
-            panPointerId = null;
-        }
+        if (panPointerId !== null) { try { esc.releasePointerCapture(panPointerId); } catch(err){} panPointerId = null; }
     }
-
-    esc.addEventListener('pointerdown', function(e){
+    esc.addEventListener('pointerdown', e => {
         if (e.target.closest('.item-delete') || e.target.closest('.item-rotate')) return;
         escPointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
-
         if (escPointers.size === 2) {
-            e.preventDefault(); /* Evita scroll/pull-to-refresh durante pinch */
-            document.querySelectorAll('.tienda-item.dragging').forEach(function(item){
-                if (item._cancelDrag) item._cancelDrag();
-            });
-            pinchActive = true;
-            endPan();
-            didPan = false;
+            e.preventDefault();
+            document.querySelectorAll('.tienda-item.dragging').forEach(item => { if (item._cancelDrag) item._cancelDrag(); });
+            pinchActive = true; endPan(); didPan = false;
             const pts = Array.from(escPointers.values());
             const a = pts[0], b = pts[1];
-            const parent = esc.parentElement;
-            const parentRect = parent.getBoundingClientRect();
-            const cx = (a.x + b.x) / 2;
-            const cy = (a.y + b.y) / 2;
+            const parent = esc.parentElement, parentRect = parent.getBoundingClientRect();
+            const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
             const cxLayout = cx - parentRect.left - esc.offsetLeft;
             const cyLayout = cy - parentRect.top - esc.offsetTop;
             escPinch = { initialDist: Math.hypot(b.x-a.x, b.y-a.y) || 1, initialZoom: viewZoom, initialPanX: viewPanX, initialPanY: viewPanY, initialCenterInLayoutX: cxLayout, initialCenterInLayoutY: cyLayout };
         } else if (escPointers.size === 1) {
-            if (viewZoom > 1.01
-                && !e.target.closest('.tienda-item')
-                && !e.target.closest('.tienda-rotulo')
-                && !e.target.closest('.btn-expand-store')) {
-                e.preventDefault(); /* Evita que el navegador robe el gesto */
-                startPan(e);
+            if (viewZoom > 1.01 && !e.target.closest('.tienda-item') && !e.target.closest('.tienda-rotulo') && !e.target.closest('.btn-expand-store')) {
+                e.preventDefault(); startPan(e);
             }
         }
     }, true);
-
-    esc.addEventListener('pointermove', function(e){
+    esc.addEventListener('pointermove', e => {
         if (!escPointers.has(e.pointerId)) return;
         escPointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
         if (escPointers.size === 2 && escPinch) {
             e.preventDefault();
             const pts = Array.from(escPointers.values());
             const a = pts[0], b = pts[1];
-            const dist = Math.hypot(b.x-a.x, b.y-a.y);
-            const newZoom = Math.max(VIEW_MIN_ZOOM, Math.min(VIEW_MAX_ZOOM, escPinch.initialZoom * (dist / escPinch.initialDist)));
-            const parent = esc.parentElement;
-            const parentRect = parent.getBoundingClientRect();
-            const cx = (a.x + b.x) / 2;
-            const cy = (a.y + b.y) / 2;
+            const newZoom = Math.max(VIEW_MIN_ZOOM, Math.min(VIEW_MAX_ZOOM, escPinch.initialZoom * (Math.hypot(b.x-a.x, b.y-a.y) / escPinch.initialDist)));
+            const parent = esc.parentElement, parentRect = parent.getBoundingClientRect();
+            const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
             const cxLayout = cx - parentRect.left - esc.offsetLeft;
             const cyLayout = cy - parentRect.top - esc.offsetTop;
             const worldX = (escPinch.initialCenterInLayoutX - escPinch.initialPanX) / escPinch.initialZoom;
@@ -1948,147 +1930,92 @@ function initEscenarioZoom() {
             viewZoom = newZoom;
             viewPanX = cxLayout - worldX * newZoom;
             viewPanY = cyLayout - worldY * newZoom;
-            clampPan();
-            applyEscenarioView(false);
+            clampPan(); applyEscenarioView(false);
         } else if (isPanning && escPointers.size === 1 && e.pointerId === panPointerId) {
-            const dx = e.clientX - panStartX;
-            const dy = e.clientY - panStartY;
+            const dx = e.clientX - panStartX, dy = e.clientY - panStartY;
             if (!didPan && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) didPan = true;
             if (didPan) {
                 e.preventDefault();
-
                 const w = esc.offsetWidth, h = esc.offsetHeight;
-                const minX = -(viewZoom - 1) * w;
-                const minY = -(viewZoom - 1) * h;
-
-                const rawPanX = panStartViewPanX + dx;
-                const rawPanY = panStartViewPanY + dy;
-
+                const minX = -(viewZoom - 1) * w, minY = -(viewZoom - 1) * h;
+                const rawPanX = panStartViewPanX + dx, rawPanY = panStartViewPanY + dy;
                 const clampedX = Math.max(minX, Math.min(0, rawPanX));
                 const clampedY = Math.max(minY, Math.min(0, rawPanY));
-
-                /* RE-ANCLAJE: si tocamos el límite, movemos el "origen" del drag
-                   al borde. Así, al invertir la dirección, el pan responde al instante
-                   (sin dead-zone del excedente acumulado). */
                 if (rawPanX !== clampedX) { panStartViewPanX = clampedX; panStartX = e.clientX; }
                 if (rawPanY !== clampedY) { panStartViewPanY = clampedY; panStartY = e.clientY; }
-
-                viewPanX = clampedX;
-                viewPanY = clampedY;
+                viewPanX = clampedX; viewPanY = clampedY;
                 applyEscenarioView(false);
             }
         }
     }, {passive:false});
-
-    esc.addEventListener('pointerup', function(e){
-        if (e.pointerId === panPointerId) {
-            const wasPanning = didPan;
-            endPan();
-            didPan = false;
-            if (wasPanning) return;
-        }
-
+    esc.addEventListener('pointerup', e => {
+        if (e.pointerId === panPointerId) { const wasPanning = didPan; endPan(); didPan = false; if (wasPanning) return; }
         if (escPointers.size > 1) return;
         if (pinchActive) return;
         if (e.target.closest('.tienda-item')) return;
         if (e.target.closest('.item-delete') || e.target.closest('.item-rotate')) return;
         if (e.target.closest('.tienda-rotulo')) return;
         if (e.target.closest('.btn-expand-store')) return;
-
         const now = Date.now();
         if (now - lastTapTime < 300 && lastTapPos && viewZoom > 1.05) {
             const d = Math.hypot(e.clientX - lastTapPos.x, e.clientY - lastTapPos.y);
             if (d < 30) resetEscenarioZoom(true);
         }
-        lastTapTime = now;
-        lastTapPos = {x:e.clientX, y:e.clientY};
+        lastTapTime = now; lastTapPos = {x:e.clientX, y:e.clientY};
     });
-
-    esc.addEventListener('pointercancel', function(e){
-        if (e.pointerId === panPointerId) {
-            endPan();
-            didPan = false;
-        }
-    });
-
-    document.addEventListener('pointerup', function(e){
+    esc.addEventListener('pointercancel', e => { if (e.pointerId === panPointerId) { endPan(); didPan = false; } });
+    document.addEventListener('pointerup', e => {
         escPointers.delete(e.pointerId);
-        if (escPointers.size < 2) {
-            escPinch = null;
-            if (pinchActive) setTimeout(function(){ pinchActive = false; }, 80);
-        }
+        if (escPointers.size < 2) { escPinch = null; if (pinchActive) setTimeout(() => pinchActive = false, 80); }
     });
-    document.addEventListener('pointercancel', function(e){
+    document.addEventListener('pointercancel', e => {
         escPointers.delete(e.pointerId);
-        if (escPointers.size < 2) {
-            escPinch = null;
-            if (pinchActive) setTimeout(function(){ pinchActive = false; }, 80);
-        }
+        if (escPointers.size < 2) { escPinch = null; if (pinchActive) setTimeout(() => pinchActive = false, 80); }
     });
-
-    /* === ZOOM CON RUEDA DEL RATÓN === */
-    esc.addEventListener('wheel', function(e){
+    esc.addEventListener('wheel', e => {
         if (pinchActive) return;
         let delta = e.deltaY;
         if (e.deltaMode === 1) delta *= 20;
         else if (e.deltaMode === 2) delta *= 400;
-        const factor = Math.exp(-delta * 0.0015);
-        const newZoom = Math.max(VIEW_MIN_ZOOM, Math.min(VIEW_MAX_ZOOM, viewZoom * factor));
+        const newZoom = Math.max(VIEW_MIN_ZOOM, Math.min(VIEW_MAX_ZOOM, viewZoom * Math.exp(-delta * 0.0015)));
         if (Math.abs(newZoom - viewZoom) < 0.0001) return;
         e.preventDefault();
-        const parent = esc.parentElement;
-        const parentRect = parent.getBoundingClientRect();
+        const parent = esc.parentElement, parentRect = parent.getBoundingClientRect();
         const cxLayout = e.clientX - parentRect.left - esc.offsetLeft;
         const cyLayout = e.clientY - parentRect.top - esc.offsetTop;
         const worldX = (cxLayout - viewPanX) / viewZoom;
         const worldY = (cyLayout - viewPanY) / viewZoom;
-        if (newZoom <= VIEW_MIN_ZOOM + 0.001) {
-            viewZoom = VIEW_MIN_ZOOM;
-            viewPanX = 0;
-            viewPanY = 0;
-        } else {
-            viewZoom = newZoom;
-            viewPanX = cxLayout - worldX * newZoom;
-            viewPanY = cyLayout - worldY * newZoom;
-            clampPan();
-        }
+        if (newZoom <= VIEW_MIN_ZOOM + 0.001) { viewZoom = VIEW_MIN_ZOOM; viewPanX = 0; viewPanY = 0; }
+        else { viewZoom = newZoom; viewPanX = cxLayout - worldX * newZoom; viewPanY = cyLayout - worldY * newZoom; clampPan(); }
         applyEscenarioView(false);
     }, { passive: false });
 }
 
-/* ============ CAPTURA / SUPABASE ============ */
+/* ============ CAPTURA PNG / SUPABASE TIENDAS ============ */
 function normalizarA1a1(source, size, bgColor) {
-    const out = document.createElement('canvas');
-    out.width = size; out.height = size;
+    const out = document.createElement('canvas'); out.width = size; out.height = size;
     const ctx = out.getContext('2d');
-    ctx.fillStyle = bgColor || '#0e3a1c';
-    ctx.fillRect(0, 0, size, size);
-    const sw = source.width, sh = source.height;
-    const scale = Math.min(size/sw, size/sh);
-    const dw = sw*scale, dh = sh*scale;
-    const dx = (size-dw)/2, dy = (size-dh)/2;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(source, dx, dy, dw, dh);
+    ctx.fillStyle = bgColor || '#0e3a1c'; ctx.fillRect(0, 0, size, size);
+    const scale = Math.min(size/source.width, size/source.height);
+    const dw = source.width*scale, dh = source.height*scale;
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source, (size-dw)/2, (size-dh)/2, dw, dh);
     return out;
 }
 function dibujarFooterEnCanvas(canvas, nombreCreador) {
     const ctx = canvas.getContext('2d');
     const fecha = new Date().toLocaleDateString('es-CR');
-    const temaNombre = (TEMAS_TIENDA.find(function(t){return t.id===temaTiendaActual;}) || {}).nombre || '';
+    const temaNombre = (TEMAS_TIENDA.find(t => t.id===temaTiendaActual) || {}).nombre || '';
     const footerH = Math.round(canvas.height * 0.06);
     const grad = ctx.createLinearGradient(0, canvas.height-footerH, canvas.width, canvas.height);
     grad.addColorStop(0, 'rgba(26,92,42,0.92)');
     grad.addColorStop(0.5, 'rgba(46,158,63,0.92)');
     grad.addColorStop(1, 'rgba(192,57,43,0.92)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, canvas.height-footerH, canvas.width, footerH);
+    ctx.fillStyle = grad; ctx.fillRect(0, canvas.height-footerH, canvas.width, footerH);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold '+Math.round(canvas.height*0.022)+'px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 4;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
     ctx.fillText('🎄 Creado por: '+nombreCreador+'  ·  '+fecha+'  ·  '+temaNombre+' 🎄', canvas.width/2, canvas.height-footerH/2);
     ctx.shadowBlur = 0;
 }
@@ -2106,9 +2033,8 @@ async function capturarEscenario() {
     const teniaLuces = document.body.classList.contains('luces-navidad');
     if (teniaLuces) document.body.classList.remove('luces-navidad');
     try {
-        await new Promise(function(r){setTimeout(r,180);});
-        const canvas = await html2canvas(escenario, { backgroundColor:'#0e3a1c', scale:2, useCORS:true, allowTaint:false, logging:false, imageTimeout:8000 });
-        return canvas;
+        await new Promise(r => setTimeout(r, 180));
+        return await html2canvas(escenario, { backgroundColor:'#0e3a1c', scale:2, useCORS:true, allowTaint:false, logging:false, imageTimeout:8000 });
     } finally {
         if (expandBtn) expandBtn.style.display = prevExpand || '';
         if (zoomInd) zoomInd.style.display = prevZoomInd || '';
@@ -2122,11 +2048,7 @@ async function subirTiendaASupabase(nombreCreador, jpgBlob) {
     try {
         const fileName = 'tienda_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
         const upRes = await supabaseClient.storage.from(SUPABASE_BUCKET_TIENDAS).upload(fileName, jpgBlob, {contentType:'image/jpeg', cacheControl:'31536000', upsert:false});
-        if (upRes.error) {
-            console.error('Upload error:', upRes.error);
-            if (/bucket/i.test(upRes.error.message||'')) toast('El bucket "tiendas" no existe. Ejecutá el SQL de configuración.', 'error');
-            throw upRes.error;
-        }
+        if (upRes.error) throw upRes.error;
         const urlRes = supabaseClient.storage.from(SUPABASE_BUCKET_TIENDAS).getPublicUrl(fileName);
         const publicUrl = urlRes.data && urlRes.data.publicUrl;
         if (!publicUrl) throw new Error('No se pudo obtener URL pública');
@@ -2146,15 +2068,14 @@ async function capturarYGuardarTienda(nombreCreador) {
         const square = normalizarA1a1(rawCanvas, CAPTURE_SIZE, '#0e3a1c');
         dibujarFooterEnCanvas(square, nombreCreador);
         const pngDataURL = square.toDataURL('image/png');
-        const archivoNombre = 'tienda-'+nombreCreador.replace(/\s+/g,'-')+'-'+temaTiendaActual+'-'+Date.now()+'.png';
         const a = document.createElement('a');
-        a.href = pngDataURL; a.download = archivoNombre;
+        a.href = pngDataURL;
+        a.download = 'tienda-'+nombreCreador.replace(/\s+/g,'-')+'-'+temaTiendaActual+'-'+Date.now()+'.png';
         document.body.appendChild(a); a.click(); a.remove();
         let guardado = false;
         if (supabaseDisponible) {
-            const jpgBlob = await new Promise(function(r){ square.toBlob(r, 'image/jpeg', 0.92); });
-            const saved = await subirTiendaASupabase(nombreCreador, jpgBlob);
-            guardado = !!saved;
+            const jpgBlob = await new Promise(r => square.toBlob(r, 'image/jpeg', 0.92));
+            guardado = !!(await subirTiendaASupabase(nombreCreador, jpgBlob));
         }
         if (!guardado) {
             const small = normalizarA1a1(rawCanvas, 800, '#0e3a1c');
@@ -2164,10 +2085,7 @@ async function capturarYGuardarTienda(nombreCreador) {
         }
         await actualizarGaleriaDesdeSupabase();
         toast('¡Tienda guardada y descargada! 🎄', 'success');
-    } catch (err) {
-        console.error('Error al guardar tienda:', err);
-        toast('No se pudo generar la imagen', 'error');
-    }
+    } catch (err) { console.error('Error al guardar tienda:', err); toast('No se pudo generar la imagen', 'error'); }
 }
 function guardarTiendaLocal(nombreCreador, jpgDataURL) {
     const tiendas = leerTiendasGuardadas();
@@ -2176,24 +2094,21 @@ function guardarTiendaLocal(nombreCreador, jpgDataURL) {
     try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(tiendas)); }
     catch(e) { console.error('localStorage full:', e); tiendas.splice(15); try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(tiendas)); } catch(e2){} }
 }
-
 function leerTiendasGuardadas() { try { const raw = localStorage.getItem(STORAGE_TIENDAS); const arr = raw ? JSON.parse(raw) : []; return Array.isArray(arr) ? arr : []; } catch(e) { return []; } }
 async function cargarTiendasGuardadas() {
     let remote = [];
     if (supabaseDisponible) {
         try {
             const res = await supabaseClient.from('tiendas_guardadas').select('id,nombre,tema,imagen_url,imagen_path,fecha').order('fecha', {ascending:false}).limit(60);
-            if (res.error) {
-                if (/does not exist|relation/i.test(res.error.message||'')) toast('Falta la tabla tiendas_guardadas. Ejecutá el SQL.', 'error');
-                console.warn('cargarTiendasGuardadas:', res.error);
-            } else if (Array.isArray(res.data)) remote = res.data;
+            if (res.error) { if (/does not exist|relation/i.test(res.error.message||'')) toast('Falta la tabla tiendas_guardadas. Ejecutá el SQL.', 'error'); }
+            else if (Array.isArray(res.data)) remote = res.data;
         } catch(e) { console.warn('cargarTiendasGuardadas:', e); }
     }
     const locales = leerTiendasGuardadas();
-    const idsRemotos = new Set(remote.map(function(t){return String(t.id);}));
-    const soloLocales = locales.filter(function(t){return !idsRemotos.has(String(t.id));});
+    const idsRemotos = new Set(remote.map(t => String(t.id)));
+    const soloLocales = locales.filter(t => !idsRemotos.has(String(t.id)));
     const merged = remote.concat(soloLocales);
-    merged.sort(function(a,b){ return new Date(b.fecha||0) - new Date(a.fecha||0); });
+    merged.sort((a,b) => new Date(b.fecha||0) - new Date(a.fecha||0));
     const result = merged.slice(0, 60);
     try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(result)); } catch(e){}
     return result;
@@ -2201,83 +2116,66 @@ async function cargarTiendasGuardadas() {
 function renderGaleriaCon(tiendas) {
     const cont = document.getElementById('galeriaTiendas');
     if (!cont) return;
-    if (!tiendas || tiendas.length === 0) {
-        cont.innerHTML = '<p class="galeria-vacia">🎄 Aún no hay tiendas creadas. ¡Cree la suya y pulse "Guardar PNG"!</p>';
-        return;
-    }
-    cont.innerHTML = tiendas.map(function(t){
+    if (!tiendas || tiendas.length === 0) { cont.innerHTML = '<p class="galeria-vacia">🎄 Aún no hay tiendas creadas. ¡Cree la suya y pulse "Guardar PNG"!</p>'; return; }
+    cont.innerHTML = tiendas.map(t => {
         const imgSrc = t.imagen_url || t.imagen || '';
-        const fechaStr = formatearFechaCorta(t.fecha);
-        const temaStr = t.tema ? escapeHtml((TEMAS_TIENDA.find(function(x){return x.id===t.tema;})||{}).nombre || '') : '';
-        return '<div class="tienda-thumb" data-id="'+escapeHtml(t.id)+'" data-url="'+escapeHtml(imgSrc)+'"><button class="tienda-thumb-borrar" data-id="'+escapeHtml(t.id)+'" type="button" title="Eliminar tienda">🗑️</button><img src="'+escapeHtml(imgSrc)+'" alt="'+escapeHtml(t.nombre)+'" loading="lazy" onerror="this.onerror=null;this.src=\''+PLACEHOLDER_IMG+'\'"><div class="tienda-thumb-info"><div class="tienda-thumb-nombre">'+escapeHtml(t.nombre)+'</div><div class="tienda-thumb-fecha">'+escapeHtml(fechaStr)+(temaStr ? ' · '+temaStr : '')+'</div></div></div>';
+        const temaStr = t.tema ? escapeHtml((TEMAS_TIENDA.find(x => x.id===t.tema)||{}).nombre || '') : '';
+        return '<div class="tienda-thumb" data-id="'+escapeHtml(t.id)+'" data-url="'+escapeHtml(imgSrc)+'"><button class="tienda-thumb-borrar" data-id="'+escapeHtml(t.id)+'" type="button" title="Eliminar tienda">🗑️</button><img src="'+escapeHtml(imgSrc)+'" alt="'+escapeHtml(t.nombre)+'" loading="lazy" onerror="this.onerror=null;this.src=\''+PLACEHOLDER_IMG+'\'"><div class="tienda-thumb-info"><div class="tienda-thumb-nombre">'+escapeHtml(t.nombre)+'</div><div class="tienda-thumb-fecha">'+escapeHtml(formatearFechaCorta(t.fecha))+(temaStr ? ' · '+temaStr : '')+'</div></div></div>';
     }).join('');
-    cont.querySelectorAll('.tienda-thumb').forEach(function(thumb){
-        thumb.addEventListener('click', function(e){
-            if (e.target.closest('.tienda-thumb-borrar')) return;
-            const url = thumb.dataset.url;
-            if (url) { const lb = document.getElementById('lightbox'); const lbImg = document.getElementById('lightboxImg'); lbImg.src = url; lb.classList.add('activo'); }
-        });
-    });
-    cont.querySelectorAll('.tienda-thumb-borrar').forEach(function(btn){
-        btn.addEventListener('click', function(e){
-            e.stopPropagation();
-            if (btn.dataset.id) eliminarTiendaGuardada(btn.dataset.id);
-        });
-    });
+    cont.querySelectorAll('.tienda-thumb').forEach(thumb => thumb.addEventListener('click', e => {
+        if (e.target.closest('.tienda-thumb-borrar')) return;
+        const url = thumb.dataset.url;
+        if (url) { const lb = document.getElementById('lightbox'), lbImg = document.getElementById('lightboxImg'); lbImg.src = url; lb.classList.add('activo'); }
+    }));
+    cont.querySelectorAll('.tienda-thumb-borrar').forEach(btn => btn.addEventListener('click', e => {
+        e.stopPropagation(); if (btn.dataset.id) eliminarTiendaGuardada(btn.dataset.id);
+    }));
 }
-function renderizarGaleriaTiendas() {
-    renderGaleriaCon(leerTiendasGuardadas());
-    actualizarGaleriaDesdeSupabase();
-}
-async function actualizarGaleriaDesdeSupabase() {
-    const tiendas = await cargarTiendasGuardadas();
-    renderGaleriaCon(tiendas);
-}
+function renderizarGaleriaTiendas() { renderGaleriaCon(leerTiendasGuardadas()); actualizarGaleriaDesdeSupabase(); }
+async function actualizarGaleriaDesdeSupabase() { renderGaleriaCon(await cargarTiendasGuardadas()); }
 async function eliminarTiendaGuardada(id) {
     if (!id) return;
     if (!confirm('¿Eliminar esta tienda guardada?')) return;
     const tiendas = await cargarTiendasGuardadas();
-    const t = tiendas.find(function(x){return String(x.id) === String(id);});
+    const t = tiendas.find(x => String(x.id) === String(id));
     if (supabaseDisponible && t && t.imagen_path) {
-        try { await supabaseClient.storage.from(SUPABASE_BUCKET_TIENDAS).remove([t.imagen_path]); } catch(e) { console.warn('Storage delete:', e); }
-        try { await supabaseClient.from('tiendas_guardadas').delete().eq('id', t.id); } catch(e) { console.warn('Table delete:', e); }
+        try { await supabaseClient.storage.from(SUPABASE_BUCKET_TIENDAS).remove([t.imagen_path]); } catch(e) {}
+        try { await supabaseClient.from('tiendas_guardadas').delete().eq('id', t.id); } catch(e) {}
     }
-    const locales = leerTiendasGuardadas().filter(function(x){return String(x.id) !== String(id);});
+    const locales = leerTiendasGuardadas().filter(x => String(x.id) !== String(id));
     try { localStorage.setItem(STORAGE_TIENDAS, JSON.stringify(locales)); } catch(e){}
     toast('Tienda eliminada', 'success');
     await actualizarGaleriaDesdeSupabase();
 }
 
-document.getElementById('btnLimpiarTienda').addEventListener('click', function(){
+document.getElementById('btnLimpiarTienda').addEventListener('click', () => {
     if (tiendaState.items.length === 0) { toast('La tienda ya está vacía', 'info'); return; }
     if (!confirm('¿Vaciar toda la tienda?')) return;
-    tiendaState.items = [];
-    guardarTiendaState();
-    renderizarEscenario();
+    tiendaState.items = []; guardarTiendaState(); renderizarEscenario();
     toast('Tienda vaciada', 'success');
 });
 
 const modalGuardarTienda = document.getElementById('modalGuardarTienda');
 const inputCreadorTienda = document.getElementById('nombreCreadorTienda');
-document.getElementById('btnGuardarTienda').addEventListener('click', async function(){
+document.getElementById('btnGuardarTienda').addEventListener('click', async () => {
     if (tiendaState.items.length === 0 && !confirm('La tienda está vacía. ¿Guardar de todas formas?')) return;
     if (document.fullscreenElement) {
         try { await document.exitFullscreen(); } catch(e){}
         const el = document.getElementById('tiendaBox');
         if (el) el.classList.remove('is-fullscreen');
         resetEscenarioSize();
-        await new Promise(function(r){setTimeout(r,220);});
+        await new Promise(r => setTimeout(r, 220));
     }
     inputCreadorTienda.value = '';
     abrirModal(modalGuardarTienda, '#nombreCreadorTienda');
 });
-document.getElementById('btnCancelarGuardarTienda').addEventListener('click', function(){ cerrarModal(modalGuardarTienda); });
-document.getElementById('btnConfirmarGuardarTienda').addEventListener('click', async function(){
+document.getElementById('btnCancelarGuardarTienda').addEventListener('click', () => cerrarModal(modalGuardarTienda));
+document.getElementById('btnConfirmarGuardarTienda').addEventListener('click', async () => {
     const nombre = inputCreadorTienda.value.trim() || 'Anónimo';
     cerrarModal(modalGuardarTienda);
     await capturarYGuardarTienda(nombre);
 });
-inputCreadorTienda.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnConfirmarGuardarTienda').click(); } });
+inputCreadorTienda.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnConfirmarGuardarTienda').click(); } });
 
 function ajustarTamanoFullscreen() {
     const el = document.getElementById('tiendaBox');
@@ -2287,19 +2185,17 @@ function ajustarTamanoFullscreen() {
     if (!captura || !escenario) return;
     const rect = captura.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return;
-    let targetW = rect.width - 8;
-    let targetH = targetW;
+    let targetW = rect.width - 8, targetH = targetW;
     if (targetH > rect.height - 8) { targetH = rect.height - 8; targetW = targetH; }
-    escenario.style.width = targetW+'px';
-    escenario.style.height = targetH+'px';
+    escenario.style.width = targetW+'px'; escenario.style.height = targetH+'px';
     resetEscenarioZoom(false);
-    requestAnimationFrame(function(){ computeSlotZones(); actualizarTotalCaja(); actualizarTodosZIndex(); });
+    requestAnimationFrame(() => { computeSlotZones(); actualizarTotalCaja(); actualizarTodosZIndex(); });
 }
 function resetEscenarioSize() {
     const escenario = document.getElementById('tiendaBox') ? document.getElementById('tiendaBox').querySelector('.tienda-escenario') : null;
     if (escenario) { escenario.style.width = ''; escenario.style.height = ''; }
     resetEscenarioZoom(false);
-    requestAnimationFrame(function(){ computeSlotZones(); actualizarTotalCaja(); actualizarTodosZIndex(); });
+    requestAnimationFrame(() => { computeSlotZones(); actualizarTotalCaja(); actualizarTodosZIndex(); });
 }
 async function toggleFullscreenTienda() {
     const el = document.getElementById('tiendaBox');
@@ -2314,18 +2210,18 @@ async function toggleFullscreenTienda() {
     }
 }
 document.getElementById('btnExpandStore').addEventListener('click', toggleFullscreenTienda);
-document.addEventListener('fullscreenchange', function(){
+document.addEventListener('fullscreenchange', () => {
     const el = document.getElementById('tiendaBox');
     if (document.fullscreenElement === el) setTimeout(ajustarTamanoFullscreen, 100);
     else { if (el) el.classList.remove('is-fullscreen'); resetEscenarioSize(); }
 });
-window.addEventListener('resize', function(){
+window.addEventListener('resize', () => {
     const el = document.getElementById('tiendaBox');
     if ((document.fullscreenElement === el) || (el && el.classList.contains('is-fullscreen'))) ajustarTamanoFullscreen();
     else { computeSlotZones(); actualizarTotalCaja(); actualizarTodosZIndex(); clampPan(); applyEscenarioView(false); }
 });
 
-/* ============ LISTAS ============ */
+/* ============ LISTAS: TARJETA (con CUADRANTE ROJO) ============ */
 function crearTarjetaLista(lista) {
     const tipo = lista.tipo || 'adulto';
     const card = document.createElement('div');
@@ -2335,25 +2231,39 @@ function crearTarjetaLista(lista) {
     card.tabIndex = 0;
     card.setAttribute('role', 'button');
     card.title = 'Clic para ver la lista completa';
-    const partes = [lista.nombre || ''];
-    (lista.deseos || []).forEach(function(d){ if (d.nombre) partes.push(d.nombre); if (d.notas) partes.push(d.notas); if (d.enlace) partes.push(d.enlace); });
-    card.dataset.search = partes.join(' ').toLowerCase();
-    const abrir = function(){ abrirVisualizacion(lista.id); };
-    card.addEventListener('click', function(e){ if (e.target.closest('.acciones-tarjeta')) return; if (e.target.closest('img')) return; if (e.target.closest('.deseo-destacado-link')) return; abrir(); });
-    card.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(); } });
-    const deseosValidos = (lista.deseos || []).filter(function(d){ return (d.nombre&&d.nombre.trim()) || (d.notas&&d.notas.trim()) || (d.enlace&&d.enlace.trim()) || (Array.isArray(d.imagenes)&&d.imagenes.length); });
+    const abrir = () => abrirVisualizacion(lista.id);
+    card.addEventListener('click', e => {
+        if (e.target.closest('.acciones-tarjeta')) return;
+        if (e.target.closest('img')) return;
+        if (e.target.closest('.deseo-destacado-link')) return;
+        abrir();
+    });
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(); } });
+    const deseosValidos = (lista.deseos || []).filter(d => (d.nombre&&d.nombre.trim()) || (d.notas&&d.notas.trim()) || (d.enlace&&d.enlace.trim()) || (Array.isArray(d.imagenes)&&d.imagenes.length));
 
     const header = document.createElement('div'); header.className = 'card-header';
     const h3 = document.createElement('h3'); h3.textContent = lista.nombre;
     const badges = document.createElement('div'); badges.className = 'header-badges';
+
+    // CUADRANTE ROJO: badge con conteo de deseos (va primero, más prominente)
+    const countBadge = document.createElement('span');
+    countBadge.className = 'badge-count';
+    countBadge.textContent = '🎁 ' + deseosValidos.length;
+    countBadge.title = deseosValidos.length + (deseosValidos.length === 1 ? ' deseo' : ' deseos');
+    badges.appendChild(countBadge);
+
+    // Badge de tipo (adulto/niño)
     const badge = document.createElement('span');
-    badge.className = 'badge-tipo '+tipo; badge.textContent = tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño';
-    badges.appendChild(badge); header.appendChild(h3); header.appendChild(badges); card.appendChild(header);
+    badge.className = 'badge-tipo '+tipo;
+    badge.textContent = tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño';
+    badges.appendChild(badge);
+
+    header.appendChild(h3); header.appendChild(badges); card.appendChild(header);
     if (tipo === 'nino') { const p = document.createElement('p'); p.className = 'meta-info'; p.textContent = '🎂 '+(lista.edad != null ? lista.edad : '?')+' años'; card.appendChild(p); }
     if (deseosValidos.length > 0) {
         const preview = document.createElement('div'); preview.className = 'deseos-preview';
         const visibles = deseosValidos.slice(0,2);
-        visibles.forEach(function(d){
+        visibles.forEach(d => {
             const el = document.createElement('div'); el.className = 'deseo-destacado';
             const primeraImg = Array.isArray(d.imagenes) && d.imagenes.length ? d.imagenes[0] : null;
             if (primeraImg) { const img = document.createElement('img'); img.src = primeraImg; img.alt=''; img.loading='lazy'; img.onerror = function(){ this.onerror=null; this.src = PLACEHOLDER_IMG; }; el.appendChild(img); }
@@ -2364,7 +2274,7 @@ function crearTarjetaLista(lista) {
             if (d.enlace) {
                 const link = document.createElement('a'); link.className = 'deseo-destacado-link';
                 link.href = normalizarURL(d.enlace) || d.enlace; link.target = '_blank'; link.rel = 'noopener noreferrer';
-                link.textContent = '🔗'; link.addEventListener('click', function(ev){ ev.stopPropagation(); });
+                link.textContent = '🔗'; link.addEventListener('click', ev => ev.stopPropagation());
                 nombreRow.appendChild(link);
             }
             txt.appendChild(nombreRow);
@@ -2378,13 +2288,13 @@ function crearTarjetaLista(lista) {
     const hint = document.createElement('div'); hint.className = 'card-hint'; hint.textContent = '👁️ Toque para ver la lista completa'; card.appendChild(hint);
     const acciones = document.createElement('div'); acciones.className = 'acciones-tarjeta';
     const btnPDF = document.createElement('button'); btnPDF.className = 'btn-pdf'; btnPDF.textContent = '📄 PDF'; btnPDF.type = 'button';
-    btnPDF.addEventListener('click', function(e){ e.stopPropagation(); descargarPDF(lista); });
+    btnPDF.addEventListener('click', e => { e.stopPropagation(); descargarPDF(lista); });
     acciones.appendChild(btnPDF);
     const btnJPG = document.createElement('button'); btnJPG.className = 'btn-jpg'; btnJPG.textContent = '🖼️ Descargar lista'; btnJPG.type = 'button';
-    btnJPG.addEventListener('click', function(e){ e.stopPropagation(); descargarImagen(lista); });
+    btnJPG.addEventListener('click', e => { e.stopPropagation(); descargarImagen(lista); });
     acciones.appendChild(btnJPG);
     const btnEditar = document.createElement('button'); btnEditar.className = 'btn-editar'; btnEditar.textContent = '✏️ Editar'; btnEditar.type = 'button';
-    btnEditar.addEventListener('click', function(e){ e.stopPropagation(); abrirModalEditar(lista.id); });
+    btnEditar.addEventListener('click', e => { e.stopPropagation(); abrirModalEditar(lista.id); });
     acciones.appendChild(btnEditar);
     card.appendChild(acciones);
     return card;
@@ -2393,86 +2303,82 @@ function crearTarjetaLista(lista) {
 function obtenerListasFiltradasYOrdenadas() {
     const t = (document.getElementById('buscador').value || '').toLowerCase().trim();
     let arr = listas.slice();
-    if (filtroActual === 'adulto') arr = arr.filter(function(l){return (l.tipo||'adulto')==='adulto';});
-    else if (filtroActual === 'nino') arr = arr.filter(function(l){return l.tipo==='nino';});
-    if (t) arr = arr.filter(function(l){ const base = (l.nombre||'').toLowerCase(); if (base.indexOf(t)!==-1) return true; return (l.deseos||[]).some(function(d){ return (d.nombre||'').toLowerCase().indexOf(t)!==-1 || (d.notas||'').toLowerCase().indexOf(t)!==-1 || (d.enlace||'').toLowerCase().indexOf(t)!==-1; }); });
-    if (ordenActual === 'nombre') arr.sort(function(a,b){ return (a.nombre||'').localeCompare(b.nombre||'','es',{sensitivity:'base'}); });
-    else if (ordenActual === 'deseos') arr.sort(function(a,b){ return contarDeseos(b) - contarDeseos(a); });
-    else arr.sort(function(a,b){ return obtenerTimestampLista(b) - obtenerTimestampLista(a); });
+    if (filtroActual === 'adulto') arr = arr.filter(l => (l.tipo||'adulto')==='adulto');
+    else if (filtroActual === 'nino') arr = arr.filter(l => l.tipo==='nino');
+    if (t) arr = arr.filter(l => {
+        if ((l.nombre||'').toLowerCase().indexOf(t) !== -1) return true;
+        return (l.deseos||[]).some(d => (d.nombre||'').toLowerCase().indexOf(t)!==-1 || (d.notas||'').toLowerCase().indexOf(t)!==-1 || (d.enlace||'').toLowerCase().indexOf(t)!==-1);
+    });
+    if (ordenActual === 'nombre') arr.sort((a,b) => (a.nombre||'').localeCompare(b.nombre||'','es',{sensitivity:'base'}));
+    else if (ordenActual === 'deseos') arr.sort((a,b) => contarDeseos(b) - contarDeseos(a));
+    else arr.sort((a,b) => obtenerTimestampLista(b) - obtenerTimestampLista(a));
     return arr;
 }
-
 function renderizarListas() {
     const grid = document.getElementById('gridListas');
     const vacio = document.getElementById('mensajeVacioListas');
-    const contadorTotal = document.getElementById('contadorListas');
-    contadorTotal.textContent = '('+listas.length+')';
+    document.getElementById('contadorListas').textContent = '('+listas.length+')';
     const arr = obtenerListasFiltradasYOrdenadas();
     grid.innerHTML = '';
     if (arr.length === 0) { vacio.style.display = ''; vacio.textContent = listas.length === 0 ? '🎅 Aún no hay listas. ¡Creá la primera!' : '🔍 No hay listas que coincidan con la búsqueda.'; return; }
     vacio.style.display = 'none';
-    arr.forEach(function(l){ grid.appendChild(crearTarjetaLista(l)); });
+    arr.forEach(l => grid.appendChild(crearTarjetaLista(l)));
 }
-
-document.querySelectorAll('.filtro-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){
-        document.querySelectorAll('.filtro-btn').forEach(function(b){ b.classList.remove('activo'); });
-        btn.classList.add('activo');
-        filtroActual = btn.dataset.filtro;
-        renderizarListas();
-    });
-});
-document.getElementById('ordenar').addEventListener('change', function(e){ ordenActual = e.target.value; renderizarListas(); });
+document.querySelectorAll('.filtro-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('activo'));
+    btn.classList.add('activo'); filtroActual = btn.dataset.filtro; renderizarListas();
+}));
+document.getElementById('ordenar').addEventListener('change', e => { ordenActual = e.target.value; renderizarListas(); });
 document.getElementById('buscador').addEventListener('input', renderizarListas);
 
 const lightbox = document.getElementById('lightbox');
-function abrirLightbox(url) { const img = document.getElementById('lightboxImg'); img.src = url; img.onerror = function(){ img.src = PLACEHOLDER_IMG; }; lightbox.classList.add('activo'); }
-lightbox.addEventListener('click', function(){ lightbox.classList.remove('activo'); });
+function abrirLightbox(url) { const img = document.getElementById('lightboxImg'); img.src = url; img.onerror = () => { img.src = PLACEHOLDER_IMG; }; lightbox.classList.add('activo'); }
+lightbox.addEventListener('click', () => lightbox.classList.remove('activo'));
 
 async function eliminarLista(id) {
-    const lista = listas.find(function(l){return l.id===id;});
+    const lista = listas.find(l => l.id===id);
     if (!lista) return;
     if (!confirm('¿Eliminar la lista de "'+lista.nombre+'"?')) return;
-    listas = listas.filter(function(l){return l.id!==id;});
+    listas = listas.filter(l => l.id!==id);
     renderizarListas();
     await eliminarListaSupabase(id);
     toast('Lista eliminada', 'success');
 }
 
+/* ============ VISUALIZACIÓN ============ */
 const modalVisualizar = document.getElementById('modalVisualizar');
 function abrirVisualizacion(id) {
-    const lista = listas.find(function(l){return l.id===id;});
+    const lista = listas.find(l => l.id===id);
     if (!lista) return;
     const tipo = lista.tipo || 'adulto';
     document.getElementById('visTitulo').textContent = lista.nombre;
     const cont = document.getElementById('visContenido');
     let html = '<div class="vis-cabecera"><span class="badge-tipo '+tipo+'">'+(tipo==='adulto' ? '🎅 Adulto' : '🎈 Niño')+'</span></div>';
     if (tipo === 'nino' && lista.edad != null) html += '<p class="vis-linea">🎂 '+escapeHtml(String(lista.edad))+' años</p>';
-    const deseos = Array.isArray(lista.deseos) ? lista.deseos : [];
-    const deseosValidos = deseos.filter(function(d){ return (d.nombre||'').trim() || (d.notas||'').trim() || (d.enlace||'').trim() || (Array.isArray(d.imagenes) && d.imagenes.length); });
+    const deseosValidos = (Array.isArray(lista.deseos) ? lista.deseos : []).filter(d => (d.nombre||'').trim() || (d.notas||'').trim() || (d.enlace||'').trim() || (Array.isArray(d.imagenes) && d.imagenes.length));
     if (deseosValidos.length === 0) html += '<p class="vis-vacio">Sin deseos registrados.</p>';
     else {
         html += '<h3 class="vis-subtitulo">🎁 Deseos</h3>';
-        deseosValidos.forEach(function(d, i){
-            html += '<div class="vis-deseo">';
-            html += '<h4>'+(i+1)+'. '+escapeHtml(d.nombre || 'Deseo')+'</h4>';
+        deseosValidos.forEach((d, i) => {
+            html += '<div class="vis-deseo"><h4>'+(i+1)+'. '+escapeHtml(d.nombre || 'Deseo')+'</h4>';
             if (d.notas) html += '<p class="vis-notas">'+escapeHtml(d.notas)+'</p>';
             if (d.enlace) { const url = normalizarURL(d.enlace) || d.enlace; html += '<p><a class="vis-enlace" href="'+escapeHtml(url)+'" target="_blank" rel="noopener noreferrer">🔗 '+escapeHtml(d.enlace)+'</a></p>'; }
             if (Array.isArray(d.imagenes) && d.imagenes.length) {
                 html += '<div class="vis-imagenes">';
-                d.imagenes.forEach(function(u){ html += '<img src="'+escapeHtml(u)+'" alt="Imagen del deseo" loading="lazy" data-full="'+escapeHtml(u)+'">'; });
+                d.imagenes.forEach(u => { html += '<img src="'+escapeHtml(u)+'" alt="Imagen del deseo" loading="lazy" data-full="'+escapeHtml(u)+'">'; });
                 html += '</div>';
             }
             html += '</div>';
         });
     }
     cont.innerHTML = html;
-    cont.querySelectorAll('.vis-imagenes img').forEach(function(img){ img.addEventListener('click', function(){ abrirLightbox(img.dataset.full || img.src); }); });
-    document.getElementById('btnEditarDesdeVisualizar').onclick = function(){ cerrarModal(modalVisualizar); setTimeout(function(){ abrirModalEditar(id); }, 120); };
+    cont.querySelectorAll('.vis-imagenes img').forEach(img => img.addEventListener('click', () => abrirLightbox(img.dataset.full || img.src)));
+    document.getElementById('btnEditarDesdeVisualizar').onclick = () => { cerrarModal(modalVisualizar); setTimeout(() => abrirModalEditar(id), 120); };
     abrirModal(modalVisualizar, '#btnCerrarVisualizar');
 }
-document.getElementById('btnCerrarVisualizar').addEventListener('click', function(){ cerrarModal(modalVisualizar); });
+document.getElementById('btnCerrarVisualizar').addEventListener('click', () => cerrarModal(modalVisualizar));
 
+/* ============ EDITOR DE LISTAS ============ */
 const modal = document.getElementById('modalLista');
 const modalTitulo = document.getElementById('modalTitulo');
 const listaIdInput = document.getElementById('listaId');
@@ -2482,21 +2388,19 @@ const btnEliminarLista = document.getElementById('btnEliminarLista');
 const contDeseos = document.getElementById('contenedorDeseos');
 
 function actualizarCamposTipo() {
-    const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
-    const esNino = tipo === 'nino';
+    const esNino = document.querySelector('input[name="tipoLista"]:checked').value === 'nino';
     document.getElementById('labelNombre').textContent = esNino ? 'Nombre del niño/a:' : 'Nombre de la persona:';
     document.getElementById('grupoEdad').classList.toggle('oculto', !esNino);
 }
-document.querySelectorAll('input[name="tipoLista"]').forEach(function(r){ r.addEventListener('change', actualizarCamposTipo); });
+document.querySelectorAll('input[name="tipoLista"]').forEach(r => r.addEventListener('change', actualizarCamposTipo));
 
 function actualizarPreviewImagenesDeseo(index, previewDiv) {
     previewDiv.innerHTML = '';
-    const imgs = deseosTemporales[index].imagenes || [];
-    imgs.forEach(function(url, j){
+    (deseosTemporales[index].imagenes || []).forEach((url, j) => {
         const img = document.createElement('img');
         img.src = url; img.loading='lazy'; img.title='Clic para eliminar'; img.alt='Imagen del deseo';
         img.onerror = function(){ this.onerror=null; this.src = PLACEHOLDER_IMG; };
-        img.addEventListener('click', function(){ deseosTemporales[index].imagenes.splice(j,1); actualizarPreviewImagenesDeseo(index, previewDiv); });
+        img.addEventListener('click', () => { deseosTemporales[index].imagenes.splice(j,1); actualizarPreviewImagenesDeseo(index, previewDiv); });
         previewDiv.appendChild(img);
     });
 }
@@ -2504,43 +2408,43 @@ function actualizarPreviewImagenesDeseo(index, previewDiv) {
 function renderizarDeseos() {
     contDeseos.innerHTML = '';
     if (!Array.isArray(deseosTemporales) || deseosTemporales.length === 0) deseosTemporales = [crearDeseoVacio()];
-    deseosTemporales.forEach(function(deseo, i){
+    deseosTemporales.forEach((deseo, i) => {
         const card = document.createElement('div'); card.className = 'deseo-editor';
         const header = document.createElement('div'); header.className = 'deseo-editor-header';
         const num = document.createElement('span'); num.className = 'deseo-editor-num'; num.textContent = 'Deseo #'+(i+1);
         header.appendChild(num);
         if (deseosTemporales.length > 1) {
             const btnX = document.createElement('button'); btnX.type='button'; btnX.className='btn-eliminar-deseo'; btnX.textContent='×'; btnX.title='Eliminar este deseo';
-            btnX.addEventListener('click', function(){ deseosTemporales.splice(i,1); if (deseosTemporales.length===0) deseosTemporales.push(crearDeseoVacio()); renderizarDeseos(); });
+            btnX.addEventListener('click', () => { deseosTemporales.splice(i,1); if (deseosTemporales.length===0) deseosTemporales.push(crearDeseoVacio()); renderizarDeseos(); });
             header.appendChild(btnX);
         }
         card.appendChild(header);
         const lblNombre = document.createElement('label'); lblNombre.textContent = 'Nombre del deseo'; card.appendChild(lblNombre);
         const inNombre = document.createElement('input'); inNombre.type='text'; inNombre.placeholder='Ej: Libro de aventuras'; inNombre.value = deseo.nombre || '';
-        inNombre.addEventListener('input', function(e){ deseosTemporales[i].nombre = e.target.value; });
+        inNombre.addEventListener('input', e => { deseosTemporales[i].nombre = e.target.value; });
         card.appendChild(inNombre);
         const lblNotas = document.createElement('label'); lblNotas.textContent = 'Notas importantes'; card.appendChild(lblNotas);
         const inNotas = document.createElement('textarea'); inNotas.placeholder='Color, talla, detalles...'; inNotas.value = deseo.notas || '';
-        inNotas.addEventListener('input', function(e){ deseosTemporales[i].notas = e.target.value; });
+        inNotas.addEventListener('input', e => { deseosTemporales[i].notas = e.target.value; });
         card.appendChild(inNotas);
         const lblEnlace = document.createElement('label'); lblEnlace.textContent = 'Enlace (opcional)'; card.appendChild(lblEnlace);
         const inEnlace = document.createElement('input'); inEnlace.type='text'; inEnlace.placeholder='https://...'; inEnlace.value = deseo.enlace || '';
-        inEnlace.addEventListener('input', function(e){ deseosTemporales[i].enlace = e.target.value; });
+        inEnlace.addEventListener('input', e => { deseosTemporales[i].enlace = e.target.value; });
         card.appendChild(inEnlace);
         const lblImg = document.createElement('label'); lblImg.textContent = 'Imágenes'; card.appendChild(lblImg);
         const botones = document.createElement('div'); botones.className = 'deseo-img-botones';
         const inUrl = document.createElement('input'); inUrl.type='text'; inUrl.placeholder='URL de imagen...'; botones.appendChild(inUrl);
         const btnAddUrl = document.createElement('button'); btnAddUrl.type='button'; btnAddUrl.className='btn-agregar'; btnAddUrl.textContent='+ URL';
-        btnAddUrl.addEventListener('click', function(){ const u = inUrl.value.trim(); if (!u) return; deseosTemporales[i].imagenes.push(u); inUrl.value=''; actualizarPreviewImagenesDeseo(i, previewDiv); });
+        btnAddUrl.addEventListener('click', () => { const u = inUrl.value.trim(); if (!u) return; deseosTemporales[i].imagenes.push(u); inUrl.value=''; actualizarPreviewImagenesDeseo(i, previewDiv); });
         botones.appendChild(btnAddUrl);
         const fileLabel = document.createElement('label'); fileLabel.className='btn-file-mini'; fileLabel.textContent='📷 Subir imagen';
         const fileInput = document.createElement('input'); fileInput.type='file'; fileInput.accept='image/*'; fileInput.multiple = true; fileInput.style.display='none';
-        fileInput.addEventListener('change', function(e){
+        fileInput.addEventListener('change', e => {
             const files = e.target.files; if (!files || !files.length) return;
-            Array.from(files).forEach(function(file){
+            Array.from(files).forEach(file => {
                 if (!file.type.startsWith('image/')) return;
                 const reader = new FileReader();
-                reader.onload = function(ev){ deseosTemporales[i].imagenes.push(ev.target.result); actualizarPreviewImagenesDeseo(i, previewDiv); };
+                reader.onload = ev => { deseosTemporales[i].imagenes.push(ev.target.result); actualizarPreviewImagenesDeseo(i, previewDiv); };
                 reader.readAsDataURL(file);
             });
             e.target.value = '';
@@ -2553,24 +2457,23 @@ function renderizarDeseos() {
         contDeseos.appendChild(card);
     });
 }
-document.getElementById('btnAgregarDeseo').addEventListener('click', function(){ deseosTemporales.push(crearDeseoVacio()); renderizarDeseos(); });
+document.getElementById('btnAgregarDeseo').addEventListener('click', () => { deseosTemporales.push(crearDeseoVacio()); renderizarDeseos(); });
 
 function abrirModalCrear(tipoDefault) {
-    tipoDefault = tipoDefault || 'adulto';
     listaEditandoId = null;
     modalTitulo.textContent = 'Crear lista de deseo';
     listaIdInput.value = ''; nombreInput.value = ''; edadInput.value = '';
-    document.querySelector('input[name="tipoLista"][value="'+tipoDefault+'"]').checked = true;
+    document.querySelector('input[name="tipoLista"][value="'+(tipoDefault||'adulto')+'"]').checked = true;
     actualizarCamposTipo();
     deseosTemporales = [crearDeseoVacio()];
     btnEliminarLista.style.display = 'none';
     renderizarDeseos();
     abrirModal(modal, '#nombrePersona');
 }
-document.getElementById('btnCrearLista').addEventListener('click', function(){ abrirModalCrear('adulto'); });
+document.getElementById('btnCrearLista').addEventListener('click', () => abrirModalCrear('adulto'));
 
 function abrirModalEditar(id) {
-    const lista = listas.find(function(l){return l.id===id;});
+    const lista = listas.find(l => l.id===id);
     if (!lista) return;
     listaEditandoId = id;
     modalTitulo.textContent = 'Editar lista de deseo';
@@ -2583,58 +2486,119 @@ function abrirModalEditar(id) {
     renderizarDeseos();
     abrirModal(modal, '#nombrePersona');
 }
-document.getElementById('btnCancelarModal').addEventListener('click', function(){ cerrarModal(modal); });
-btnEliminarLista.addEventListener('click', function(){
-    if (listaEditandoId) { const id = listaEditandoId; cerrarModal(modal); setTimeout(function(){ eliminarLista(id); }, 100); }
+document.getElementById('btnCancelarModal').addEventListener('click', () => cerrarModal(modal));
+btnEliminarLista.addEventListener('click', () => {
+    if (listaEditandoId) { const id = listaEditandoId; cerrarModal(modal); setTimeout(() => eliminarLista(id), 100); }
 });
+
+/* ============ GUARDAR LISTA (con upload a Storage + CIERRE GARANTIZADO) ============ */
 document.getElementById('btnGuardarLista').addEventListener('click', async function(){
     const nombre = nombreInput.value.trim();
     const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
     const edad = edadInput.value.trim();
+
     if (!nombre) { toast('Ingresá el nombre', 'error'); nombreInput.focus(); return; }
     if (tipo === 'nino' && !edad) { toast('Ingresá la edad del niño/a', 'error'); edadInput.focus(); return; }
-    const existe = listas.some(function(l){ return l.nombre.toLowerCase()===nombre.toLowerCase() && (l.tipo||'adulto')===tipo && l.id!==listaEditandoId; });
+    const existe = listas.some(l => l.nombre.toLowerCase()===nombre.toLowerCase() && (l.tipo||'adulto')===tipo && l.id!==listaEditandoId);
     if (existe) { toast('Ya existe una lista con ese nombre', 'error'); return; }
-    const deseosLimpios = deseosTemporales.map(function(d){ return { nombre:(d.nombre||'').trim(), notas:(d.notas||'').trim(), imagenes:(d.imagenes||[]).filter(function(u){return String(u).trim()!=='';}), enlace:normalizarURL(d.enlace||'') }; }).filter(function(d){ return d.nombre || d.notas || d.imagenes.length || d.enlace; });
-    let createdAt = null;
-    if (listaEditandoId) { const orig = listas.find(function(l){return l.id===listaEditandoId;}); if (orig && orig.createdAt) createdAt = orig.createdAt; }
-    if (!createdAt) createdAt = new Date().toISOString();
-    const nueva = { id: listaEditandoId || 'lista_'+Date.now()+'_'+Math.random().toString(36).slice(2,8), nombre:nombre, tipo:tipo, edad: tipo === 'nino' ? parseInt(edad,10) : null, deseos:deseosLimpios, createdAt:createdAt };
-    if (listaEditandoId) { const idx = listas.findIndex(function(l){return l.id===listaEditandoId;}); if (idx !== -1) listas[idx] = nueva; toast('Lista actualizada', 'success'); }
-    else { listas.push(nueva); toast('Lista creada', 'success'); }
-    renderizarListas();
-    await guardarListaSupabase(nueva);
-    cerrarModal(modal);
+
+    const btn = this;
+    const prevTxt = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+
+    try {
+        // 1) Limpiar deseos
+        let deseosLimpios = deseosTemporales.map(d => ({
+            nombre: (d.nombre||'').trim(),
+            notas: (d.notas||'').trim(),
+            imagenes: (d.imagenes||[]).filter(u => String(u).trim() !== ''),
+            enlace: normalizarURL(d.enlace||'')
+        })).filter(d => d.nombre || d.notas || d.imagenes.length || d.enlace);
+
+        // 2) Subir imágenes base64 a Storage → guardar solo URLs públicas
+        const hayDataUrl = deseosLimpios.some(d => d.imagenes.some(u => String(u).indexOf('data:image') === 0));
+        if (hayDataUrl && supabaseDisponible) {
+            btn.textContent = 'Subiendo imágenes…';
+            deseosLimpios = await procesarImagenesDeseos(deseosLimpios);
+        }
+
+        // 3) Construir la lista final
+        let createdAt = null;
+        if (listaEditandoId) {
+            const orig = listas.find(l => l.id===listaEditandoId);
+            if (orig && orig.createdAt) createdAt = orig.createdAt;
+        }
+        if (!createdAt) createdAt = new Date().toISOString();
+
+        const nueva = {
+            id: listaEditandoId || ('lista_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)),
+            nombre, tipo,
+            edad: tipo === 'nino' ? parseInt(edad, 10) : null,
+            deseos: deseosLimpios,
+            createdAt
+        };
+
+        // 4) Actualizar array + localStorage
+        if (listaEditandoId) {
+            const idx = listas.findIndex(l => l.id === listaEditandoId);
+            if (idx !== -1) listas[idx] = nueva;
+            toast('Lista actualizada', 'success');
+        } else {
+            listas.push(nueva);
+            toast('Lista creada', 'success');
+        }
+        persistirLocal();
+        renderizarListas();
+
+        // 5) Sincronizar con Supabase en segundo plano (fire & forget)
+        guardarListaSupabase(nueva);
+    } catch (e) {
+        console.error('Guardar lista:', e);
+        toast('Error al guardar: ' + (e.message || e), 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = prevTxt;
+        cerrarModal(modal); // El modal SIEMPRE se cierra al guardar
+    }
 });
 
+/* ============ MENSAJE ANÓNIMO ============ */
 const inputMensajeAnonimo = document.getElementById('inputMensajeAnonimo');
 const contadorCaracteresEl = document.getElementById('contadorCaracteres');
 const btnEnviarAnonimo = document.getElementById('btnEnviarAnonimo');
 function actualizarContadorCaracteres() {
-    const txt = inputMensajeAnonimo.value; const n = contarCaracteres(txt);
+    const n = contarCaracteres(inputMensajeAnonimo.value);
     contadorCaracteresEl.textContent = n;
     const excede = n > 100;
     contadorCaracteresEl.parentElement.classList.toggle('excede', excede);
     btnEnviarAnonimo.disabled = excede || n === 0;
 }
 inputMensajeAnonimo.addEventListener('input', actualizarContadorCaracteres);
-btnEnviarAnonimo.addEventListener('click', async function(){
-    const txt = inputMensajeAnonimo.value.trim(); const n = contarCaracteres(txt);
+btnEnviarAnonimo.addEventListener('click', async () => {
+    const txt = inputMensajeAnonimo.value.trim();
+    const n = contarCaracteres(txt);
     if (!txt || n === 0) { toast('Escribí un mensaje', 'error'); return; }
     if (n > 100) { toast('Máximo 100 caracteres', 'error'); return; }
     btnEnviarAnonimo.disabled = true;
     const guardado = await guardarMensajeAnonimo(txt);
-    if (guardado) { inputMensajeAnonimo.value = ''; actualizarContadorCaracteres(); renderizarCinta(); renderizarMensajesFooter(); toast('¡Mensaje navideño enviado! 🎄', 'success'); }
-    else { toast('No se pudo enviar el mensaje', 'error'); btnEnviarAnonimo.disabled = false; }
+    if (guardado) {
+        inputMensajeAnonimo.value = ''; actualizarContadorCaracteres();
+        renderizarCinta(); renderizarMensajesFooter();
+        toast('¡Mensaje navideño enviado! 🎄', 'success');
+    } else {
+        toast('No se pudo enviar el mensaje', 'error');
+        btnEnviarAnonimo.disabled = false;
+    }
 });
 
 /* ============ PDF / JPG LISTAS ============ */
 function cargarImagenDataURL(url) {
-    return new Promise(function(resolve){
+    return new Promise(resolve => {
         if (!url) return resolve(null);
         if (url.indexOf('data:') === 0) return resolve(url);
         const img = new Image(); img.crossOrigin = 'anonymous';
-        img.onload = function(){
+        img.onload = () => {
             try {
                 const canvas = document.createElement('canvas');
                 canvas.width = img.naturalWidth || 300; canvas.height = img.naturalHeight || 300;
@@ -2644,7 +2608,7 @@ function cargarImagenDataURL(url) {
                 resolve(canvas.toDataURL('image/jpeg', 0.85));
             } catch(e) { resolve(null); }
         };
-        img.onerror = function(){ resolve(null); };
+        img.onerror = () => resolve(null);
         img.src = url;
     });
 }
@@ -2655,7 +2619,7 @@ async function descargarPDF(lista) {
     const teniaLuces = document.body.classList.contains('luces-navidad');
     if (teniaLuces) document.body.classList.remove('luces-navidad');
     try {
-        await new Promise(function(r){setTimeout(r,300);});
+        await new Promise(r => setTimeout(r, 300));
         const headerEl = document.querySelector('.cabecera-principal');
         const calEl = document.querySelector('.calendario-box');
         const btnHeader = document.getElementById('btnCrearLista');
@@ -2690,7 +2654,7 @@ async function descargarPDF(lista) {
         doc.setFontSize(14); doc.setTextColor(C_ROJO[0],C_ROJO[1],C_ROJO[2]); doc.setFont('helvetica','bold');
         doc.text('Deseos de '+lista.nombre, m, y2); y2 += 2;
         doc.setDrawColor(C_DORADO[0],C_DORADO[1],C_DORADO[2]); doc.line(m, y2, pageW-m, y2); y2 += 10;
-        const deseos = (lista.deseos||[]).filter(function(d){ return (d.nombre||'').trim() || (d.notas||'').trim() || (d.enlace||'').trim() || (Array.isArray(d.imagenes)&&d.imagenes.length); });
+        const deseos = (lista.deseos||[]).filter(d => (d.nombre||'').trim() || (d.notas||'').trim() || (d.enlace||'').trim() || (Array.isArray(d.imagenes)&&d.imagenes.length));
         if (deseos.length === 0) { doc.setFontSize(11); doc.setTextColor(C_GRIS[0],C_GRIS[1],C_GRIS[2]); doc.setFont('helvetica','italic'); doc.text('Sin deseos registrados.', m, y2); }
         else {
             for (let i = 0; i < deseos.length; i++) {
@@ -2701,8 +2665,8 @@ async function descargarPDF(lista) {
                 doc.text(String(i+1), m+6, y2+4.5, {align:'center'});
                 doc.setTextColor(C_NEGRO[0],C_NEGRO[1],C_NEGRO[2]); doc.setFontSize(12);
                 doc.text(d.nombre || 'Deseo', m+14, y2+5); y2 += 11;
-                if (d.notas) { doc.setFontSize(10); doc.setTextColor(C_GRIS[0],C_GRIS[1],C_GRIS[2]); doc.setFont('helvetica','normal'); doc.splitTextToSize(d.notas, contentW-16).forEach(function(l){ if (y2 > pageH-20) { doc.addPage(); barra(0); y2 = 20; } doc.text(l, m+14, y2); y2 += 5; }); }
-                if (d.enlace) { doc.setFontSize(10); doc.setTextColor(52,152,219); doc.splitTextToSize('Enlace: '+d.enlace, contentW-16).forEach(function(l){ if (y2 > pageH-20) { doc.addPage(); barra(0); y2 = 20; } try { doc.textWithLink(l, m+14, y2, {url:d.enlace}); } catch(e){ doc.text(l, m+14, y2); } y2 += 5; }); }
+                if (d.notas) { doc.setFontSize(10); doc.setTextColor(C_GRIS[0],C_GRIS[1],C_GRIS[2]); doc.setFont('helvetica','normal'); doc.splitTextToSize(d.notas, contentW-16).forEach(l => { if (y2 > pageH-20) { doc.addPage(); barra(0); y2 = 20; } doc.text(l, m+14, y2); y2 += 5; }); }
+                if (d.enlace) { doc.setFontSize(10); doc.setTextColor(52,152,219); doc.splitTextToSize('Enlace: '+d.enlace, contentW-16).forEach(l => { if (y2 > pageH-20) { doc.addPage(); barra(0); y2 = 20; } try { doc.textWithLink(l, m+14, y2, {url:d.enlace}); } catch(e){ doc.text(l, m+14, y2); } y2 += 5; }); }
                 if (d.imagenes && d.imagenes.length) { let x = m+14; const w = 28, h = 28, g = 3; for (let k = 0; k < d.imagenes.length; k++) { const data = await cargarImagenDataURL(d.imagenes[k]); if (!data) continue; if (x+w > pageW-m) { x = m+14; y2 += h+g; } if (y2+h > pageH-15) { doc.addPage(); barra(0); y2 = 20; x = m+14; } try { doc.addImage(data, data.indexOf('data:image/png')===0?'PNG':'JPEG', x, y2, w, h); } catch(e){} x += w+g; } y2 += h+4; }
                 doc.setDrawColor(225,230,235); doc.setLineWidth(0.3); doc.line(m+12, y2, pageW-m, y2); y2 += 6;
             }
@@ -2714,12 +2678,11 @@ async function descargarPDF(lista) {
     } catch(err) { console.error('Error PDF:', err); toast('Error al generar PDF', 'error'); }
     finally { if (teniaLuces) document.body.classList.add('luces-navidad'); }
 }
-
 async function descargarImagen(lista) {
     if (!window.html2canvas) { toast('html2canvas no disponible', 'error'); return; }
     toast('Generando imagen...', 'info');
     const tipo = lista.tipo || 'adulto';
-    const deseos = (lista.deseos||[]).filter(function(d){ return (d.nombre||'').trim() || (d.notas||'').trim() || (d.enlace||'').trim() || (Array.isArray(d.imagenes)&&d.imagenes.length); });
+    const deseos = (lista.deseos||[]).filter(d => (d.nombre||'').trim() || (d.notas||'').trim() || (d.enlace||'').trim() || (Array.isArray(d.imagenes)&&d.imagenes.length));
     const cont = document.createElement('div');
     cont.style.cssText = 'position:fixed;left:-99999px;top:0;width:720px;background:#fff;font-family:"Segoe UI",Arial,sans-serif;color:#1f2937;box-sizing:border-box;overflow:hidden;';
     let html = '<div style="height:12px;background:linear-gradient(90deg,#c0392b,#d4af37,#2e9e3f);"></div>'+
@@ -2733,36 +2696,36 @@ async function descargarImagen(lista) {
         ((tipo === 'nino' && lista.edad != null) ? '<span style="color:#5b6472;font-size:13px;font-weight:600;">'+lista.edad+' años</span>' : '')+
         '</div>';
     if (deseos.length === 0) html += '<p style="text-align:center;color:#95a5a6;font-style:italic;padding:30px;">Sin deseos registrados.</p>';
-    else deseos.forEach(function(d, i){
+    else deseos.forEach((d, i) => {
         const tieneImgs = Array.isArray(d.imagenes) && d.imagenes.length;
         html += '<div style="background:#fff;border:1px solid #e5eaf0;border-left:5px solid #d4af37;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">'+
             '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'+
             '<div style="background:#2e9e3f;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;">'+(i+1)+'</div>'+
             '<div style="font-weight:800;color:#1f2937;font-size:15px;">'+escapeHtml(d.nombre || 'Deseo')+'</div></div>'+
             (d.notas ? '<div style="font-size:13px;color:#5b6472;line-height:1.5;margin-left:36px;">'+escapeHtml(d.notas)+'</div>' : '')+
-            (tieneImgs ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-left:36px;margin-top:8px;">'+d.imagenes.map(function(u){ return '<img crossorigin="anonymous" src="'+escapeHtml(u)+'" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e5eaf0;" />'; }).join('')+'</div>' : '')+
+            (tieneImgs ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-left:36px;margin-top:8px;">'+d.imagenes.map(u => '<img crossorigin="anonymous" src="'+escapeHtml(u)+'" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #e5eaf0;" />').join('')+'</div>' : '')+
             '</div>';
     });
     html += '<div style="text-align:center;color:#5b6472;font-size:11px;margin-top:24px;font-style:italic;">Generado el '+new Date().toLocaleDateString('es-CR')+' - Amigo Invisible 2026</div></div><div style="height:12px;background:linear-gradient(90deg,#2e9e3f,#d4af37,#c0392b);"></div>';
     cont.innerHTML = html;
     document.body.appendChild(cont);
     try {
-        await Promise.all(Array.from(cont.querySelectorAll('img')).map(function(img){ return new Promise(function(res){ if (img.complete) return res(); img.onload = function(){res();}; img.onerror = function(){res();}; setTimeout(res, 2500); }); }));
+        await Promise.all(Array.from(cont.querySelectorAll('img')).map(img => new Promise(res => { if (img.complete) return res(); img.onload = () => res(); img.onerror = () => res(); setTimeout(res, 2500); })));
         const canvas = await html2canvas(cont, {backgroundColor:'#fff', scale:2, useCORS:true, logging:false, imageTimeout:8000});
-        canvas.toBlob(function(blob){
+        canvas.toBlob(blob => {
             if (!blob) { toast('No se pudo generar la imagen', 'error'); return; }
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url; a.download = 'lista-'+lista.nombre.replace(/\s+/g,'-')+'.jpg';
             document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
             toast('Lista descargada', 'success');
         }, 'image/jpeg', 0.92);
     } catch(err) { console.error('Error JPG:', err); toast('No se pudo generar la imagen', 'error'); }
-    finally { setTimeout(function(){ if (cont.parentNode) cont.parentNode.removeChild(cont); }, 300); }
+    finally { setTimeout(() => { if (cont.parentNode) cont.parentNode.removeChild(cont); }, 300); }
 }
 
-/* ============ INICIALIZACIÓN DEFENSIVA ============ */
+/* ============ INICIALIZACIÓN ============ */
 async function inicializar() {
     try {
         let temaGuardado = null; try { temaGuardado = localStorage.getItem(STORAGE_TEMA); } catch(e){}
@@ -2795,7 +2758,7 @@ async function inicializar() {
     try { renderizarTabs(); } catch(e) { console.error('renderizarTabs:', e); }
     try { renderizarItemsCatalogo(); } catch(e) { console.error('renderizarItemsCatalogo:', e); }
 
-    await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     try { computeSlotZones(); } catch(e) { console.error('computeSlotZones:', e); }
     try { migrarSlotsViejos(); } catch(e) { console.error('migrarSlotsViejos:', e); }
@@ -2808,7 +2771,7 @@ async function inicializar() {
         const rotuloEl = document.getElementById('tiendaRotulo');
         if (rotuloEl) {
             rotuloEl.addEventListener('click', editarRotulo);
-            rotuloEl.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editarRotulo(); } });
+            rotuloEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editarRotulo(); } });
         }
     } catch(e) { console.error('rotulo listener:', e); }
 
@@ -2819,15 +2782,13 @@ async function inicializar() {
     try { renderizarMensajesFooter(); } catch(e) { console.error('renderizarMensajesFooter:', e); }
     try { actualizarContadorCaracteres(); } catch(e) { console.error('actualizarContadorCaracteres:', e); }
 
-    setTimeout(function(){
+    setTimeout(() => {
         try {
             const tabsEl = document.getElementById('tiendaTabs');
             if (tabsEl && tabsEl.children.length === 0 && typeof renderizarTabs === 'function') {
-                console.warn('Retry: renderizarTabs quedó vacío, reintentando...');
-                renderizarTabs();
-                renderizarItemsCatalogo();
+                renderizarTabs(); renderizarItemsCatalogo();
             }
-        } catch(e) { console.error('Retry tabs:', e); }
+        } catch(e) {}
     }, 500);
 }
 
