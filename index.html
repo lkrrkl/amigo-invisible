@@ -81,7 +81,7 @@ html{scroll-behavior:smooth;overscroll-behavior-y:contain}
 body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:var(--fondo);color:var(--texto);line-height:1.6;padding:22px 20px 20px;min-height:100vh;transition:background-color .3s,color .3s;position:relative;overflow-x:hidden;overscroll-behavior-y:contain}
 body.modal-abierto{overflow:hidden}
 body.paused *{animation-play-state:paused!important}
-body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z-index:1}
+body>header,body>section,body>footer,body>div.cinta-mensajes,body>div.barra-acciones-listas{position:relative;z-index:1}
 #lucesFondo{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;display:none;contain:strict}
 [data-theme="dark"] #lucesFondo{display:block}
 .luz{position:absolute;border-radius:50%;pointer-events:none;opacity:.18;transform:translate(-50%,-50%);animation:pulsoLuz 22s ease-in-out infinite;filter:blur(40px)}
@@ -113,7 +113,42 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .btn-crear{background:linear-gradient(135deg,var(--rojo),var(--rojo-claro));color:#fff;border:none;padding:12px 24px;font-size:.95rem;border-radius:30px;cursor:pointer;box-shadow:0 6px 16px rgba(192,57,43,.3);transition:transform .2s, box-shadow .2s;font-weight:700;display:inline-flex;align-items:center;gap:6px}
 .btn-crear:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(192,57,43,.4)}
 .btn-crear:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:2px}
-.btn-crear-header{position:absolute;right:14px;bottom:14px;z-index:3;box-shadow:0 8px 22px rgba(0,0,0,.5),0 0 0 2px rgba(241,196,15,.55),0 0 18px rgba(241,196,15,.35)}
+
+/* ===== NUEVA BARRA DE ACCIONES: Crear lista + Ver listas creadas ===== */
+.barra-acciones-listas{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin:0 0 20px;
+    padding:0 4px;
+}
+.btn-ver-listas{
+    background:linear-gradient(135deg,var(--verde),var(--verde-hover));
+    color:#fff;
+    border:none;
+    padding:12px 24px;
+    font-size:.95rem;
+    border-radius:30px;
+    cursor:pointer;
+    font-weight:700;
+    font-family:inherit;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    box-shadow:0 6px 16px rgba(46,158,63,.35);
+    transition:transform .2s, box-shadow .2s;
+}
+.btn-ver-listas:hover{
+    transform:translateY(-2px);
+    box-shadow:0 8px 22px rgba(46,158,63,.5);
+}
+.btn-ver-listas:focus-visible{
+    outline:3px solid var(--dorado-claro);
+    outline-offset:2px;
+}
+
 .cinta-mensajes{position:relative;background:linear-gradient(90deg,var(--rojo),var(--verde),var(--rojo));border-radius:14px;overflow:hidden;padding:12px 0;margin:0 0 20px;box-shadow:0 8px 20px rgba(192,57,43,.25)}
 .cinta-mensajes::before,.cinta-mensajes::after{content:'';position:absolute;top:0;bottom:0;width:50px;pointer-events:none;z-index:2}
 .cinta-mensajes::before{left:0;background:linear-gradient(90deg,var(--rojo),transparent)}
@@ -297,7 +332,27 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .btn-enviar-anonimo{background:linear-gradient(135deg,var(--verde),var(--verde-hover));color:#fff;border:none;padding:9px 20px;border-radius:24px;cursor:pointer;font-weight:700;font-size:.88rem;transition:transform .2s, box-shadow .2s;box-shadow:0 4px 12px rgba(46,158,63,.35)}
 .btn-enviar-anonimo:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(46,158,63,.45)}
 .btn-enviar-anonimo:disabled{background:#95a5a6;cursor:not-allowed;opacity:.65;box-shadow:none}
-.seccion-listas{margin:28px 0}
+
+/* ===== SECCIÓN LISTAS: sombreado rojo detrás ===== */
+.seccion-listas{
+    margin:28px 0;
+    padding:22px 16px 26px;
+    border-radius:24px;
+    background:rgba(192,57,43,0.045);
+    box-shadow:
+        0 0 0 2px rgba(192,57,43,0.22),
+        0 6px 28px rgba(192,57,43,0.22),
+        0 0 55px rgba(192,57,43,0.15);
+    transition:box-shadow .4s ease, background .4s ease;
+    scroll-margin-top:20px;
+}
+[data-theme="dark"] .seccion-listas{
+    background:rgba(239,83,80,0.06);
+    box-shadow:
+        0 0 0 2px rgba(239,83,80,0.3),
+        0 6px 28px rgba(239,83,80,0.26),
+        0 0 55px rgba(239,83,80,0.18);
+}
 .seccion-listas h2{color:var(--rojo);margin-bottom:16px;text-align:center;font-size:1.5rem;letter-spacing:.3px}
 #contadorListas{color:var(--verde);font-size:1.05rem;font-weight:600}
 .barra-controles{display:grid;grid-template-columns:1fr auto auto;gap:10px;margin-bottom:14px;align-items:center}
@@ -324,7 +379,6 @@ body>header,body>section,body>footer,body>div.cinta-mensajes{position:relative;z
 .badge-tipo{font-size:.68rem;padding:3px 9px;border-radius:12px;font-weight:700;white-space:nowrap;letter-spacing:.3px}
 .badge-tipo.adulto{background:var(--verde);color:#fff}
 .badge-tipo.nino{background:var(--rojo);color:#fff}
-/* CUADRANTE ROJO: badge de conteo de deseos */
 .badge-count{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;padding:3px 10px;border-radius:12px;font-size:.7rem;font-weight:900;white-space:nowrap;letter-spacing:.3px;box-shadow:0 2px 6px rgba(192,57,43,.4),inset 0 1px 0 rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.2);text-shadow:0 1px 2px rgba(0,0,0,.35);transition:box-shadow .2s, transform .2s}
 .tarjeta-lista:hover .badge-count{box-shadow:0 4px 10px rgba(192,57,43,.55),inset 0 1px 0 rgba(255,255,255,.25);transform:scale(1.05)}
 .meta-info{font-size:.78rem;color:var(--texto-suave);margin-bottom:10px;display:flex;align-items:center;gap:6px}
@@ -532,7 +586,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
   .cuenta-regresiva-overlay #contador span{font-size:.85rem;padding:4px 5px}
   .cuenta-regresiva-overlay #contador small{font-size:.42rem;margin-top:1px}
   body.luces-navidad .tarjeta-lista::before{inset:-3px;border-radius:19px}
-  .btn-crear-header{right:10px;bottom:10px}
 }
 @media(max-width:600px){
   body{padding:12px;padding-top:72px}
@@ -556,8 +609,6 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
   .cal-santa{font-size:.75rem;top:-5px;right:-5px}
   .cinta-info{font-size:.66rem;padding:1px 6px}
   body.luces-navidad .tarjeta-lista::before{inset:-2px;border-radius:18px}
-  .btn-crear-header{padding:9px 16px;font-size:.8rem;right:8px;bottom:8px;border-radius:24px;width:auto;height:auto}
-  .btn-crear-header .btn-crear-texto{display:inline !important}
   .tienda-items{grid-template-columns:repeat(auto-fill,minmax(60px,1fr));max-height:120px}
   .item-catalogo svg{width:34px;height:34px}
   .galeria-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
@@ -568,6 +619,10 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
   .tienda-ventana{left:30%;right:30%}
   .tienda-mostrador{width:58%;height:22%}
   .tema-btn{font-size:.68rem;padding:4px 8px}
+  .barra-acciones-listas{gap:10px;margin-bottom:16px}
+  .btn-ver-listas{padding:10px 18px;font-size:.86rem}
+  .btn-crear{padding:10px 18px;font-size:.86rem}
+  .seccion-listas{padding:18px 12px 20px;border-radius:20px}
 }
 </style>
 </head>
@@ -595,11 +650,18 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
             <span id="segundos">0<small>Seg</small></span>
         </div>
     </section>
-    <button class="btn-crear btn-crear-header" id="btnCrearLista" type="button" title="Crear lista" aria-label="Crear lista">
+</header>
+
+<!-- NUEVA BARRA: Crear lista (rojo) + Ver listas creadas (verde) -->
+<div class="barra-acciones-listas">
+    <button class="btn-crear" id="btnCrearLista" type="button" title="Crear lista" aria-label="Crear lista">
         <span class="btn-crear-icono">➕</span>
         <span class="btn-crear-texto">Crear lista</span>
     </button>
-</header>
+    <button class="btn-ver-listas" id="btnVerListas" type="button" title="Ir a las listas creadas" aria-label="Ver listas creadas">
+        <span aria-hidden="true">📋</span> Ver listas creadas
+    </button>
+</div>
 
 <div class="cinta-mensajes" aria-label="Mensajes navideños anónimos">
     <div class="cinta-track" id="cintaTrack"></div>
@@ -640,7 +702,7 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
     </div>
 </div>
 
-<section class="seccion-listas">
+<section class="seccion-listas" id="seccionListas">
     <h2>🎁 Listas de Deseos <span id="contadorListas">(0)</span></h2>
     <div class="barra-controles">
         <div class="barra-busqueda">
@@ -1263,7 +1325,7 @@ async function eliminarListaSupabase(id) {
     catch (e) { console.error('Delete error:', e); toast('Eliminado localmente. Supabase falló.', 'error'); }
 }
 
-/* ============ SUPABASE: IMÁGENES DE DESEOS (NUEVO) ============ */
+/* ============ SUPABASE: IMÁGENES DE DESEOS ============ */
 function comprimirImagenABlob(source, maxSide, quality) {
     maxSide = maxSide || 1200;
     quality = quality == null ? 0.82 : quality;
@@ -2221,7 +2283,7 @@ window.addEventListener('resize', () => {
     else { computeSlotZones(); actualizarTotalCaja(); actualizarTodosZIndex(); clampPan(); applyEscenarioView(false); }
 });
 
-/* ============ LISTAS: TARJETA (con CUADRANTE ROJO) ============ */
+/* ============ LISTAS: TARJETA ============ */
 function crearTarjetaLista(lista) {
     const tipo = lista.tipo || 'adulto';
     const card = document.createElement('div');
@@ -2245,14 +2307,12 @@ function crearTarjetaLista(lista) {
     const h3 = document.createElement('h3'); h3.textContent = lista.nombre;
     const badges = document.createElement('div'); badges.className = 'header-badges';
 
-    // CUADRANTE ROJO: badge con conteo de deseos (va primero, más prominente)
     const countBadge = document.createElement('span');
     countBadge.className = 'badge-count';
     countBadge.textContent = '🎁 ' + deseosValidos.length;
     countBadge.title = deseosValidos.length + (deseosValidos.length === 1 ? ' deseo' : ' deseos');
     badges.appendChild(countBadge);
 
-    // Badge de tipo (adulto/niño)
     const badge = document.createElement('span');
     badge.className = 'badge-tipo '+tipo;
     badge.textContent = tipo === 'adulto' ? '🎅 Adulto' : '🎈 Niño';
@@ -2472,6 +2532,15 @@ function abrirModalCrear(tipoDefault) {
 }
 document.getElementById('btnCrearLista').addEventListener('click', () => abrirModalCrear('adulto'));
 
+/* NUEVO: Ver listas creadas — scroll suave a la sección de listas */
+document.getElementById('btnVerListas').addEventListener('click', () => {
+    const sec = document.getElementById('seccionListas') || document.querySelector('.seccion-listas');
+    if (sec) {
+        try { sec.scrollIntoView({behavior:'smooth', block:'start'}); }
+        catch(e) { window.scrollTo({top: sec.getBoundingClientRect().top + window.pageYOffset - 20, behavior:'smooth'}); }
+    }
+});
+
 function abrirModalEditar(id) {
     const lista = listas.find(l => l.id===id);
     if (!lista) return;
@@ -2491,7 +2560,7 @@ btnEliminarLista.addEventListener('click', () => {
     if (listaEditandoId) { const id = listaEditandoId; cerrarModal(modal); setTimeout(() => eliminarLista(id), 100); }
 });
 
-/* ============ GUARDAR LISTA (con upload a Storage + CIERRE GARANTIZADO) ============ */
+/* ============ GUARDAR LISTA ============ */
 document.getElementById('btnGuardarLista').addEventListener('click', async function(){
     const nombre = nombreInput.value.trim();
     const tipo = document.querySelector('input[name="tipoLista"]:checked').value;
@@ -2508,7 +2577,6 @@ document.getElementById('btnGuardarLista').addEventListener('click', async funct
     btn.textContent = 'Guardando…';
 
     try {
-        // 1) Limpiar deseos
         let deseosLimpios = deseosTemporales.map(d => ({
             nombre: (d.nombre||'').trim(),
             notas: (d.notas||'').trim(),
@@ -2516,14 +2584,12 @@ document.getElementById('btnGuardarLista').addEventListener('click', async funct
             enlace: normalizarURL(d.enlace||'')
         })).filter(d => d.nombre || d.notas || d.imagenes.length || d.enlace);
 
-        // 2) Subir imágenes base64 a Storage → guardar solo URLs públicas
         const hayDataUrl = deseosLimpios.some(d => d.imagenes.some(u => String(u).indexOf('data:image') === 0));
         if (hayDataUrl && supabaseDisponible) {
             btn.textContent = 'Subiendo imágenes…';
             deseosLimpios = await procesarImagenesDeseos(deseosLimpios);
         }
 
-        // 3) Construir la lista final
         let createdAt = null;
         if (listaEditandoId) {
             const orig = listas.find(l => l.id===listaEditandoId);
@@ -2539,7 +2605,6 @@ document.getElementById('btnGuardarLista').addEventListener('click', async funct
             createdAt
         };
 
-        // 4) Actualizar array + localStorage
         if (listaEditandoId) {
             const idx = listas.findIndex(l => l.id === listaEditandoId);
             if (idx !== -1) listas[idx] = nueva;
@@ -2551,7 +2616,6 @@ document.getElementById('btnGuardarLista').addEventListener('click', async funct
         persistirLocal();
         renderizarListas();
 
-        // 5) Sincronizar con Supabase en segundo plano (fire & forget)
         guardarListaSupabase(nueva);
     } catch (e) {
         console.error('Guardar lista:', e);
@@ -2559,7 +2623,7 @@ document.getElementById('btnGuardarLista').addEventListener('click', async funct
     } finally {
         btn.disabled = false;
         btn.textContent = prevTxt;
-        cerrarModal(modal); // El modal SIEMPRE se cierra al guardar
+        cerrarModal(modal);
     }
 });
 
@@ -2623,14 +2687,18 @@ async function descargarPDF(lista) {
         const headerEl = document.querySelector('.cabecera-principal');
         const calEl = document.querySelector('.calendario-box');
         const btnHeader = document.getElementById('btnCrearLista');
+        const btnVer = document.getElementById('btnVerListas');
         const ov = document.querySelector('.cuenta-regresiva-overlay');
         const prevBtnDisplay = btnHeader ? btnHeader.style.display : '';
+        const prevVerDisplay = btnVer ? btnVer.style.display : '';
         const prevOvDisplay = ov ? ov.style.display : '';
         if (btnHeader) btnHeader.style.display = 'none';
+        if (btnVer) btnVer.style.display = 'none';
         if (ov) ov.style.display = 'none';
         const headerCanvas = headerEl ? await html2canvas(headerEl, {backgroundColor:'#0e3a1c', scale:2, useCORS:true, logging:false}) : null;
         const calCanvas = calEl ? await html2canvas(calEl, {backgroundColor:'#0e3a1c', scale:2, useCORS:true, logging:false}) : null;
         if (btnHeader) btnHeader.style.display = prevBtnDisplay;
+        if (btnVer) btnVer.style.display = prevVerDisplay;
         if (ov) ov.style.display = prevOvDisplay;
         const jsPDF = window.jspdf.jsPDF;
         const doc = new jsPDF({unit:'mm', format:'a4'});
