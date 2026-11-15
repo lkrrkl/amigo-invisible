@@ -8,35 +8,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
-<!--
-SQL Supabase — ejecutar en el SQL Editor (ver pasos abajo).
-
-CREATE TABLE IF NOT EXISTS listas (
-  id TEXT PRIMARY KEY, tipo TEXT NOT NULL DEFAULT 'adulto',
-  nombre TEXT NOT NULL, edad INTEGER,
-  deseos JSONB DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
-
-CREATE TABLE IF NOT EXISTS mensajes_anonimos (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mensaje TEXT NOT NULL, fecha TIMESTAMPTZ DEFAULT NOW());
-
-ALTER TABLE listas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mensajes_anonimos ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "public_listas"   ON listas            FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "public_mensajes" ON mensajes_anonimos FOR ALL USING (true) WITH CHECK (true);
-
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('deseos','deseos', true, 5242880, ARRAY['image/jpeg','image/jpg','image/png','image/webp'])
-ON CONFLICT (id) DO NOTHING;
-
-DROP POLICY IF EXISTS "deseos_public_read"   ON storage.objects;
-DROP POLICY IF EXISTS "deseos_public_insert" ON storage.objects;
-DROP POLICY IF EXISTS "deseos_public_delete" ON storage.objects;
-CREATE POLICY "deseos_public_read"   ON storage.objects FOR SELECT USING (bucket_id='deseos');
-CREATE POLICY "deseos_public_insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id='deseos');
-CREATE POLICY "deseos_public_delete" ON storage.objects FOR DELETE USING (bucket_id='deseos');
--->
 <style>
 :root{
   --rojo:#c0392b;--rojo-claro:#e74c3c;--verde:#2e9e3f;--verde-hover:#267f34;
@@ -552,28 +523,39 @@ function mostrarToast(msg, tipo = 'info', dur = 3000) {
 }
 
 // ============================================================
-// INICIALIZAR SUPABASE (o fallback local)
+// INICIALIZAR SUPABASE (diferido — el CDN carga con defer)
 // ============================================================
-const supabaseConfigurado =
-  window.supabase &&
-  SUPABASE_URL && !SUPABASE_URL.includes('TU_SUPABASE') &&
-  SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('TU_SUPABASE');
+let supabase = null;
+let supabaseConfigurado = false;
 
-const supabase = supabaseConfigurado
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null;
+function initSupabase() {
+  if (!window.supabase) return false;
+  supabaseConfigurado =
+    !!SUPABASE_URL && !SUPABASE_URL.includes('TU_SUPABASE') &&
+    !!SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('TU_SUPABASE');
+  if (!supabaseConfigurado) return false;
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return true;
+  } catch (e) {
+    console.error('No se pudo crear el cliente Supabase:', e);
+    supabase = null;
+    supabaseConfigurado = false;
+    return false;
+  }
+}
 
-// Aviso visual (arriba)
 window.addEventListener('load', () => {
   const aviso = document.getElementById('avisoSupabase');
   if (!aviso) return;
-  if (supabaseConfigurado) {
+  if (!supabase && window.supabase) initSupabase();
+  if (supabase) {
     aviso.classList.add('activo', 'conectado');
     aviso.innerHTML = '✅ Conectado a Supabase — los datos se guardan en la nube.';
     setTimeout(() => aviso.classList.remove('activo'), 3500);
   } else {
     aviso.classList.add('activo');
-    aviso.innerHTML = '⚠️ Supabase no configurado. La app funciona en <b>modo local</b> (localStorage). Para sincronizar entre dispositivos, editá <code>SUPABASE_URL</code> y <code>SUPABASE_ANON_KEY</code> al inicio del script.';
+    aviso.innerHTML = '⚠️ Supabase no configurado. La app funciona en <b>modo local</b> (localStorage).';
   }
 });
 
@@ -714,7 +696,7 @@ function actualizarContador() {
 }
 
 // ============================================================
-// CALENDARIO + IMAGEN ALEATORIA + SANTA PROGRESIVO
+// CALENDARIO
 // ============================================================
 const CAL_IMAGES = [
   'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=900&q=80&auto=format&fit=crop',
@@ -752,7 +734,6 @@ function calcularDiaSanta() {
   const hoy = new Date();
   const inicioDec = new Date(2026, 11, 1);
   const finDec = new Date(2026, 11, 25);
-
   if (hoy < inicioDec) return { dia: 1, estado: 'arriving' };
   if (hoy > finDec) return { dia: 25, estado: 'done' };
   const dia = hoy.getDate();
@@ -763,41 +744,32 @@ function construirCalendario() {
   const grid = document.getElementById('calendarioGrid');
   if (!grid) return;
   grid.innerHTML = '';
-
   ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].forEach(d => {
     const el = document.createElement('div');
     el.className = 'cal-dia-semana'; el.textContent = d; grid.appendChild(el);
   });
-
   const offset = 1;
   const totalDias = 31;
   const hoy = new Date();
   const diaHoy = (hoy.getFullYear() === 2026 && hoy.getMonth() === 11) ? hoy.getDate() : -1;
-
   const santa = calcularDiaSanta();
-
   for (let i = 0; i < offset; i++) {
     const v = document.createElement('div');
     v.className = 'cal-celda cal-vacia'; grid.appendChild(v);
   }
-
   for (let d = 1; d <= totalDias; d++) {
     const celda = document.createElement('div');
     celda.className = 'cal-celda';
     const fecha = new Date(2026, 11, d);
     const dow = fecha.getDay();
-
     let extraClass = '', icono = '';
     if (d === 1) { extraClass = 'cal-adviento-inicio'; icono = '🕯️'; }
     else if (d === 24) { extraClass = 'cal-nochebuena'; icono = '🎄'; }
     else if (d === 25) { extraClass = 'cal-navidad'; icono = '🎁'; }
     else if (dow === 0 || dow === 6) { extraClass = 'cal-adviento'; icono = '⭐'; }
-
     if (extraClass) celda.classList.add(extraClass);
     if (d === diaHoy) celda.classList.add('cal-hoy');
-
     celda.innerHTML = `<span class="cal-num">${d}</span>${icono ? `<span class="cal-icono">${icono}</span>` : ''}`;
-
     if (d === santa.dia) {
       celda.classList.add('cal-santa-' + santa.estado);
       const s = document.createElement('span');
@@ -813,7 +785,7 @@ function construirCalendario() {
 }
 
 // ============================================================
-// CAPA DE PERSISTENCIA (Supabase ⇄ localStorage)
+// PERSISTENCIA
 // ============================================================
 const K_MENSAJES = 'mensajes_anonimos';
 const K_LISTAS = 'listas_amigo';
@@ -964,7 +936,6 @@ if (inputMsg && contChars && btnEnviar) {
     if (cont) cont.classList.toggle('excede', len > 100);
     btnEnviar.disabled = len === 0 || len > 100;
   });
-
   btnEnviar.addEventListener('click', async () => {
     const txt = inputMsg.value.trim();
     if (!txt || txt.length > 100) return;
@@ -1477,6 +1448,7 @@ document.addEventListener('keydown', (e) => {
 // INIT
 // ============================================================
 async function init() {
+  initSupabase();   // ✅ PRIMERO: crea el cliente si window.supabase ya está disponible
   aplicarTema(temaActual);
   aplicarNieve(nieveActiva);
   aplicarLuces(lucesActivas);
