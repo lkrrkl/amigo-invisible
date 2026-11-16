@@ -177,6 +177,13 @@ body>header,body>section,body>footer,body>div.cinta-mensajes,body>div.barra-acci
 .deseo-destacado-link:hover{transform:scale(1.2);background:rgba(52,152,219,.14)}
 .deseo-destacado-notas{font-size:.76rem;color:var(--texto-suave);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .deseos-mas{font-size:.76rem;color:var(--texto-suave);font-weight:600;padding:4px 10px;border-radius:12px;background:var(--fondo);align-self:flex-start;border:1px solid var(--borde);margin-top:2px}
+
+/* ⭐ Miniaturas de los demás deseos (segunda línea de la tarjeta) */
+.deseos-miniaturas{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.deseos-miniaturas img{width:34px;height:34px;object-fit:cover;border-radius:7px;border:1px solid var(--borde);background:var(--fondo);transition:transform .15s}
+.deseos-miniaturas img:hover{transform:scale(1.08)}
+.deseos-miniaturas-mas{font-size:.72rem;font-weight:800;color:var(--texto-suave);padding:2px 8px;border-radius:10px;background:var(--fondo);border:1px solid var(--borde);line-height:1.4}
+
 .card-hint{font-size:.72rem;color:var(--texto-suave);text-align:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--borde);opacity:.75}
 .acciones-tarjeta{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
 .btn-editar,.btn-jpg,.btn-pdf{border:none;padding:7px 12px;border-radius:20px;cursor:pointer;font-weight:700;font-size:.78rem;transition:transform .15s, background .2s}
@@ -210,15 +217,22 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 #contenedorDeseos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
 @media(max-width:1000px){#contenedorDeseos{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){#contenedorDeseos{grid-template-columns:1fr}}
-.deseo-editor{background:var(--tarjeta-bg);border:1px solid var(--borde);border-radius:12px;padding:12px;min-width:0;box-shadow:0 2px 8px var(--sombra)}
-.deseo-editor-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px}
-.deseo-editor-num{font-weight:800;color:var(--verde);font-size:.85rem}
-.btn-eliminar-deseo{background:var(--rojo-claro);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-weight:700;flex-shrink:0;font-size:1rem;line-height:1;transition:background .2s}
-.btn-eliminar-deseo:hover{background:var(--rojo)}
+.deseo-editor{background:var(--tarjeta-bg);border:1px solid var(--borde);border-radius:12px;padding:12px;min-width:0;box-shadow:0 2px 8px var(--sombra);transition:box-shadow .2s, border-color .2s, transform .15s}
+.deseo-editor-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px}
+.deseo-editor-header-left{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
+.deseo-drag-handle{cursor:grab;background:var(--fondo);border:1px solid var(--borde);border-radius:6px;padding:3px 8px;font-size:.95rem;color:var(--texto-suave);line-height:1;transition:background .15s, color .15s;touch-action:none;flex-shrink:0;font-family:inherit;font-weight:700;letter-spacing:0}
+.deseo-drag-handle:hover{background:var(--borde);color:var(--texto)}
+.deseo-drag-handle:active{cursor:grabbing}
+.deseo-editor-num{font-weight:800;color:var(--verde);font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:all .2s;line-height:1.2}
+.deseo-editor-num.deseo-mas-deseado{color:var(--rojo);background:linear-gradient(135deg, rgba(241,196,15,.28), rgba(192,57,43,.15));padding:2px 8px;border-radius:8px;border:1px solid rgba(241,196,15,.55);box-shadow:0 1px 4px rgba(212,175,55,.25)}
+.deseo-editor.dragging{opacity:0.35;transform:scale(0.97);box-shadow:0 8px 22px rgba(0,0,0,.3)}
+.deseo-editor.drag-over{border-color:var(--dorado);box-shadow:0 0 0 3px rgba(212,175,55,.4), 0 4px 12px rgba(212,175,55,.25);transform:scale(1.02)}
+.deseo-editor input[type="text"],.deseo-editor input[type="number"],.deseo-editor textarea{width:100%;padding:7px 9px;margin-top:3px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--texto);border-radius:8px;font-family:inherit;font-size:.85rem;transition:border-color .2s;-webkit-user-drag:none}
 .deseo-editor label{display:block;margin-top:8px;font-size:.76rem;font-weight:700;color:var(--verde)}
-.deseo-editor input[type="text"],.deseo-editor textarea{width:100%;padding:7px 9px;margin-top:3px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--texto);border-radius:8px;font-family:inherit;font-size:.85rem;transition:border-color .2s}
 .deseo-editor input:focus,.deseo-editor textarea:focus{outline:none;border-color:var(--dorado)}
 .deseo-editor textarea{resize:vertical;min-height:44px}
+.btn-eliminar-deseo{background:var(--rojo-claro);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-weight:700;flex-shrink:0;font-size:1rem;line-height:1;transition:background .2s}
+.btn-eliminar-deseo:hover{background:var(--rojo)}
 .deseo-img-botones{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
 .deseo-img-botones input[type="text"]{flex:1;min-width:110px;margin:0}
 .btn-file-mini{background:var(--verde);color:#fff !important;-webkit-text-fill-color:#fff;border:none;padding:6px 10px;border-radius:16px;cursor:pointer;font-size:.76rem;font-weight:700;white-space:nowrap;transition:background .2s;display:inline-flex;align-items:center;gap:4px;margin-top:0}
@@ -243,7 +257,8 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 .vis-subtitulo{color:var(--rojo);font-size:1.1rem;margin:22px 0 14px;border-bottom:2px solid var(--dorado);padding-bottom:6px;text-align:center}
 .vis-deseo{background:var(--acento-suave);border-radius:12px;padding:14px 16px;margin-bottom:12px;border-left:4px solid var(--dorado)}
 .vis-deseo h4{color:var(--verde);font-size:1rem;margin-bottom:6px;word-break:break-word}
-.vis-notas{font-size:.88rem;color:var(--texto-suave);white-space:pre-wrap;margin-bottom:8px;word-break:break-word;line-height:1.55}
+/* ⭐ Notas en negrita al ver la lista */
+.vis-notas{font-size:.88rem;color:var(--texto-suave);white-space:pre-wrap;margin-bottom:8px;word-break:break-word;line-height:1.55;font-weight:700}
 .vis-imagenes{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .vis-imagenes img{width:78px;height:78px;object-fit:cover;border-radius:10px;border:1px solid var(--borde);cursor:zoom-in;background:var(--fondo);transition:transform .15s}
 .vis-imagenes img:hover{transform:scale(1.06)}
@@ -437,7 +452,7 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
         </div>
         <div class="seccion-deseos">
             <h3>🎁 Deseos</h3>
-            <p class="ayuda-deseos">Agregá tus deseos con nombre, detalles, enlace e imágenes.</p>
+            <p class="ayuda-deseos">Agregá tus deseos con nombre, detalles, enlace e imágenes. Arrastrá el asa ⠿ para reordenar y poner tu deseo más anhelado arriba.</p>
             <div id="contenedorDeseos"></div>
             <button type="button" class="btn-agregar" id="btnAgregarDeseo">+ Agregar deseo</button>
         </div>
@@ -995,14 +1010,35 @@ function filtrarYOrdenar() {
   return arr;
 }
 
+// ⭐ Tarjeta: primer línea = más deseado + segunda línea = imágenes de los demás deseos
 function primerDeseoHTML(lista) {
-  const d = (lista.deseos || [])[0];
+  const deseos = lista.deseos || [];
+  const d = deseos[0];
   if (!d) return `<div class="deseos-mas">Sin deseos todavía 🎁</div>`;
+
   const img = (d.imagenes && d.imagenes[0]) || 'data:image/svg+xml;utf8,' +
     encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36" fill="#fdf6e3"/><text x="18" y="25" text-anchor="middle" font-size="20">🎁</text></svg>`);
   const link = d.link
     ? `<a href="${escapeHtml(d.link)}" target="_blank" rel="noopener" class="deseo-destacado-link" onclick="event.stopPropagation()" title="Abrir enlace">🔗</a>` : '';
   const notas = d.notas ? `<div class="deseo-destacado-notas">${escapeHtml(d.notas)}</div>` : '';
+
+  // Segunda línea: imágenes de los demás deseos que hayan cargado imágenes
+  const otrasImgs = [];
+  for (let i = 1; i < deseos.length; i++) {
+    (deseos[i].imagenes || []).forEach(src => {
+      if (src) otrasImgs.push(src);
+    });
+  }
+  const MAX_MINI = 6;
+  const mostrarOtras = otrasImgs.slice(0, MAX_MINI);
+  const restantes = otrasImgs.length - mostrarOtras.length;
+  const miniaturasHTML = mostrarOtras.length
+    ? `<div class="deseos-miniaturas">
+        ${mostrarOtras.map(src => `<img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.style.display='none'">`).join('')}
+        ${restantes > 0 ? `<span class="deseos-miniaturas-mas">+${restantes}</span>` : ''}
+      </div>`
+    : '';
+
   return `<div class="deseo-destacado">
     <img src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
     <div class="deseo-destacado-txt">
@@ -1010,12 +1046,11 @@ function primerDeseoHTML(lista) {
         <span class="deseo-destacado-nombre">${escapeHtml(d.nombre || '')}</span>${link}
       </div>${notas}
     </div>
-  </div>`;
+  </div>${miniaturasHTML}`;
 }
 
 function renderTarjeta(lista) {
   const totalDeseos = (lista.deseos || []).length;
-  const extra = totalDeseos > 1 ? `<div class="deseos-mas">+ ${totalDeseos - 1} deseo${totalDeseos - 1 === 1 ? '' : 's'} más</div>` : '';
   const tipoBadge = lista.tipo === 'nino' ? '🎈 Niño' : '🎅 Adulto';
   const edadTxt = lista.edad != null && lista.edad !== '' ? ` · ${lista.edad} años` : '';
   return `<article class="tarjeta-lista ${lista.tipo === 'nino' ? 'nino' : ''}" tabindex="0" data-id="${escapeHtml(lista.id)}" role="button" aria-label="Ver lista de ${escapeHtml(lista.nombre)}">
@@ -1027,7 +1062,7 @@ function renderTarjeta(lista) {
       </div>
     </div>
     <div class="meta-info">${lista.tipo === 'nino' ? '🎈' : '🎅'}${edadTxt}</div>
-    <div class="deseos-preview">${primerDeseoHTML(lista)}${extra}</div>
+    <div class="deseos-preview">${primerDeseoHTML(lista)}</div>
     <div class="acciones-tarjeta">
       <button type="button" class="btn-editar" data-action="editar" data-id="${escapeHtml(lista.id)}">✏️ Editar</button>
       <button type="button" class="btn-jpg" data-action="jpg" data-id="${escapeHtml(lista.id)}">🖼️ JPG</button>
@@ -1087,6 +1122,7 @@ function abrirEditor(lista) {
   const deseos = lista ? (lista.deseos || []) : [];
   if (deseos.length === 0) agregarEditorDeseo();
   else deseos.forEach(d => agregarEditorDeseo(d));
+  reindexarDeseos();
   modalLista.classList.add('activo');
   document.body.classList.add('modal-abierto');
   setTimeout(() => listaNombre.focus(), 80);
@@ -1100,12 +1136,92 @@ function cerrarEditor() {
 btnCancelarLista.addEventListener('click', cerrarEditor);
 modalLista.addEventListener('click', (e) => { if (e.target === modalLista) cerrarEditor(); });
 
+// ⭐ EL PRIMER DESEO SE LLAMA "EL MÁS DESEADO", RESTO "Deseo N"
 function reindexarDeseos() {
   contenedorDeseos.querySelectorAll('.deseo-editor').forEach((el, i) => {
     const num = el.querySelector('.deseo-editor-num');
-    if (num) num.textContent = 'Deseo ' + (i + 1);
+    if (!num) return;
+    if (i === 0) {
+      num.textContent = '⭐ El más deseado';
+      num.classList.add('deseo-mas-deseado');
+    } else {
+      num.textContent = 'Deseo ' + (i + 1);
+      num.classList.remove('deseo-mas-deseado');
+    }
   });
 }
+
+// ⭐ DRAG & DROP: reordena deseos en el DOM y renumera
+let dragReseteoGlobal = false;
+
+function configurarDragDeseo(wrap) {
+  wrap.setAttribute('draggable', 'false');
+  const handle = wrap.querySelector('.deseo-drag-handle');
+  if (!handle) return;
+
+  handle.addEventListener('mousedown', () => {
+    wrap.setAttribute('draggable', 'true');
+  });
+  handle.addEventListener('touchstart', () => {
+    wrap.setAttribute('draggable', 'true');
+  }, { passive: true });
+
+  wrap.addEventListener('dragstart', (e) => {
+    if (wrap.getAttribute('draggable') !== 'true') {
+      e.preventDefault();
+      return;
+    }
+    wrap.classList.add('dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', ''); } catch (_) {}
+    }
+  });
+
+  wrap.addEventListener('dragend', () => {
+    wrap.classList.remove('dragging');
+    wrap.setAttribute('draggable', 'false');
+    contenedorDeseos.querySelectorAll('.deseo-editor').forEach(el => el.classList.remove('drag-over'));
+  });
+
+  wrap.addEventListener('dragover', (e) => {
+    const dragging = contenedorDeseos.querySelector('.deseo-editor.dragging');
+    if (!dragging || dragging === wrap) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    contenedorDeseos.querySelectorAll('.deseo-editor').forEach(el => el.classList.remove('drag-over'));
+    wrap.classList.add('drag-over');
+  });
+
+  wrap.addEventListener('dragleave', (e) => {
+    if (!e.relatedTarget || !wrap.contains(e.relatedTarget)) {
+      wrap.classList.remove('drag-over');
+    }
+  });
+
+  wrap.addEventListener('drop', (e) => {
+    e.preventDefault();
+    wrap.classList.remove('drag-over');
+    const dragging = contenedorDeseos.querySelector('.deseo-editor.dragging');
+    if (!dragging || dragging === wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const after = (e.clientY - rect.top) > rect.height / 2;
+    if (after) wrap.parentNode.insertBefore(dragging, wrap.nextSibling);
+    else wrap.parentNode.insertBefore(dragging, wrap);
+    reindexarDeseos();
+  });
+}
+
+function resetearDraggable() {
+  if (dragReseteoGlobal) return;
+  dragReseteoGlobal = true;
+  contenedorDeseos.querySelectorAll('.deseo-editor').forEach(el => {
+    if (!el.classList.contains('dragging')) el.setAttribute('draggable', 'false');
+  });
+  dragReseteoGlobal = false;
+}
+document.addEventListener('mouseup', resetearDraggable);
+document.addEventListener('touchend', resetearDraggable, { passive: true });
 
 function agregarEditorDeseo(data) {
   const d = data || {};
@@ -1113,7 +1229,10 @@ function agregarEditorDeseo(data) {
   wrap.className = 'deseo-editor';
   wrap.innerHTML = `
     <div class="deseo-editor-header">
-      <span class="deseo-editor-num">Deseo</span>
+      <div class="deseo-editor-header-left">
+        <button type="button" class="deseo-drag-handle" title="Arrastrar para reordenar" aria-label="Arrastrar para reordenar">⠿</button>
+        <span class="deseo-editor-num">Deseo</span>
+      </div>
       <button type="button" class="btn-eliminar-deseo" title="Eliminar deseo">×</button>
     </div>
     <label>Nombre</label>
@@ -1124,7 +1243,7 @@ function agregarEditorDeseo(data) {
     <input type="text" class="deseo-link" placeholder="https://..." maxlength="500" value="${escapeHtml(d.link || '')}">
     <label>Imágenes</label>
     <div class="deseo-img-botones">
-      <input type="text" class="deseo-img-url" placeholder="Pegar URL de imagen" maxlength="800">
+      <input type="text" class="deseo-img-url" placeholder="Carga la imagen" maxlength="800">
       <button type="button" class="btn-file-mini">📷 Archivo</button>
       <input type="file" accept="image/*" class="deseo-file-input" hidden>
     </div>
@@ -1179,6 +1298,7 @@ function agregarEditorDeseo(data) {
   });
 
   contenedorDeseos.appendChild(wrap);
+  configurarDragDeseo(wrap);
   reindexarDeseos();
 }
 
@@ -1214,6 +1334,7 @@ btnGuardarLista.addEventListener('click', async () => {
   const edadVal = listaEdad.value.trim();
   const edad = edadVal === '' ? null : Number(edadVal);
 
+  // ⭐ El orden de los deseos se lee del DOM (respetando el drag & drop)
   const deseos = [];
   contenedorDeseos.querySelectorAll('.deseo-editor').forEach(wrap => {
     const n = wrap.querySelector('.deseo-nombre').value.trim();
@@ -1228,6 +1349,7 @@ btnGuardarLista.addEventListener('click', async () => {
 
   const ahora = new Date().toISOString();
   let lista;
+  const eraEdicion = !!editandoId;
 
   if (editandoId) {
     const idx = listas.findIndex(l => l.id === editandoId);
@@ -1247,7 +1369,7 @@ btnGuardarLista.addEventListener('click', async () => {
   if (ok) {
     cerrarEditor();
     renderListas();
-    mostrarToast(editandoId ? 'Lista actualizada ✅' : '¡Lista creada! 🎁', 'success');
+    mostrarToast(eraEdicion ? 'Lista actualizada ✅' : '¡Lista creada! 🎁', 'success');
   } else {
     mostrarToast('Error al guardar', 'error');
   }
@@ -1292,8 +1414,9 @@ function generarHTMLVisualizar(lista, paraExportar) {
         paraExportar ? `<img src="${escapeHtml(src)}" alt="">` : `<img src="${escapeHtml(src)}" alt="" data-lightbox="1">`
       ).join('');
       const imgsHTML = imgs ? `<div class="vis-imagenes">${imgs}</div>` : '';
+      const etiqueta = i === 0 ? '⭐ ' : '';
       return `<div class="vis-deseo">
-        <h4>${i + 1}. ${escapeHtml(d.nombre || '(sin nombre)')}</h4>
+        <h4>${etiqueta}${i + 1}. ${escapeHtml(d.nombre || '(sin nombre)')}</h4>
         ${notas}${enlace}${imgsHTML}
       </div>`;
     }).join('');
@@ -1346,7 +1469,7 @@ async function generarCanvasLista(lista) {
   styleEl.textContent = `
     .vis-deseo{background:#fdf6e3;border-radius:12px;padding:14px 16px;margin-bottom:12px;border-left:4px solid #d4af37;}
     .vis-deseo h4{color:#2e9e3f;font-size:16px;margin-bottom:6px;}
-    .vis-notas{font-size:13px;color:#5b6472;margin-bottom:6px;white-space:pre-wrap;}
+    .vis-notas{font-size:13px;color:#5b6472;margin-bottom:6px;white-space:pre-wrap;font-weight:700;}
     .vis-enlace{color:#3498db;font-size:13px;text-decoration:none;word-break:break-all;}
     .vis-imagenes{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
     .vis-imagenes img{width:90px;height:90px;object-fit:cover;border-radius:10px;border:1px solid #e5eaf0;}
