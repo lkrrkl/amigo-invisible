@@ -1,9 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f1729">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Amigo Invisible 2026">
+<meta name="application-name" content="Amigo Invisible 2026">
+<link rel="icon" type="image/png" href="https://www.image2url.com/r2/default/images/1795312937398-f9ffe80e-fe60-44f1-adb3-8cb82f403d10.png">
+<link rel="apple-touch-icon" href="https://www.image2url.com/r2/default/images/1795312937398-f9ffe80e-fe60-44f1-adb3-8cb82f403d10.png">
+<link rel="manifest" href='data:application/manifest+json,%7B%22id%22%3A%22.%2F%22%2C%22name%22%3A%22Amigo%20Invisible%202026%22%2C%22short_name%22%3A%22Amigo%20Invisible%22%2C%22description%22%3A%22Listas%20de%20deseos%20para%20compartir%20la%20magia%20de%20la%20Navidad%22%2C%22start_url%22%3A%22.%2F%22%2C%22scope%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22display_override%22%3A%5B%22standalone%22%2C%22minimal-ui%22%5D%2C%22orientation%22%3A%22any%22%2C%22background_color%22%3A%22%230f1729%22%2C%22theme_color%22%3A%22%230f1729%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https://www.image2url.com/r2/default/images/1795312937398-f9ffe80e-fe60-44f1-adb3-8cb82f403d10.png%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fpng%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D'>
 <title>Amigo Invisible 2026</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
@@ -347,6 +356,7 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 <div id="nieve"></div>
 
 <div class="barra-superior">
+    <button class="btn-icono" id="btnInstalarApp" title="Instalar aplicación" aria-label="Instalar aplicación" style="display:none;">📲</button>
     <button class="btn-icono" id="btnNieve" title="Nieve" aria-label="Nieve">❄️</button>
     <button class="btn-icono inactivo" id="btnLuces" title="Activar luces navideñas" aria-label="Luces navideñas">💡</button>
     <button class="btn-icono" id="btnTema" title="Tema" aria-label="Tema">☀️</button>
@@ -438,6 +448,27 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
     <div id="mensajeVacioListas" class="mensaje-vacio" style="display:none;">🎅 Aún no hay listas. ¡Creá la primera!</div>
 </section>
 
+<div class="modal-overlay" id="modalInstalarApp" role="dialog" aria-modal="true" aria-labelledby="tituloInstalarApp">
+    <div class="modal-contenido" style="max-width:480px;text-align:center;">
+        <h2 id="tituloInstalarApp">📲 Instalar Amigo Invisible</h2>
+        <p id="textoInstalarApp" style="color:var(--texto);line-height:1.65;">Añade la aplicación a tu pantalla de inicio para abrirla en una ventana independiente, sin la barra del navegador.</p>
+        <div id="ayudaInstalarIOS" class="oculto" style="margin-top:16px;padding:14px;background:var(--acento-suave);border-radius:12px;text-align:left;">
+            <strong>En iPhone o iPad:</strong>
+            <ol style="padding-left:22px;margin-top:8px;line-height:1.8;">
+                <li>Abre esta página en Safari.</li>
+                <li>Toca el botón <strong>Compartir</strong> (cuadrado con flecha).</li>
+                <li>Selecciona <strong>Añadir a pantalla de inicio</strong>.</li>
+                <li>Confirma con <strong>Añadir</strong>.</li>
+            </ol>
+        </div>
+        <p style="font-size:.82rem;color:var(--texto-suave);margin-top:12px;">La instalación requiere que la página esté publicada mediante HTTPS.</p>
+        <div class="botones-modal" style="justify-content:center;">
+            <button type="button" class="btn-cancelar" id="btnCerrarInstalarApp">Cerrar</button>
+            <button type="button" class="btn-guardar" id="btnConfirmarInstalarApp" style="display:none;">Instalar aplicación</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="modalLista" role="dialog" aria-modal="true" aria-labelledby="modalListaTitulo">
     <div class="modal-contenido">
         <h2 id="modalListaTitulo">Nueva lista</h2>
@@ -490,6 +521,65 @@ body.luces-navidad .tarjeta-lista::before{inset:-4px;border-radius:20px}
 <script>
 (function () {
 'use strict';
+
+// ============================================================
+// 📲 INSTALACIÓN COMO APLICACIÓN (PWA)
+// ============================================================
+let eventoInstalacionPendiente = null;
+const btnInstalarApp = document.getElementById('btnInstalarApp');
+const modalInstalarApp = document.getElementById('modalInstalarApp');
+const btnCerrarInstalarApp = document.getElementById('btnCerrarInstalarApp');
+const btnConfirmarInstalarApp = document.getElementById('btnConfirmarInstalarApp');
+const ayudaInstalarIOS = document.getElementById('ayudaInstalarIOS');
+const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const estaInstalada = window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+function abrirAyudaInstalacion() {
+  if (!modalInstalarApp) return;
+  modalInstalarApp.classList.add('activo');
+  document.body.classList.add('modal-abierto');
+}
+function cerrarAyudaInstalacion() {
+  modalInstalarApp?.classList.remove('activo');
+  document.body.classList.remove('modal-abierto');
+}
+if (btnInstalarApp && !estaInstalada) {
+  if (esIOS) {
+    btnInstalarApp.style.display = 'flex';
+    ayudaInstalarIOS?.classList.remove('oculto');
+  }
+  btnInstalarApp.addEventListener('click', async () => {
+    if (!eventoInstalacionPendiente) { abrirAyudaInstalacion(); return; }
+    eventoInstalacionPendiente.prompt();
+    await eventoInstalacionPendiente.userChoice;
+    eventoInstalacionPendiente = null;
+    btnInstalarApp.style.display = 'none';
+  });
+}
+window.addEventListener('beforeinstallprompt', (evento) => {
+  evento.preventDefault();
+  eventoInstalacionPendiente = evento;
+  if (btnInstalarApp && !estaInstalada) btnInstalarApp.style.display = 'flex';
+  if (btnConfirmarInstalarApp) btnConfirmarInstalarApp.style.display = 'inline-flex';
+});
+btnConfirmarInstalarApp?.addEventListener('click', async () => {
+  if (!eventoInstalacionPendiente) return;
+  eventoInstalacionPendiente.prompt();
+  await eventoInstalacionPendiente.userChoice;
+  eventoInstalacionPendiente = null;
+  cerrarAyudaInstalacion();
+  if (btnInstalarApp) btnInstalarApp.style.display = 'none';
+});
+btnCerrarInstalarApp?.addEventListener('click', cerrarAyudaInstalacion);
+modalInstalarApp?.addEventListener('click', (evento) => {
+  if (evento.target === modalInstalarApp) cerrarAyudaInstalacion();
+});
+window.addEventListener('appinstalled', () => {
+  if (btnInstalarApp) btnInstalarApp.style.display = 'none';
+  cerrarAyudaInstalacion();
+});
 
 // ============================================================
 // ⚙️ CONFIGURACIÓN SUPABASE — Proyecto "Amigo Invisible 2026"
